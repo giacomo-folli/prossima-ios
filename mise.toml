@@ -1,3 +1,6 @@
 [env]
 EXPO_PUBLIC_DOMAIN = "https://prossima--giacomofolli01.replit.app"
 PORT = 3000
+
+[tools]
+node = "latest"

@@ -17,15 +17,16 @@ import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { useTraining } from "@/context/TrainingContext";
-import { useSession } from "@/context/SessionContext";
 import { useHealth } from "@/context/HealthContext";
+import { useProfile } from "@/context/ProfileContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
+import { Image } from "expo-image";
 
-function getGreeting() {
+function getGreeting(name: string) {
 	const h = new Date().getHours();
-	if (h < 12) return "Good morning, Maya!";
-	if (h < 17) return "Good afternoon, Maya!";
-	return "Good evening, Maya!";
+	if (h < 12) return `Good morning, ${name}!`;
+	if (h < 17) return `Good afternoon, ${name}!`;
+	return `Good evening, ${name}!`;
 }
 
 function formatDayDate(date: Date) {
@@ -40,8 +41,8 @@ export default function HomeScreen() {
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { plan, currentDayIndex, loading } = useTraining();
-	const { activeSession, startSession } = useSession();
 	const { isConnected, stats, loading: healthLoading, requestPermissions, syncData } = useHealth();
+	const { name, imageUri } = useProfile();
 	const [refreshing, setRefreshing] = React.useState(false);
 
 	const onRefresh = React.useCallback(async () => {
@@ -53,14 +54,7 @@ export default function HomeScreen() {
 	const today = plan?.days[currentDayIndex % plan.days.length] ?? null;
 
 	const handleStart = () => {
-		if (!today || !plan) {
-			router.navigate("/(tabs)/settings");
-			return;
-		}
-		if (!activeSession) {
-			startSession(plan.name, today.label, today.exercises);
-		}
-		router.navigate("/(tabs)/session");
+		// Activity page was removed
 	};
 
 	const handleRunAlert = () => {
@@ -87,7 +81,6 @@ export default function HomeScreen() {
 		);
 	};
 
-	const topPadding = Platform.OS === "web" ? 20 : insets.top;
 	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
 	const bottomPadding = tabBarHeight + insets.bottom + 16;
 
@@ -103,7 +96,7 @@ export default function HomeScreen() {
 			style={{ flex: 1 }}
 			contentContainerStyle={[
 				styles.content,
-				{ paddingTop: topPadding, paddingBottom: bottomPadding },
+				{ paddingTop: 0, paddingBottom: bottomPadding },
 			]}
 			showsVerticalScrollIndicator={false}
 			contentInsetAdjustmentBehavior="never"
@@ -135,27 +128,17 @@ export default function HomeScreen() {
 							{ color: colors.foreground, letterSpacing: 1.2 },
 						]}
 					>
-						Maya
+						{name}
 					</Text>
 				</View>
-				<View style={styles.headerRightRow}>
-					{activeSession && (
-						<Pressable
-							onPress={() => router.navigate("/(tabs)/session")}
-							style={({ pressed }) => [
-								styles.liveChip,
-								{ backgroundColor: "#FF3B30", opacity: pressed ? 0.8 : 1 },
-							]}
-						>
-							<View style={[styles.liveDot, { backgroundColor: "#FFFFFF" }]} />
-							<Text style={styles.liveChipText}>Live</Text>
-						</Pressable>
-					)}
-					<Pressable onPress={() => router.navigate("/(tabs)/settings")}>
+				<View style={[styles.headerRightRow, { zIndex: 10 }]}>
+					{imageUri ? (
+						<Image source={{ uri: imageUri }} style={styles.avatarCircle} contentFit="cover" />
+					) : (
 						<View style={[styles.avatarCircle, { backgroundColor: "#8E7355" }]}>
-							<Text style={styles.avatarLetter}>M</Text>
+							<Text style={styles.avatarLetter}>{name ? name.charAt(0).toUpperCase() : "M"}</Text>
 						</View>
-					</Pressable>
+					)}
 				</View>
 			</View>
 
@@ -279,7 +262,7 @@ export default function HomeScreen() {
 							<Text
 								style={[styles.workoutDuration, { color: colors.foreground }]}
 							>
-								{activeSession ? "In Progress" : today ? today.label : "45 min"}
+								{today ? today.label : "45 min"}
 							</Text>
 							<Text
 								style={[styles.workoutMeta, { color: colors.mutedForeground }]}

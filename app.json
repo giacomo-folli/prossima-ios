@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "a8bbdd12-20ba-45e3-a758-f8a367235d78"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.giacomofolli.prossima",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

@@ -15,14 +15,15 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
         <Label>Home</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="session">
-        <Icon sf={{ default: 'waveform.path.ecg', selected: 'waveform.path.ecg' }} />
-        <Label>Activity</Label>
-      </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="analytics">
         <Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />
         <Label>Trends</Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="settings">
+        <Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
+        <Label>Settings</Label>
       </NativeTabs.Trigger>
 
     </NativeTabs>
@@ -50,18 +51,14 @@ function ClassicTabLayout() {
         sfName = focused ? 'house.fill' : 'house';
         featherName = 'home';
         break;
-      case 'session':
-        sfName = 'waveform.path.ecg';
-        featherName = 'activity';
-        break;
 
       case 'analytics':
         sfName = focused ? 'chart.bar.fill' : 'chart.bar';
         featherName = 'bar-chart-2';
         break;
       case 'settings':
-        sfName = focused ? 'person.crop.circle.fill' : 'person.crop.circle';
-        featherName = 'user';
+        sfName = focused ? 'gearshape.fill' : 'gearshape';
+        featherName = 'settings';
         break;
     }
 
@@ -114,13 +111,6 @@ function ClassicTabLayout() {
           tabBarIcon: ({ color, focused }) => renderTabIcon('index', focused, color),
         }}
       />
-      <Tabs.Screen
-        name="session"
-        options={{
-          title: 'Activity',
-          tabBarIcon: ({ color, focused }) => renderTabIcon('session', focused, color),
-        }}
-      />
 
       <Tabs.Screen
         name="analytics"
@@ -132,8 +122,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Profile',
-          href: null,
+          title: 'Settings',
           tabBarIcon: ({ color, focused }) => renderTabIcon('settings', focused, color),
         }}
       />

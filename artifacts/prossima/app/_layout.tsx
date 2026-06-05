@@ -10,8 +10,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { TrainingProvider } from '@/context/TrainingContext';
-import { SessionProvider } from '@/context/SessionContext';
 import { HealthProvider } from '@/context/HealthContext';
+import { ProfileProvider } from '@/context/ProfileContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -25,6 +25,7 @@ function RootLayoutNav() {
         name="exercise/[id]"
         options={{ headerShown: false, presentation: 'card' }}
       />
+      <Stack.Screen name="edit-profile" options={{ presentation: 'card' }} />
     </Stack>
   );
 }
@@ -41,13 +42,13 @@ export default function RootLayout() {
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
               <ThemeProvider>
-                <TrainingProvider>
-                  <SessionProvider>
+                <ProfileProvider>
+                  <TrainingProvider>
                     <HealthProvider>
                       <RootLayoutNav />
                     </HealthProvider>
-                  </SessionProvider>
-                </TrainingProvider>
+                  </TrainingProvider>
+                </ProfileProvider>
               </ThemeProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

@@ -19,6 +19,9 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme, ThemePreference } from "@/context/ThemeContext";
 import { useTraining, DEFAULT_YAML } from "@/context/TrainingContext";
 import { useHealth } from "@/context/HealthContext";
+import { useProfile } from "@/context/ProfileContext";
+import { Image } from "expo-image";
+import { router } from "expo-router";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: string }[] =
 	[
@@ -164,9 +167,9 @@ export default function SettingsScreen() {
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { preference, setPreference } = useTheme();
-	const { yamlSource, loadPlan, parseError, plan, resetAllData, sessions } =
-		useTraining();
+	const { yamlSource, loadPlan, parseError, plan } = useTraining();
 	const { isConnected, requestPermissions, disconnect } = useHealth();
+	const { name, imageUri } = useProfile();
 
 	const handleDisconnectHealth = () => {
 		Alert.alert(
@@ -175,7 +178,7 @@ export default function SettingsScreen() {
 			[
 				{ text: "Cancel", style: "cancel" },
 				{ text: "Disconnect", style: "destructive", onPress: disconnect },
-			]
+			],
 		);
 	};
 
@@ -203,16 +206,6 @@ export default function SettingsScreen() {
 			setSaving(false);
 		}
 	};
-
-	const handleReset = () =>
-		Alert.alert(
-			"Reset All Data",
-			`Delete all ${sessions.length} sessions permanently? This cannot be undone.`,
-			[
-				{ text: "Cancel", style: "cancel" },
-				{ text: "Reset", style: "destructive", onPress: resetAllData },
-			],
-		);
 
 	const handleResetYaml = () =>
 		Alert.alert(
@@ -244,6 +237,54 @@ export default function SettingsScreen() {
 				Settings
 			</Text>
 
+			<Pressable
+				style={styles.profileCard}
+				onPress={() => router.push("/edit-profile")}
+			>
+				<GlassView
+					colorScheme={resolvedScheme}
+					style={[
+						styles.profileCardInner,
+						{
+							backgroundColor: colors.card,
+							borderRadius: colors.radius,
+						},
+					]}
+				>
+					{imageUri ? (
+						<Image
+							source={{ uri: imageUri }}
+							style={styles.profileImage}
+							contentFit="cover"
+						/>
+					) : (
+						<View
+							style={[
+								styles.profileAvatarPlaceholder,
+								{ backgroundColor: "#8E7355" },
+							]}
+						>
+							<Text style={styles.profileAvatarText}>
+								{name ? name.charAt(0).toUpperCase() : "M"}
+							</Text>
+						</View>
+					)}
+					<View style={styles.profileInfo}>
+						<Text style={[styles.profileName, { color: colors.foreground }]}>
+							{name}
+						</Text>
+						<Text style={[styles.profileSub, { color: colors.primary }]}>
+							Edit Profile
+						</Text>
+					</View>
+					<Ionicons
+						name="chevron-forward"
+						size={20}
+						color={colors.mutedForeground}
+					/>
+				</GlassView>
+			</Pressable>
+
 			{ok && (
 				<View
 					style={[
@@ -268,60 +309,66 @@ export default function SettingsScreen() {
 
 			{/* Appearance Section */}
 			<SettingSection label="APPEARANCE">
-				<SettingRow
-					icon="color-palette"
-					iconBg="#A180F4"
-					label="App Theme"
-					isLast={true}
-					rightContent={
-						<View
-							style={[
-								styles.segmentedContainer,
-								{ backgroundColor: colors.secondary },
-							]}
-						>
-							{THEME_OPTIONS.map((opt) => {
-								const active = preference === opt.value;
-								return (
-									<Pressable
-										key={opt.value}
-										onPress={() => setPreference(opt.value)}
-										accessibilityRole="radio"
-										accessibilityState={{ checked: active }}
-										accessibilityLabel={`Switch theme to ${opt.label}`}
-										style={({ pressed }) => [
-											styles.segmentedButton,
-											active && { backgroundColor: colors.primary },
-											pressed && !active && { opacity: 0.7 },
+				<View style={{ padding: 16 }}>
+					<View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
+						<View style={[styles.iconContainer, { backgroundColor: "#A180F4" }]}>
+							<Ionicons name="color-palette" size={15} color="#FFFFFF" />
+						</View>
+						<Text style={[styles.rowLabel, { color: colors.foreground }]}>
+							App Theme
+						</Text>
+					</View>
+
+					<View
+						style={[
+							styles.segmentedContainer,
+							{ backgroundColor: colors.secondary, padding: 4 },
+						]}
+					>
+						{THEME_OPTIONS.map((opt) => {
+							const active = preference === opt.value;
+							return (
+								<Pressable
+									key={opt.value}
+									onPress={() => setPreference(opt.value)}
+									accessibilityRole="radio"
+									accessibilityState={{ checked: active }}
+									accessibilityLabel={`Switch theme to ${opt.label}`}
+									style={({ pressed }) => [
+										styles.segmentedButton,
+										{ flex: 1, paddingVertical: 10 },
+										active && { backgroundColor: colors.primary },
+										pressed && !active && { opacity: 0.7 },
+									]}
+								>
+									<Ionicons
+										name={opt.icon as any}
+										size={16}
+										color={
+											active
+												? colors.primaryForeground
+												: colors.mutedForeground
+										}
+									/>
+									<Text
+										style={[
+											styles.segmentedText,
+											{
+												fontSize: 14,
+												fontWeight: active ? "600" : "500",
+												color: active
+													? colors.primaryForeground
+													: colors.mutedForeground,
+											},
 										]}
 									>
-										<Ionicons
-											name={opt.icon as any}
-											size={12}
-											color={
-												active
-													? colors.primaryForeground
-													: colors.mutedForeground
-											}
-										/>
-										<Text
-											style={[
-												styles.segmentedText,
-												{
-													color: active
-														? colors.primaryForeground
-														: colors.mutedForeground,
-												},
-											]}
-										>
-											{opt.label}
-										</Text>
-									</Pressable>
-								);
-							})}
-						</View>
-					}
-				/>
+										{opt.label}
+									</Text>
+								</Pressable>
+							);
+						})}
+					</View>
+				</View>
 			</SettingSection>
 
 			{/* Training Plan Section */}
@@ -363,34 +410,23 @@ export default function SettingsScreen() {
 					iconBg="#FF2D55"
 					label="Apple Health"
 					sublabel={
-						isConnected
-							? "Connected"
-							: "Sync calories, steps, and activity"
+						isConnected ? "Connected" : "Sync calories, steps, and activity"
 					}
 					isLast={true}
 					rightContent={
 						isConnected ? (
-							<Text style={{ color: colors.success, fontSize: 14, fontWeight: "500" }}>
+							<Text
+								style={{
+									color: colors.success,
+									fontSize: 14,
+									fontWeight: "500",
+								}}
+							>
 								Connected
 							</Text>
 						) : undefined
 					}
 					onPress={isConnected ? handleDisconnectHealth : requestPermissions}
-				/>
-			</SettingSection>
-
-			{/* History Section */}
-			<SettingSection label="HISTORY & STATS">
-				<SettingRow
-					icon="calendar"
-					iconBg="#34C759"
-					label="Total Sessions Logged"
-					isLast={true}
-					rightContent={
-						<Text style={[styles.statsValue, { color: colors.foreground }]}>
-							{sessions.length}
-						</Text>
-					}
 				/>
 			</SettingSection>
 
@@ -417,21 +453,6 @@ export default function SettingsScreen() {
 							Less is more
 						</Text>
 					}
-				/>
-			</SettingSection>
-
-			{/* Danger Zone Section */}
-			<SettingSection
-				label="DANGER ZONE"
-				footer="This will permanently delete all session data. This action is irreversible."
-			>
-				<SettingRow
-					icon="trash-outline"
-					iconBg="#FF3B30"
-					label="Reset All Session Data"
-					destructive={true}
-					onPress={handleReset}
-					isLast={true}
 				/>
 			</SettingSection>
 
@@ -579,6 +600,48 @@ const styles = StyleSheet.create({
 	},
 	toastText: {
 		fontSize: 14,
+	},
+
+	// Profile Card
+	profileCard: {
+		marginBottom: 16,
+	},
+	profileCardInner: {
+		flexDirection: "row",
+		alignItems: "center",
+		padding: 16,
+		borderRadius: 16,
+	},
+	profileImage: {
+		width: 60,
+		height: 60,
+		borderRadius: 30,
+	},
+	profileAvatarPlaceholder: {
+		width: 60,
+		height: 60,
+		borderRadius: 30,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	profileAvatarText: {
+		fontSize: 24,
+		color: "#FFFFFF",
+		fontWeight: "600",
+	},
+	profileInfo: {
+		flex: 1,
+		marginLeft: 16,
+		justifyContent: "center",
+	},
+	profileName: {
+		fontSize: 20,
+		fontWeight: "600",
+		marginBottom: 4,
+	},
+	profileSub: {
+		fontSize: 14,
+		fontWeight: "500",
 	},
 
 	// SettingSection styles
