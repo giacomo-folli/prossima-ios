@@ -145,7 +145,7 @@ export default function SessionScreen() {
     { text: 'Cancel', style: 'destructive', onPress: cancelSession },
   ]);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 20 : insets.top;
   const tabBarHeight = Platform.OS === 'web' ? 84 : 49;
   const botPad = tabBarHeight + insets.bottom;
 
@@ -168,7 +168,7 @@ export default function SessionScreen() {
     return (
       <LinearGradient colors={gradientColors} style={styles.root}>
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: topPad + 28, paddingBottom: botPad + 80 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: topPad + 12, paddingBottom: botPad + 80 }]}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.greetBlock}>

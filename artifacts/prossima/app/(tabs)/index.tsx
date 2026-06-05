@@ -20,17 +20,15 @@ import { RingChart } from '@/components/RingChart';
 
 function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  if (h < 12) return 'Good morning.';
+  if (h < 17) return 'Good afternoon.';
+  return 'Good evening.';
 }
 
-function formatSubDate(date: Date) {
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+function formatDayDate(date: Date) {
+  return date
+    .toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+    .toUpperCase();
 }
 
 const MONTH_GOAL = 12;
@@ -44,17 +42,18 @@ export default function HomeScreen() {
 
   const today = plan?.days[currentDayIndex % plan.days.length] ?? null;
 
-  const { thisMonth, totalVolume } = useMemo(() => {
+  const { thisMonth, totalVolume, totalSessions } = useMemo(() => {
     const now = new Date();
     const thisMonth = sessions.filter((s) => {
       const d = new Date(s.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
     const totalVolume = sessions.reduce(
-      (acc, s) => acc + s.entries.reduce((a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a), 0),
+      (acc, s) =>
+        acc + s.entries.reduce((a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a), 0),
       0,
     );
-    return { thisMonth, totalVolume };
+    return { thisMonth, totalVolume, totalSessions: sessions.length };
   }, [sessions]);
 
   const avgDur = useMemo(() => {
@@ -68,7 +67,7 @@ export default function HomeScreen() {
     router.navigate('/(tabs)/session');
   };
 
-  const topPadding = Platform.OS === 'web' ? 67 : insets.top;
+  const topPadding = Platform.OS === 'web' ? 56 : insets.top;
   const tabBarHeight = Platform.OS === 'web' ? 84 : 49;
   const ctaBottom = tabBarHeight + insets.bottom;
 
@@ -77,16 +76,15 @@ export default function HomeScreen() {
     ? ['#111811', '#162016', '#111811']
     : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
 
-  if (loading) {
-    return (
-      <LinearGradient colors={gradientColors} style={{ flex: 1 }} />
-    );
-  }
-
-  const volDisplay = totalVolume >= 1000
-    ? `${(totalVolume / 1000).toFixed(1)}t`
-    : `${Math.round(totalVolume)}`;
+  const volDisplay =
+    totalVolume >= 1000
+      ? `${(totalVolume / 1000).toFixed(1)}t`
+      : `${Math.round(totalVolume)}`;
   const avgMin = Math.floor(avgDur / 60);
+
+  if (loading) {
+    return <LinearGradient colors={gradientColors} style={{ flex: 1 }} />;
+  }
 
   return (
     <LinearGradient colors={gradientColors} style={styles.root}>
@@ -94,88 +92,124 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: topPadding + 28, paddingBottom: ctaBottom + 80 },
+          { paddingTop: topPadding + 12, paddingBottom: ctaBottom + 88 },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Greeting */}
-        <View style={styles.greetBlock}>
-          <Text style={[styles.greeting, { color: colors.foreground }]}>
-            {getGreeting()}
-          </Text>
-          <Text style={[styles.subDate, { color: colors.mutedForeground }]}>
-            {formatSubDate(new Date())}
-          </Text>
-        </View>
-
-        {/* Activity rings */}
-        {sessions.length > 0 && (
-          <View style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>YOUR ACTIVITY</Text>
-            <View style={styles.ringsRow}>
-              <RingChart
-                progress={Math.min(thisMonth / MONTH_GOAL, 1)}
-                label="Sessions"
-                value={String(thisMonth)}
-                sublabel={`/ ${MONTH_GOAL}`}
-                color={colors.accent}
-              />
-              <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
-              <RingChart
-                progress={Math.min(totalVolume / 50000, 1)}
-                label="Volume"
-                value={volDisplay}
-                sublabel={totalVolume < 1000 ? 'kg' : undefined}
-                color={colors.accent}
-              />
-              <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
-              <RingChart
-                progress={Math.min(avgMin / 60, 1)}
-                label="Avg Time"
-                value={avgMin > 0 ? `${avgMin}` : '—'}
-                sublabel={avgMin > 0 ? 'min' : undefined}
-                color={colors.accent}
-              />
-            </View>
-          </View>
-        )}
-
-        {!plan ? (
-          <View style={[styles.emptyCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-            <Ionicons name="leaf-outline" size={32} color={colors.mutedForeground} />
-            <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No training plan</Text>
-            <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-              Add a plan in Settings to get started.
+        {/* ── Header ── */}
+        <View style={styles.headerSection}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.dateLabel, { color: colors.mutedForeground }]}>
+              {formatDayDate(new Date())}
             </Text>
+            <Text style={[styles.greeting, { color: colors.foreground }]}>
+              {getGreeting()}
+            </Text>
+          </View>
+          {activeSession && (
             <Pressable
-              onPress={() => router.navigate('/(tabs)/settings')}
+              onPress={() => router.navigate('/(tabs)/session')}
               style={({ pressed }) => [
-                styles.pillBtn,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.8 : 1 },
+                styles.liveChip,
+                { backgroundColor: colors.primary, borderRadius: 50, opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <Text style={[styles.pillBtnText, { color: colors.primaryForeground }]}>
-                Open Settings
-              </Text>
+              <View style={[styles.liveDot, { backgroundColor: colors.primaryForeground }]} />
+              <Text style={[styles.liveChipText, { color: colors.primaryForeground }]}>Live</Text>
             </Pressable>
+          )}
+        </View>
+
+        {/* ── Activity rings ── */}
+        <View style={styles.sectionHeader}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+            YOUR ACTIVITY
+          </Text>
+          {totalSessions > 0 && (
+            <Text style={[styles.sectionMeta, { color: colors.mutedForeground }]}>
+              {totalSessions} sessions
+            </Text>
+          )}
+        </View>
+
+        <View style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <View style={styles.ringsRow}>
+            <RingChart
+              progress={Math.min(thisMonth / MONTH_GOAL, 1)}
+              size={88}
+              strokeWidth={7}
+              label="This month"
+              value={String(thisMonth)}
+              sublabel={`/ ${MONTH_GOAL}`}
+              color={colors.accent}
+            />
+            <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
+            <RingChart
+              progress={Math.min(totalVolume / 50000, 1)}
+              size={88}
+              strokeWidth={7}
+              label="Volume"
+              value={volDisplay}
+              sublabel={totalVolume > 0 && totalVolume < 1000 ? 'kg' : undefined}
+              color={colors.accent}
+            />
+            <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
+            <RingChart
+              progress={Math.min(avgMin / 60, 1)}
+              size={88}
+              strokeWidth={7}
+              label="Avg time"
+              value={avgMin > 0 ? `${avgMin}` : '—'}
+              sublabel={avgMin > 0 ? 'min' : undefined}
+              color={colors.accent}
+            />
           </View>
+        </View>
+
+        {/* ── Today's plan ── */}
+        {!plan ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>TODAY'S PLAN</Text>
+            </View>
+            <View style={[styles.emptyCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+              <Ionicons name="leaf-outline" size={28} color={colors.mutedForeground} />
+              <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No training plan</Text>
+              <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+                Add a plan in Settings to get started.
+              </Text>
+              <Pressable
+                onPress={() => router.navigate('/(tabs)/settings')}
+                style={({ pressed }) => [
+                  styles.emptyBtn,
+                  { backgroundColor: colors.primary, borderRadius: 50, opacity: pressed ? 0.8 : 1 },
+                ]}
+              >
+                <Text style={[styles.emptyBtnText, { color: colors.primaryForeground }]}>
+                  Open Settings
+                </Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
           <>
-            <View style={styles.dayHeaderRow}>
-              <View>
-                <Text style={[styles.planChip, { color: colors.mutedForeground }]}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>TODAY'S PLAN</Text>
+              <View style={styles.dayNav}>
+                <Text style={[styles.dayNavText, { color: colors.mutedForeground }]}>
                   {plan.name.toUpperCase()}
                 </Text>
-                <Text style={[styles.dayName, { color: colors.foreground }]}>
-                  {today?.label}
-                </Text>
-              </View>
-              <View style={[styles.fractionBadge, { backgroundColor: colors.card, borderRadius: 20 }]}>
-                <Text style={[styles.fractionText, { color: colors.mutedForeground, fontVariant: ['tabular-nums'] }]}>
-                  {(currentDayIndex % plan.days.length) + 1} / {plan.days.length}
-                </Text>
+                <View style={[styles.dayBadge, { backgroundColor: colors.card, borderRadius: 20 }]}>
+                  <Text style={[styles.dayBadgeText, { color: colors.mutedForeground, fontVariant: ['tabular-nums'] }]}>
+                    {(currentDayIndex % plan.days.length) + 1} / {plan.days.length}
+                  </Text>
+                </View>
               </View>
             </View>
+
+            <Text style={[styles.dayTitle, { color: colors.foreground }]}>
+              {today?.label}
+            </Text>
 
             <View style={styles.exerciseList}>
               {today?.exercises.map((ex) => (
@@ -199,28 +233,20 @@ export default function HomeScreen() {
         )}
       </ScrollView>
 
+      {/* ── CTA ── */}
       {plan && (
-        <View
-          style={[
-            styles.ctaWrap,
-            {
-              bottom: ctaBottom,
-              paddingBottom: 16,
-            },
-          ]}
-        >
+        <View style={[styles.ctaWrap, { bottom: ctaBottom }]}>
           {activeSession ? (
             <Pressable
               onPress={() => router.navigate('/(tabs)/session')}
               style={({ pressed }) => [
-                styles.pillBtn,
                 styles.ctaBtn,
                 { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1 },
               ]}
             >
               <View style={styles.liveDotRow}>
                 <View style={[styles.liveDot, { backgroundColor: colors.primaryForeground }]} />
-                <Text style={[styles.pillBtnText, { color: colors.primaryForeground }]}>
+                <Text style={[styles.ctaBtnText, { color: colors.primaryForeground }]}>
                   Session in Progress
                 </Text>
               </View>
@@ -229,12 +255,17 @@ export default function HomeScreen() {
             <Pressable
               onPress={handleStart}
               style={({ pressed }) => [
-                styles.pillBtn,
                 styles.ctaBtn,
                 { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1 },
               ]}
             >
-              <Text style={[styles.pillBtnText, { color: colors.primaryForeground }]}>
+              <Ionicons
+                name="play"
+                size={14}
+                color={colors.primaryForeground}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.ctaBtnText, { color: colors.primaryForeground }]}>
                 Begin {today?.label}
               </Text>
             </Pressable>
@@ -247,67 +278,96 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 20, gap: 16 },
-  greetBlock: { gap: 6, marginBottom: 4 },
-  greeting: {
-    fontSize: 34,
-    fontWeight: '300',
-    fontFamily: 'Inter_400Regular',
-    letterSpacing: -0.5,
-    lineHeight: 40,
-  },
-  subDate: { fontSize: 13, fontFamily: 'Inter_400Regular' },
-  ringsCard: { padding: 20, gap: 18 },
-  sectionLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
-  ringsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
-  ringDivider: { width: StyleSheet.hairlineWidth, height: 60 },
-  dayHeaderRow: {
+  content: { paddingHorizontal: 20, gap: 10 },
+
+  headerSection: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
+    marginBottom: 6,
   },
-  planChip: {
-    fontSize: 10,
+  dateLabel: {
+    fontSize: 11,
     fontFamily: 'Inter_500Medium',
-    letterSpacing: 2,
-    marginBottom: 4,
+    letterSpacing: 1.4,
+    marginBottom: 6,
   },
-  dayName: {
-    fontSize: 28,
+  greeting: {
+    fontSize: 38,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.8,
+    letterSpacing: -1,
+    lineHeight: 44,
   },
-  fractionBadge: {
+  liveChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
+    marginTop: 20,
   },
-  fractionText: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+  liveChipText: { fontSize: 12, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  sectionLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
+  sectionMeta: { fontSize: 12, fontFamily: 'Inter_400Regular' },
+
+  ringsCard: { padding: 20 },
+  ringsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  ringDivider: { width: StyleSheet.hairlineWidth, height: 64 },
+
+  dayNav: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dayNavText: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 1.5 },
+  dayBadge: { paddingHorizontal: 10, paddingVertical: 4 },
+  dayBadgeText: { fontSize: 11, fontFamily: 'Inter_400Regular' },
+
+  dayTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: -0.6,
+    marginTop: 2,
+    marginBottom: 4,
+  },
+
   exerciseList: { gap: 0 },
-  emptyCard: { padding: 32, alignItems: 'center', gap: 12, marginTop: 8 },
-  emptyTitle: { fontSize: 20, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
-  emptyBody: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+
+  emptyCard: { padding: 28, alignItems: 'center', gap: 10 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  emptyBody: { fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  emptyBtn: {
+    marginTop: 4,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+  },
+  emptyBtnText: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+
   ctaWrap: {
     position: 'absolute',
     left: 20,
     right: 20,
-    paddingTop: 12,
+    paddingBottom: 16,
+    paddingTop: 10,
   },
-  pillBtn: {
+  ctaBtn: {
     height: 56,
     borderRadius: 50,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    gap: 6,
   },
-  ctaBtn: { width: '100%' },
-  pillBtnText: {
-    fontSize: 16,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-    letterSpacing: 0.1,
-  },
+  ctaBtnText: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold', letterSpacing: 0.1 },
   liveDotRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   liveDot: { width: 7, height: 7, borderRadius: 4 },
 });

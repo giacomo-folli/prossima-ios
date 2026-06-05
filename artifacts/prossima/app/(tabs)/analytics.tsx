@@ -47,7 +47,7 @@ export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const { sessions, getPersonalBest, plan } = useTraining();
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 20 : insets.top;
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
 
   const isDark = resolvedScheme === 'dark';
@@ -114,7 +114,7 @@ export default function AnalyticsScreen() {
   return (
     <LinearGradient colors={gradientColors} style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: topPad + 28, paddingBottom: botPad + 80 }]}
+        contentContainerStyle={[styles.content, { paddingTop: topPad + 12, paddingBottom: botPad + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.screenTitle, { color: colors.foreground }]}>Review</Text>

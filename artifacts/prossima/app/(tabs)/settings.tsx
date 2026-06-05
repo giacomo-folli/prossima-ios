@@ -34,7 +34,7 @@ export default function SettingsScreen() {
   const [saving, setSaving] = useState(false);
   const [ok, setOk] = useState(false);
 
-  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 20 : insets.top;
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
 
   const isDark = resolvedScheme === 'dark';
@@ -71,7 +71,7 @@ export default function SettingsScreen() {
   return (
     <LinearGradient colors={gradientColors} style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={[styles.content, { paddingTop: topPad + 28, paddingBottom: botPad + 32 }]}
+        contentContainerStyle={[styles.content, { paddingTop: topPad + 12, paddingBottom: botPad + 32 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
