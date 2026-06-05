@@ -26,55 +26,67 @@ days:
         sets: 4
         reps: "6-8"
         rest_seconds: 180
+        muscles: [Chest, Triceps]
         notes: "Keep elbows at 45 degrees"
       - name: "Overhead Press"
         sets: 3
         reps: "8-10"
         rest_seconds: 120
+        muscles: [Shoulders, Triceps]
       - name: "Incline Dumbbell Press"
         sets: 3
         reps: "10-12"
         rest_seconds: 90
+        muscles: [Chest, Shoulders]
       - name: "Tricep Dips"
         sets: 3
         reps: "AMRAP"
         rest_seconds: 90
+        muscles: [Triceps, Chest]
   - label: "Pull Day"
     exercises:
       - name: "Pull Ups"
         sets: 4
         reps: "AMRAP"
         rest_seconds: 120
+        muscles: [Back, Biceps]
       - name: "Barbell Row"
         sets: 4
         reps: "6-8"
         rest_seconds: 180
+        muscles: [Back, Biceps]
       - name: "Cable Row"
         sets: 3
         reps: "10-12"
         rest_seconds: 90
+        muscles: [Back]
       - name: "Bicep Curls"
         sets: 3
         reps: "12-15"
         rest_seconds: 60
+        muscles: [Biceps]
   - label: "Leg Day"
     exercises:
       - name: "Squat"
         sets: 4
         reps: "6-8"
         rest_seconds: 180
+        muscles: [Quads, Glutes]
       - name: "Romanian Deadlift"
         sets: 3
         reps: "8-10"
         rest_seconds: 120
+        muscles: [Hamstrings, Glutes]
       - name: "Leg Press"
         sets: 3
         reps: "12-15"
         rest_seconds: 90
+        muscles: [Quads, Glutes]
       - name: "Calf Raises"
         sets: 4
         reps: "20"
-        rest_seconds: 60`;
+        rest_seconds: 60
+        muscles: [Calves]`;
 
 export interface PersonalBest {
   weightKg: number;
@@ -100,6 +112,7 @@ export function parseYamlToPlan(yaml: string): TrainingPlan {
         reps: String(ex.reps || '8-12'),
         restSeconds: Number(ex.rest_seconds) || 90,
         notes: ex.notes ? String(ex.notes) : undefined,
+        muscles: Array.isArray(ex.muscles) ? ex.muscles.map(String) : undefined,
       })),
     })),
   };

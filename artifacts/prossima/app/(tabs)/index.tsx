@@ -14,15 +14,24 @@ import { useColors } from '@/hooks/useColors';
 import { useTraining } from '@/context/TrainingContext';
 import { useSession } from '@/context/SessionContext';
 import { ExerciseCard } from '@/components/ExerciseCard';
+import { RingChart } from '@/components/RingChart';
 
-const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-
-function formatDate(date: Date) {
-  const day = DAYS[date.getDay()];
-  const num = date.getDate();
-  const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
-  return { day, num, month };
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
 }
+
+function formatSubDate(date: Date) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+const MONTH_GOAL = 12;
 
 export default function HomeScreen() {
   const colors = useColors();
@@ -31,14 +40,30 @@ export default function HomeScreen() {
   const { activeSession, startSession } = useSession();
 
   const today = plan?.days[currentDayIndex % plan.days.length] ?? null;
-  const { day, num, month } = formatDate(new Date());
 
-  const thisMonthSessions = useMemo(() => {
+  const { thisMonth, totalVolume } = useMemo(() => {
     const now = new Date();
-    return sessions.filter((s) => {
+    const thisMonth = sessions.filter((s) => {
       const d = new Date(s.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length;
+    const totalVolume = sessions.reduce(
+      (acc, s) =>
+        acc +
+        s.entries.reduce(
+          (a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a),
+          0,
+        ),
+      0,
+    );
+    return { thisMonth, totalVolume };
+  }, [sessions]);
+
+  const avgDur = useMemo(() => {
+    if (!sessions.length) return 0;
+    return Math.round(
+      sessions.reduce((a, s) => a + s.durationSeconds, 0) / sessions.length,
+    );
   }, [sessions]);
 
   const handleStart = () => {
@@ -53,42 +78,76 @@ export default function HomeScreen() {
     return <View style={[styles.root, { backgroundColor: colors.background }]} />;
   }
 
+  const volDisplay =
+    totalVolume >= 1000
+      ? `${(totalVolume / 1000).toFixed(1)}t`
+      : `${Math.round(totalVolume)}`;
+  const volSub = totalVolume >= 1000 ? undefined : 'kg';
+  const avgMin = Math.floor(avgDur / 60);
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.content,
-          { paddingTop: topPadding + 24, paddingBottom: insets.bottom + 120 },
+          {
+            paddingTop: topPadding + 24,
+            paddingBottom: insets.bottom + 120,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
+        {/* Greeting */}
+        <View style={styles.greetRow}>
           <View>
-            <Text style={[styles.dateLabel, { color: colors.mutedForeground }]}>
-              {day} {month}
+            <Text style={[styles.greeting, { color: colors.foreground }]}>
+              {getGreeting()}
             </Text>
-            <Text style={[styles.dateNum, { color: colors.foreground }]}>
-              {num}
+            <Text style={[styles.subDate, { color: colors.mutedForeground }]}>
+              {formatSubDate(new Date())}
             </Text>
           </View>
-          {thisMonthSessions > 0 && (
-            <View style={[styles.monthBadge, { backgroundColor: colors.card }]}>
-              <Text
-                style={[
-                  styles.monthNum,
-                  { color: colors.primary, fontVariant: ['tabular-nums'] },
-                ]}
-              >
-                {thisMonthSessions}
-              </Text>
-              <Text style={[styles.monthSub, { color: colors.mutedForeground }]}>
-                sessions
-              </Text>
-            </View>
-          )}
         </View>
+
+        {/* Activity rings — only shown when there's data */}
+        {sessions.length > 0 && (
+          <View
+            style={[
+              styles.ringsCard,
+              { backgroundColor: colors.card, borderRadius: colors.radius },
+            ]}
+          >
+            <Text style={[styles.ringsTitle, { color: colors.mutedForeground }]}>
+              YOUR ACTIVITY
+            </Text>
+            <View style={styles.ringsRow}>
+              <RingChart
+                progress={Math.min(thisMonth / MONTH_GOAL, 1)}
+                label="Sessions"
+                value={String(thisMonth)}
+                sublabel={`/${MONTH_GOAL}`}
+                color={colors.primary}
+              />
+              <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
+              <RingChart
+                progress={Math.min(totalVolume / 50000, 1)}
+                label="Volume"
+                value={volDisplay}
+                sublabel={volSub}
+                color="#3D7FFF"
+              />
+              <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
+              <RingChart
+                progress={Math.min(avgMin / 60, 1)}
+                label="Avg Time"
+                value={avgMin > 0 ? `${avgMin}` : '—'}
+                sublabel={avgMin > 0 ? 'min' : undefined}
+                color="#BF5AF2"
+              />
+            </View>
+          </View>
+        )}
 
         {!plan ? (
           <View
@@ -97,7 +156,11 @@ export default function HomeScreen() {
               { backgroundColor: colors.card, borderRadius: colors.radius },
             ]}
           >
-            <Ionicons name="document-text-outline" size={32} color={colors.mutedForeground} />
+            <Ionicons
+              name="document-text-outline"
+              size={32}
+              color={colors.mutedForeground}
+            />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
               No training plan
             </Text>
@@ -115,22 +178,18 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              <Text style={[styles.emptyBtnText, { color: colors.primaryForeground }]}>
+              <Text
+                style={[styles.emptyBtnText, { color: colors.primaryForeground }]}
+              >
                 Open Settings
               </Text>
             </Pressable>
           </View>
         ) : (
           <>
-            {/* Day label */}
             <View style={styles.dayRow}>
               <View>
-                <Text
-                  style={[
-                    styles.planLabel,
-                    { color: colors.mutedForeground },
-                  ]}
-                >
+                <Text style={[styles.planLabel, { color: colors.mutedForeground }]}>
                   {plan.name.toUpperCase()}
                 </Text>
                 <Text style={[styles.dayName, { color: colors.foreground }]}>
@@ -154,6 +213,7 @@ export default function HomeScreen() {
                   name={ex.name}
                   sets={ex.sets}
                   reps={ex.reps}
+                  muscles={ex.muscles}
                   personalBest={getPersonalBest(ex.name)}
                   onPress={() =>
                     router.push({
@@ -173,7 +233,8 @@ export default function HomeScreen() {
           style={[
             styles.ctaWrap,
             {
-              paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 16,
+              paddingBottom:
+                insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 16,
               backgroundColor: colors.background,
               borderTopColor: colors.separator,
             },
@@ -192,8 +253,15 @@ export default function HomeScreen() {
               ]}
             >
               <View style={styles.ctaBtnInner}>
-                <View style={[styles.liveDot, { backgroundColor: colors.primaryForeground }]} />
-                <Text style={[styles.ctaBtnText, { color: colors.primaryForeground }]}>
+                <View
+                  style={[
+                    styles.liveDot,
+                    { backgroundColor: colors.primaryForeground },
+                  ]}
+                />
+                <Text
+                  style={[styles.ctaBtnText, { color: colors.primaryForeground }]}
+                >
                   Session in Progress
                 </Text>
               </View>
@@ -210,7 +278,9 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              <Text style={[styles.ctaBtnText, { color: colors.primaryForeground }]}>
+              <Text
+                style={[styles.ctaBtnText, { color: colors.primaryForeground }]}
+              >
                 Begin {today?.label}
               </Text>
             </Pressable>
@@ -223,50 +293,48 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 20 },
-  header: {
+  content: { paddingHorizontal: 20, gap: 14 },
+  greetRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 36,
-  },
-  dateLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    letterSpacing: 2,
     marginBottom: 4,
   },
-  dateNum: {
-    fontSize: 56,
+  greeting: {
+    fontSize: 30,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
-    lineHeight: 56,
-    letterSpacing: -3,
-    fontVariant: ['tabular-nums'],
+    letterSpacing: -0.8,
+    lineHeight: 34,
   },
-  monthBadge: {
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 10,
+  subDate: {
+    fontSize: 13,
+    fontFamily: 'Inter_400Regular',
     marginTop: 4,
   },
-  monthNum: {
-    fontSize: 22,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    lineHeight: 24,
+  ringsCard: {
+    padding: 20,
+    gap: 18,
   },
-  monthSub: {
+  ringsTitle: {
     fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-    letterSpacing: 0.5,
+    fontFamily: 'Inter_600SemiBold',
+    letterSpacing: 2,
+  },
+  ringsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  ringDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 60,
   },
   dayRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
-    marginBottom: 16,
+    marginTop: 4,
   },
   planLabel: {
     fontSize: 11,
@@ -275,10 +343,10 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   dayName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.8,
+    letterSpacing: -0.6,
   },
   dayFraction: {
     fontSize: 13,

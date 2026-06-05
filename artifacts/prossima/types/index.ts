@@ -39,6 +39,7 @@ export interface PlannedExercise {
   reps: string;
   restSeconds: number;
   notes?: string;
+  muscles?: string[];
 }
 
 export interface TrainingDay {

@@ -8,6 +8,7 @@ interface ExerciseCardProps {
   name: string;
   sets: number;
   reps: string;
+  muscles?: string[];
   personalBest?: PersonalBest | null;
   completedSets?: number;
   onPress?: () => void;
@@ -17,6 +18,7 @@ export function ExerciseCard({
   name,
   sets,
   reps,
+  muscles,
   personalBest,
   completedSets = 0,
   onPress,
@@ -47,7 +49,10 @@ export function ExerciseCard({
         <View style={styles.info}>
           <View style={styles.nameRow}>
             <Text
-              style={[styles.name, { color: isDone ? colors.mutedForeground : colors.foreground }]}
+              style={[
+                styles.name,
+                { color: isDone ? colors.mutedForeground : colors.foreground },
+              ]}
               numberOfLines={1}
             >
               {name}
@@ -56,10 +61,28 @@ export function ExerciseCard({
               <Ionicons name="star" size={11} color={colors.warning} />
             )}
           </View>
-          <Text style={[styles.spec, { color: colors.mutedForeground }]}>
+          <Text
+            style={[
+              styles.spec,
+              { color: colors.mutedForeground, fontVariant: ['tabular-nums'] },
+            ]}
+          >
             {sets} × {reps}
-            {personalBest ? `  ·  PB ${personalBest.weightKg}kg×${personalBest.reps}` : ''}
           </Text>
+          {muscles && muscles.length > 0 && (
+            <View style={styles.tags}>
+              {muscles.slice(0, 3).map((m) => (
+                <View
+                  key={m}
+                  style={[styles.tag, { backgroundColor: colors.muted }]}
+                >
+                  <Text style={[styles.tagText, { color: colors.mutedForeground }]}>
+                    {m}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.right}>
@@ -106,9 +129,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
   },
-  info: { flex: 1, gap: 4 },
+  info: { flex: 1, gap: 3 },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -123,13 +147,30 @@ const styles = StyleSheet.create({
   spec: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
-    fontVariant: ['tabular-nums'],
     letterSpacing: 0.2,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+    marginTop: 6,
+  },
+  tag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
+  },
+  tagText: {
+    fontSize: 10,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 0.3,
   },
   right: {
     marginLeft: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
   doneCircle: {
     width: 26,
@@ -146,7 +187,7 @@ const styles = StyleSheet.create({
   progressTrack: {
     height: 2,
     marginHorizontal: 16,
-    marginBottom: 12,
+    marginBottom: 10,
     borderRadius: 1,
     overflow: 'hidden',
   },
