@@ -66,7 +66,7 @@ export function RingChart({
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: 8 },
   center: { alignItems: 'center', justifyContent: 'center' },
-  value: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold', lineHeight: 18 },
-  sublabel: { fontSize: 9, fontFamily: 'Inter_400Regular', marginTop: 1 },
-  label: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 1, textTransform: 'uppercase' },
+  value: { fontSize: 16, fontWeight: '600', lineHeight: 18 },
+  sublabel: { fontSize: 9, marginTop: 1 },
+  label: { fontSize: 10, letterSpacing: 1, textTransform: 'uppercase' },
 });

@@ -172,19 +172,18 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 16,
     fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
     letterSpacing: -0.2,
   },
   strikeThrough: {
     textDecorationLine: 'line-through',
   },
-  spec: { fontSize: 12, fontFamily: 'Inter_400Regular', letterSpacing: 0.1 },
+  spec: { fontSize: 12, letterSpacing: 0.1 },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
   tag: { paddingHorizontal: 8, paddingVertical: 3 },
-  tagText: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 0.3 },
+  tagText: { fontSize: 10, letterSpacing: 0.3 },
   right: { alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start', marginTop: 2 },
   doneCircle: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
-  progressLabel: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  progressLabel: { fontSize: 14, fontWeight: '700', },
   progressTrack: { height: 2, marginHorizontal: 16, marginBottom: 12, borderRadius: 1, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 1 },
 });

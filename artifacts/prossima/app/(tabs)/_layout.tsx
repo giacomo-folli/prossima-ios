@@ -16,16 +16,20 @@ function NativeTabLayout() {
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="session">
-        <Icon sf={{ default: 'play.rectangle', selected: 'play.rectangle.fill' }} />
-        <Label>Train</Label>
+        <Icon sf={{ default: 'waveform.path.ecg', selected: 'waveform.path.ecg' }} />
+        <Label>Activity</Label>
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger name="quicklog">
+        <Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} />
+        <Label>(Quick Log)</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="analytics">
         <Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />
-        <Label>Review</Label>
+        <Label>Trends</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="settings">
-        <Icon sf={{ default: 'gearshape', selected: 'gearshape.fill' }} />
-        <Label>Settings</Label>
+        <Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
+        <Label>Profile</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -38,19 +42,66 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === 'ios';
   const isWeb = Platform.OS === 'web';
 
+  const activeColor = '#00B4D8';
+  const inactiveColor = colors.mutedForeground;
+
+  const renderTabIcon = (name: string, focused: boolean, color: string) => {
+    const activePillBg = isDark ? 'rgba(0, 180, 216, 0.22)' : 'rgba(0, 180, 216, 0.12)';
+    let sfName = 'house';
+    let featherName = 'home';
+    let size = 20;
+
+    switch (name) {
+      case 'index':
+        sfName = focused ? 'house.fill' : 'house';
+        featherName = 'home';
+        break;
+      case 'session':
+        sfName = 'waveform.path.ecg';
+        featherName = 'activity';
+        break;
+      case 'quicklog':
+        sfName = focused ? 'plus.circle.fill' : 'plus.circle';
+        featherName = 'plus-circle';
+        size = 22;
+        break;
+      case 'analytics':
+        sfName = focused ? 'chart.bar.fill' : 'chart.bar';
+        featherName = 'bar-chart-2';
+        break;
+      case 'settings':
+        sfName = focused ? 'person.crop.circle.fill' : 'person.crop.circle';
+        featherName = 'user';
+        break;
+    }
+
+    return (
+      <View style={focused ? [styles.activePill, { backgroundColor: activePillBg }] : styles.inactivePill}>
+        {isIOS ? (
+          <SymbolView name={sfName as any} tintColor={focused ? activeColor : color} size={22} />
+        ) : (
+          <Feather name={featherName as any} size={size} color={focused ? activeColor : color} />
+        )}
+      </View>
+    );
+  };
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.mutedForeground,
+        tabBarActiveTintColor: activeColor,
+        tabBarInactiveTintColor: inactiveColor,
         headerShown: false,
+        tabBarLabelStyle: styles.tabLabel,
         tabBarStyle: {
           position: 'absolute',
           backgroundColor: isIOS ? 'transparent' : colors.background,
           borderTopWidth: isWeb ? 1 : 0,
           borderTopColor: colors.border,
           elevation: 0,
-          ...(isWeb ? { height: 84 } : {}),
+          height: isWeb ? 84 : 64,
+          paddingBottom: isWeb ? 12 : 8,
+          paddingTop: 8,
         },
         tabBarBackground: () =>
           isIOS ? (
@@ -70,48 +121,35 @@ function ClassicTabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="house" tintColor={color} size={24} />
-            ) : (
-              <Feather name="home" size={22} color={color} />
-            ),
+          tabBarIcon: ({ color, focused }) => renderTabIcon('index', focused, color),
         }}
       />
       <Tabs.Screen
         name="session"
         options={{
-          title: 'Train',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="play.rectangle.fill" tintColor={color} size={24} />
-            ) : (
-              <Feather name="activity" size={22} color={color} />
-            ),
+          title: 'Activity',
+          tabBarIcon: ({ color, focused }) => renderTabIcon('session', focused, color),
+        }}
+      />
+      <Tabs.Screen
+        name="quicklog"
+        options={{
+          title: '(Quick Log)',
+          tabBarIcon: ({ color, focused }) => renderTabIcon('quicklog', focused, color),
         }}
       />
       <Tabs.Screen
         name="analytics"
         options={{
-          title: 'Review',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="chart.bar.fill" tintColor={color} size={24} />
-            ) : (
-              <Feather name="bar-chart-2" size={22} color={color} />
-            ),
+          title: 'Trends',
+          tabBarIcon: ({ color, focused }) => renderTabIcon('analytics', focused, color),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) =>
-            isIOS ? (
-              <SymbolView name="gearshape.fill" tintColor={color} size={24} />
-            ) : (
-              <Feather name="settings" size={22} color={color} />
-            ),
+          title: 'Profile',
+          tabBarIcon: ({ color, focused }) => renderTabIcon('settings', focused, color),
         }}
       />
     </Tabs>
@@ -124,3 +162,25 @@ export default function TabLayout() {
   }
   return <ClassicTabLayout />;
 }
+
+const styles = StyleSheet.create({
+  activePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  inactivePill: {
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  tabLabel: {
+    fontSize: 10,
+    marginTop: 2,
+  },
+});

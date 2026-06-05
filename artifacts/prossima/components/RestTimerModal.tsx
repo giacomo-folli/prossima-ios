@@ -74,11 +74,11 @@ export function RestTimerModal({ visible, exerciseName, totalSeconds, onDismiss 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   card: { width: '100%', padding: 32, alignItems: 'center', gap: 8 },
-  restWord: { fontSize: 12, fontFamily: 'Inter_500Medium', letterSpacing: 2, marginTop: 4 },
-  label: { fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center' },
-  time: { fontSize: 68, fontWeight: '300', fontFamily: 'Inter_400Regular', letterSpacing: -3, lineHeight: 72, marginTop: 4 },
+  restWord: { fontSize: 12, letterSpacing: 2, marginTop: 4 },
+  label: { fontSize: 13, textAlign: 'center' },
+  time: { fontSize: 68, fontWeight: '300', letterSpacing: -3, lineHeight: 72, marginTop: 4 },
   track: { width: '100%', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 16 },
   fill: { height: '100%', borderRadius: 2 },
   skipBtn: { marginTop: 16, paddingHorizontal: 32, paddingVertical: 12 },
-  skipText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  skipText: { fontSize: 14, },
 });

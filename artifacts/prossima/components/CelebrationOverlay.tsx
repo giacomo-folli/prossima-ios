@@ -75,9 +75,9 @@ export function CelebrationOverlay({ visible, durationSeconds, sessionLabel, onD
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   card: { width: '100%', padding: 36, alignItems: 'center', gap: 12 },
-  sessionLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 2, marginBottom: 4 },
-  message: { fontSize: 28, fontWeight: '300', fontFamily: 'Inter_400Regular', textAlign: 'center', letterSpacing: -0.5, lineHeight: 34 },
-  duration: { fontSize: 22, fontWeight: '300', fontFamily: 'Inter_400Regular', marginTop: 4, letterSpacing: -0.3 },
+  sessionLabel: { fontSize: 10, letterSpacing: 2, marginBottom: 4 },
+  message: { fontSize: 28, fontWeight: '300', textAlign: 'center', letterSpacing: -0.5, lineHeight: 34 },
+  duration: { fontSize: 22, fontWeight: '300', marginTop: 4, letterSpacing: -0.3 },
   doneBtn: { marginTop: 20, width: '100%', height: 52, alignItems: 'center', justifyContent: 'center' },
-  doneBtnText: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  doneBtnText: { fontSize: 16, fontWeight: '600', },
 });

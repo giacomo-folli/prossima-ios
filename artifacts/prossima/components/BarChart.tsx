@@ -51,5 +51,5 @@ const styles = StyleSheet.create({
   barWrap: { flex: 1, alignItems: 'center', gap: 6 },
   track: { width: '100%', justifyContent: 'flex-end' },
   bar: { width: '100%' },
-  label: { fontSize: 9, fontFamily: 'Inter_400Regular', textAlign: 'center', letterSpacing: 0.2 },
+  label: { fontSize: 9, textAlign: 'center', letterSpacing: 0.2 },
 });
