@@ -73,6 +73,8 @@ export default function HomeScreen() {
   };
 
   const topPadding = Platform.OS === 'web' ? 67 : insets.top;
+  const tabBarHeight = Platform.OS === 'web' ? 84 : 49;
+  const ctaBottom = tabBarHeight + insets.bottom;
 
   if (loading) {
     return <View style={[styles.root, { backgroundColor: colors.background }]} />;
@@ -93,7 +95,7 @@ export default function HomeScreen() {
           styles.content,
           {
             paddingTop: topPadding + 24,
-            paddingBottom: insets.bottom + 120,
+            paddingBottom: ctaBottom + 72,
           },
         ]}
         showsVerticalScrollIndicator={false}
@@ -233,8 +235,8 @@ export default function HomeScreen() {
           style={[
             styles.ctaWrap,
             {
-              paddingBottom:
-                insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 16,
+              bottom: ctaBottom,
+              paddingBottom: 16,
               backgroundColor: colors.background,
               borderTopColor: colors.separator,
             },

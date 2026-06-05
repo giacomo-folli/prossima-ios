@@ -172,7 +172,8 @@ export default function SessionScreen() {
   ]);
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-  const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
+  const tabBarHeight = Platform.OS === 'web' ? 84 : 49;
+  const botPad = tabBarHeight + insets.bottom;
 
   if (!plan) {
     return (
@@ -188,7 +189,7 @@ export default function SessionScreen() {
     return (
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: topPad + 24, paddingBottom: botPad + 100 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: topPad + 24, paddingBottom: botPad + 72 }]}
           showsVerticalScrollIndicator={false}
         >
           <Text style={[styles.readyLabel, { color: colors.mutedForeground }]}>NEXT UP</Text>
@@ -213,7 +214,7 @@ export default function SessionScreen() {
           </View>
         </ScrollView>
 
-        <View style={[styles.bottomBar, { paddingBottom: botPad + 16, backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+        <View style={[styles.bottomBar, { bottom: botPad, paddingBottom: 16, backgroundColor: colors.background, borderTopColor: colors.separator }]}>
           <Pressable
             onPress={() => { if (today && plan) startSession(plan.name, today.label, today.exercises); }}
             style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.85 : 1 }]}
@@ -258,7 +259,7 @@ export default function SessionScreen() {
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: 16, paddingBottom: botPad + 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 16, paddingBottom: botPad + 72 }]}
         showsVerticalScrollIndicator={false}
       >
         {activeSession.dayExercises.map((ex) => (
@@ -272,7 +273,7 @@ export default function SessionScreen() {
         ))}
       </ScrollView>
 
-      <View style={[styles.bottomBar, { paddingBottom: botPad + 16, backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <View style={[styles.bottomBar, { bottom: botPad, paddingBottom: 16, backgroundColor: colors.background, borderTopColor: colors.separator }]}>
         <Pressable
           onPress={handleComplete}
           style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.85 : 1 }]}
