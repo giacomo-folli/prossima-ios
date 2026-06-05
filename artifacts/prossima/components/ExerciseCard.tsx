@@ -1,10 +1,5 @@
 import React from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { PersonalBest } from '@/context/TrainingContext';
@@ -27,8 +22,9 @@ export function ExerciseCard({
   onPress,
 }: ExerciseCardProps) {
   const colors = useColors();
-  const progress = sets > 0 ? Math.min(completedSets / sets, 1) : 0;
   const isDone = completedSets >= sets && sets > 0;
+  const hasProgress = completedSets > 0 && !isDone;
+  const progress = sets > 0 ? Math.min(completedSets / sets, 1) : 0;
 
   return (
     <Pressable
@@ -38,58 +34,60 @@ export function ExerciseCard({
         {
           backgroundColor: colors.card,
           borderRadius: colors.radius,
-          opacity: pressed ? 0.85 : 1,
+          opacity: pressed ? 0.88 : 1,
+          borderLeftColor: isDone
+            ? colors.primary
+            : hasProgress
+            ? colors.primary + '88'
+            : colors.border,
         },
       ]}
     >
-      <View style={styles.row}>
+      <View style={styles.inner}>
         <View style={styles.info}>
           <View style={styles.nameRow}>
             <Text
-              style={[styles.name, { color: colors.foreground }]}
+              style={[styles.name, { color: isDone ? colors.mutedForeground : colors.foreground }]}
               numberOfLines={1}
             >
               {name}
             </Text>
-            {personalBest && (
-              <View style={[styles.pbBadge, { backgroundColor: colors.warning + '22' }]}>
-                <Ionicons name="star" size={10} color={colors.warning} />
-              </View>
+            {personalBest && !isDone && (
+              <Ionicons name="star" size={11} color={colors.warning} />
             )}
           </View>
           <Text style={[styles.spec, { color: colors.mutedForeground }]}>
-            {sets} sets × {reps}
+            {sets} × {reps}
+            {personalBest ? `  ·  PB ${personalBest.weightKg}kg×${personalBest.reps}` : ''}
           </Text>
-          {personalBest && (
-            <Text style={[styles.pb, { color: colors.mutedForeground }]}>
-              Best: {personalBest.weightKg}kg × {personalBest.reps}
-            </Text>
-          )}
         </View>
+
         <View style={styles.right}>
           {isDone ? (
-            <View style={[styles.checkCircle, { backgroundColor: colors.success }]}>
-              <Ionicons name="checkmark" size={16} color="#fff" />
+            <View style={[styles.doneCircle, { backgroundColor: colors.primary }]}>
+              <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />
             </View>
-          ) : completedSets > 0 ? (
-            <Text style={[styles.setsCount, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
+          ) : hasProgress ? (
+            <Text
+              style={[
+                styles.progressLabel,
+                { color: colors.primary, fontVariant: ['tabular-nums'] },
+              ]}
+            >
               {completedSets}/{sets}
             </Text>
           ) : (
-            <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+            <Ionicons name="chevron-forward" size={14} color={colors.border} />
           )}
         </View>
       </View>
-      {completedSets > 0 && !isDone && (
-        <View style={[styles.progressTrack, { backgroundColor: colors.muted }]}>
+
+      {hasProgress && (
+        <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
           <View
             style={[
               styles.progressFill,
-              {
-                backgroundColor: colors.primary,
-                width: `${progress * 100}%`,
-                borderRadius: 2,
-              },
+              { backgroundColor: colors.primary, width: `${progress * 100}%` },
             ]}
           />
         </View>
@@ -100,18 +98,17 @@ export function ExerciseCard({
 
 const styles = StyleSheet.create({
   card: {
-    padding: 16,
-    marginBottom: 8,
+    marginBottom: 6,
+    borderLeftWidth: 3,
     overflow: 'hidden',
   },
-  row: {
+  inner: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  info: {
-    flex: 1,
-    gap: 2,
-  },
+  info: { flex: 1, gap: 4 },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -121,48 +118,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
-  },
-  pbBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
+    letterSpacing: -0.2,
   },
   spec: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  pb: {
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     fontVariant: ['tabular-nums'],
+    letterSpacing: 0.2,
   },
   right: {
     marginLeft: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 32,
   },
-  checkCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  doneCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setsCount: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
+  progressLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
   },
   progressTrack: {
-    height: 3,
-    borderRadius: 2,
-    marginTop: 10,
+    height: 2,
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 1,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
+    borderRadius: 1,
   },
 });

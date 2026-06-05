@@ -1,11 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
@@ -13,60 +7,30 @@ import { useTraining } from '@/context/TrainingContext';
 import { BarChart } from '@/components/BarChart';
 import { Session } from '@/types';
 
-function formatDuration(s: number) {
+function fmt(s: number) {
   const m = Math.floor(s / 60);
   return m > 0 ? `${m}m` : `${s}s`;
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function StatCard({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-}) {
+function StatCard({ label, value }: { label: string; value: string }) {
   const colors = useColors();
   return (
-    <View
-      style={[
-        styles.statCard,
-        { backgroundColor: colors.card, borderRadius: colors.radius },
-      ]}
-    >
-      <Text
-        style={[
-          styles.statValue,
-          { color: colors.foreground, fontVariant: ['tabular-nums'] },
-        ]}
-      >
+    <View style={[styles.statCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+      <Text style={[styles.statValue, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
         {value}
       </Text>
-      <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>
-        {label}
-      </Text>
-      {sub && (
-        <Text style={[styles.statSub, { color: colors.mutedForeground }]}>
-          {sub}
-        </Text>
-      )}
+      <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>{label}</Text>
     </View>
   );
 }
 
 function SessionRow({ session }: { session: Session }) {
   const colors = useColors();
-  const totalSets = session.entries.length;
-  const exercises = [...new Set(session.entries.map((e) => e.exerciseName))];
-
+  const exNames = [...new Set(session.entries.map((e) => e.exerciseName))];
   return (
     <View
       style={[
@@ -74,32 +38,20 @@ function SessionRow({ session }: { session: Session }) {
         {
           backgroundColor: colors.card,
           borderRadius: colors.radius,
+          borderLeftColor: colors.border,
         },
       ]}
     >
-      <View style={styles.sessionLeft}>
-        <Text style={[styles.sessionDay, { color: colors.foreground }]}>
-          {session.dayLabel}
-        </Text>
+      <View style={{ flex: 1, gap: 3 }}>
+        <Text style={[styles.sessionDay, { color: colors.foreground }]}>{session.dayLabel}</Text>
         <Text style={[styles.sessionMeta, { color: colors.mutedForeground }]}>
-          {formatDate(session.date)} · {formatDuration(session.durationSeconds)}
+          {fmtDate(session.date)} · {fmt(session.durationSeconds)} · {session.entries.length} sets
         </Text>
-        <Text style={[styles.sessionExercises, { color: colors.mutedForeground }]} numberOfLines={1}>
-          {exercises.join(', ')}
-        </Text>
-      </View>
-      <View style={styles.sessionRight}>
-        <Text
-          style={[
-            styles.sessionSets,
-            { color: colors.primary, fontVariant: ['tabular-nums'] },
-          ]}
-        >
-          {totalSets}
-        </Text>
-        <Text style={[styles.sessionSetsLabel, { color: colors.mutedForeground }]}>
-          sets
-        </Text>
+        {exNames.length > 0 && (
+          <Text style={[styles.sessionEx, { color: colors.mutedForeground }]} numberOfLines={1}>
+            {exNames.join(' · ')}
+          </Text>
+        )}
       </View>
     </View>
   );
@@ -110,289 +62,123 @@ export default function AnalyticsScreen() {
   const insets = useSafeAreaInsets();
   const { sessions, getPersonalBest, plan } = useTraining();
 
-  const topPadding = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
 
   const weeklyData = useMemo(() => {
-    const weeks: { label: string; value: number }[] = [];
     const now = new Date();
-    for (let i = 7; i >= 0; i--) {
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - i * 7);
-      const weekEnd = new Date(weekStart);
-      weekEnd.setDate(weekStart.getDate() + 7);
-
+    return Array.from({ length: 8 }, (_, i) => {
+      const wk = 7 - i;
+      const start = new Date(now); start.setDate(now.getDate() - wk * 7);
+      const end = new Date(start); end.setDate(start.getDate() + 7);
       const count = sessions.filter((s) => {
-        const d = new Date(s.date);
-        return d >= weekStart && d < weekEnd;
+        const d = new Date(s.date); return d >= start && d < end;
       }).length;
-
-      const label = i === 0 ? 'Now' : `W${i}`;
-      weeks.push({ label, value: count });
-    }
-    return weeks;
+      return { label: wk === 0 ? 'Now' : `W${wk}`, value: count };
+    }).reverse();
   }, [sessions]);
 
-  const totalVolume = useMemo(() => {
-    return sessions.reduce((acc, s) => {
-      return (
-        acc +
-        s.entries.reduce((a, e) => {
-          if (e.weightKg && e.reps) return a + e.weightKg * e.reps;
-          return a;
-        }, 0)
-      );
-    }, 0);
-  }, [sessions]);
+  const totalVolume = useMemo(() =>
+    sessions.reduce((acc, s) =>
+      acc + s.entries.reduce((a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a), 0), 0),
+    [sessions]);
 
-  const avgDuration = useMemo(() => {
-    if (sessions.length === 0) return 0;
-    return Math.round(
-      sessions.reduce((a, s) => a + s.durationSeconds, 0) / sessions.length
-    );
-  }, [sessions]);
+  const avgDur = useMemo(() =>
+    sessions.length ? Math.round(sessions.reduce((a, s) => a + s.durationSeconds, 0) / sessions.length) : 0,
+    [sessions]);
 
-  const topExercises = useMemo(() => {
+  const bestLifts = useMemo(() => {
     if (!plan) return [];
-    const allNames = new Set<string>();
-    plan.days.forEach((d) => d.exercises.forEach((e) => allNames.add(e.name)));
-    return [...allNames]
-      .map((name) => ({ name, pb: getPersonalBest(name) }))
-      .filter((x) => x.pb !== null)
+    const names = [...new Set(plan.days.flatMap((d) => d.exercises.map((e) => e.name)))];
+    return names.map((n) => ({ name: n, pb: getPersonalBest(n) }))
+      .filter((x) => x.pb)
       .sort((a, b) => (b.pb?.volume ?? 0) - (a.pb?.volume ?? 0))
-      .slice(0, 5);
+      .slice(0, 6);
   }, [plan, getPersonalBest]);
 
-  if (sessions.length === 0) {
+  if (!sessions.length) {
     return (
-      <View
-        style={[
-          styles.center,
-          { backgroundColor: colors.background, paddingTop: topPadding },
-        ]}
-      >
-        <Ionicons name="bar-chart-outline" size={40} color={colors.mutedForeground} />
-        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-          No data yet
-        </Text>
-        <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-          Complete a session to see your stats.
-        </Text>
+      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: topPad }]}>
+        <Ionicons name="bar-chart-outline" size={36} color={colors.mutedForeground} />
+        <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No data yet</Text>
+        <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>Complete a session to see your stats.</Text>
       </View>
     );
   }
 
   return (
     <ScrollView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: topPadding + 16,
-          paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 80,
-        },
-      ]}
+      style={[{ flex: 1, backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.content, { paddingTop: topPad + 24, paddingBottom: botPad + 80 }]}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-        Review
-      </Text>
+      <Text style={[styles.screenTitle, { color: colors.foreground }]}>Review</Text>
 
       <View style={styles.statsRow}>
         <StatCard label="Sessions" value={String(sessions.length)} />
+        <StatCard label="Avg Time" value={fmt(avgDur)} />
         <StatCard
-          label="Avg Duration"
-          value={formatDuration(avgDuration)}
-        />
-        <StatCard
-          label="Total Volume"
+          label="Volume"
           value={totalVolume >= 1000 ? `${(totalVolume / 1000).toFixed(1)}t` : `${Math.round(totalVolume)}kg`}
         />
       </View>
 
-      <View
-        style={[
-          styles.section,
-          { backgroundColor: colors.card, borderRadius: colors.radius },
-        ]}
-      >
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-          Sessions per week
-        </Text>
-        <BarChart data={weeklyData} height={80} />
+      <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>SESSIONS / WEEK</Text>
+        <BarChart data={weeklyData} height={72} />
       </View>
 
-      {topExercises.length > 0 && (
-        <View
-          style={[
-            styles.section,
-            { backgroundColor: colors.card, borderRadius: colors.radius },
-          ]}
-        >
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-            Best lifts
-          </Text>
-          {topExercises.map(({ name, pb }) => (
-            <View key={name} style={styles.pbRow}>
-              <Text
-                style={[styles.pbName, { color: colors.foreground }]}
-                numberOfLines={1}
-              >
-                {name}
-              </Text>
-              {pb && (
-                <View style={styles.pbValues}>
-                  <Ionicons name="star" size={11} color={colors.warning} />
-                  <Text
-                    style={[
-                      styles.pbValue,
-                      { color: colors.primary, fontVariant: ['tabular-nums'] },
-                    ]}
-                  >
-                    {pb.weightKg}kg × {pb.reps}
-                  </Text>
-                </View>
-              )}
+      {bestLifts.length > 0 && (
+        <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>BEST LIFTS</Text>
+          {bestLifts.map(({ name, pb }) => (
+            <View key={name} style={[styles.pbRow, { borderBottomColor: colors.separator }]}>
+              <Text style={[styles.pbName, { color: colors.foreground }]} numberOfLines={1}>{name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Ionicons name="star" size={10} color={colors.primary} />
+                <Text style={[styles.pbVal, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
+                  {pb!.weightKg}kg × {pb!.reps}
+                </Text>
+              </View>
             </View>
           ))}
         </View>
       )}
 
-      <Text style={[styles.sectionHeader, { color: colors.foreground }]}>
-        Recent sessions
-      </Text>
-      {sessions.slice(0, 10).map((session) => (
-        <SessionRow key={session.id} session={session} />
-      ))}
+      <Text style={[styles.sectionHeader, { color: colors.foreground }]}>Recent</Text>
+      {sessions.slice(0, 10).map((s) => <SessionRow key={s.id} session={s} />)}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  center: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingHorizontal: 32,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-    textAlign: 'center',
-  },
-  emptyBody: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-  },
-  content: { paddingHorizontal: 16 },
-  screenTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.5,
-    marginBottom: 20,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  statCard: {
-    flex: 1,
-    padding: 14,
-    alignItems: 'center',
-    gap: 2,
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    lineHeight: 26,
-  },
-  statLabel: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-  },
-  statSub: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-  },
-  section: {
-    padding: 16,
-    marginBottom: 12,
-    gap: 14,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  sectionHeader: {
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    marginBottom: 12,
-    marginTop: 8,
-  },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 20, fontWeight: '600', fontFamily: 'Inter_600SemiBold', textAlign: 'center' },
+  emptyBody: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  content: { paddingHorizontal: 20 },
+  screenTitle: { fontSize: 36, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -1, marginBottom: 20 },
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  statCard: { flex: 1, padding: 14, alignItems: 'center', gap: 4 },
+  statValue: { fontSize: 24, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
+  statLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 1, textTransform: 'uppercase' },
+  section: { padding: 16, marginBottom: 12, gap: 14 },
+  sectionTitle: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
   pbRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  pbName: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-    flex: 1,
-  },
-  pbValues: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  pbValue: {
-    fontSize: 14,
-    fontFamily: 'Inter_600SemiBold',
-  },
+  pbName: { fontSize: 14, fontFamily: 'Inter_500Medium', flex: 1 },
+  pbVal: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  sectionHeader: { fontSize: 22, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -0.5, marginBottom: 10, marginTop: 8 },
   sessionRow: {
-    flexDirection: 'row',
     padding: 14,
-    marginBottom: 8,
+    marginBottom: 6,
+    borderLeftWidth: 3,
   },
-  sessionLeft: {
-    flex: 1,
-    gap: 2,
-  },
-  sessionDay: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  sessionMeta: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  sessionExercises: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
-  },
-  sessionRight: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  sessionSets: {
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-  },
-  sessionSetsLabel: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-  },
+  sessionDay: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  sessionMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', fontVariant: ['tabular-nums'] },
+  sessionEx: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },
 });

@@ -8,7 +8,7 @@ interface BarChartProps {
   showLabels?: boolean;
 }
 
-export function BarChart({ data, height = 80, showLabels = true }: BarChartProps) {
+export function BarChart({ data, height = 72, showLabels = true }: BarChartProps) {
   const colors = useColors();
   const maxValue = Math.max(...data.map((d) => d.value), 1);
 
@@ -16,32 +16,24 @@ export function BarChart({ data, height = 80, showLabels = true }: BarChartProps
     <View style={styles.container}>
       <View style={[styles.chart, { height }]}>
         {data.map((item, i) => {
-          const barHeight = maxValue > 0 ? (item.value / maxValue) * height : 0;
-          const isHighest = item.value === maxValue && item.value > 0;
+          const barH = maxValue > 0 ? (item.value / maxValue) * height : 0;
+          const isTop = item.value === maxValue && item.value > 0;
           return (
-            <View key={i} style={styles.barWrapper}>
-              <View style={[styles.barTrack, { height }]}>
+            <View key={i} style={styles.barWrap}>
+              <View style={[styles.track, { height }]}>
                 <View
                   style={[
                     styles.bar,
                     {
-                      height: barHeight,
-                      backgroundColor: isHighest ? colors.primary : colors.primary + '55',
-                      borderRadius: 4,
+                      height: Math.max(barH, item.value > 0 ? 3 : 0),
+                      backgroundColor: isTop ? colors.primary : colors.primary + '44',
+                      borderRadius: 3,
                     },
                   ]}
                 />
               </View>
               {showLabels && (
-                <Text
-                  style={[
-                    styles.barLabel,
-                    {
-                      color: colors.mutedForeground,
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
+                <Text style={[styles.label, { color: colors.mutedForeground }]} numberOfLines={1}>
                   {item.label}
                 </Text>
               )}
@@ -54,30 +46,10 @@ export function BarChart({ data, height = 80, showLabels = true }: BarChartProps
 }
 
 const styles = StyleSheet.create({
-  container: {
-    width: '100%',
-  },
-  chart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  barWrapper: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  barTrack: {
-    width: '100%',
-    justifyContent: 'flex-end',
-  },
-  bar: {
-    width: '100%',
-    minHeight: 2,
-  },
-  barLabel: {
-    fontSize: 10,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-  },
+  container: { width: '100%' },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
+  barWrap: { flex: 1, alignItems: 'center', gap: 5 },
+  track: { width: '100%', justifyContent: 'flex-end' },
+  bar: { width: '100%' },
+  label: { fontSize: 9, fontFamily: 'Inter_400Regular', textAlign: 'center', letterSpacing: 0.2 },
 });

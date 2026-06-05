@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
 import { PersonalBest } from '@/context/TrainingContext';
 
@@ -29,7 +30,6 @@ export function SetLogModal({
   visible,
   exerciseName,
   plannedReps,
-  restSeconds,
   setNumber,
   previousWeight,
   previousReps,
@@ -41,75 +41,54 @@ export function SetLogModal({
   const [weight, setWeight] = useState(previousWeight ? String(previousWeight) : '');
   const [reps, setReps] = useState(previousReps ? String(previousReps) : '');
 
-  const handleLog = () => {
-    const w = parseFloat(weight) || 0;
-    const r = parseInt(reps) || 0;
-    if (r <= 0) return;
-    onLog(w, r);
-    onClose();
-  };
-
   const handleOpen = () => {
     setWeight(previousWeight ? String(previousWeight) : '');
     setReps(previousReps ? String(previousReps) : '');
   };
 
+  const handleLog = () => {
+    const r = parseInt(reps) || 0;
+    if (r <= 0) return;
+    onLog(parseFloat(weight) || 0, r);
+    onClose();
+  };
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-      onShow={handleOpen}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} onShow={handleOpen}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kav}>
           <Pressable
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: colors.card,
-                borderTopLeftRadius: 24,
-                borderTopRightRadius: 24,
-              },
-            ]}
+            style={[styles.sheet, { backgroundColor: colors.card }]}
             onPress={() => {}}
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-            <Text style={[styles.title, { color: colors.foreground }]}>
-              {exerciseName}
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-              Set {setNumber} · Planned: {plannedReps}
-            </Text>
+            <View style={styles.sheetHead}>
+              <View>
+                <Text style={[styles.sheetTitle, { color: colors.foreground }]}>{exerciseName}</Text>
+                <Text style={[styles.sheetSub, { color: colors.mutedForeground }]}>
+                  Set {setNumber} · {plannedReps} reps planned
+                </Text>
+              </View>
+              <Pressable onPress={onClose} hitSlop={12}>
+                <Ionicons name="close" size={20} color={colors.mutedForeground} />
+              </Pressable>
+            </View>
 
             {personalBest && (
-              <View style={[styles.pbRow, { backgroundColor: colors.warning + '18' }]}>
-                <Text style={[styles.pbText, { color: colors.warning }]}>
-                  Best: {personalBest.weightKg}kg × {personalBest.reps} reps
+              <View style={[styles.pbBanner, { backgroundColor: colors.primary + '18' }]}>
+                <Ionicons name="star" size={12} color={colors.primary} />
+                <Text style={[styles.pbBannerText, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
+                  PB: {personalBest.weightKg}kg × {personalBest.reps}
                 </Text>
               </View>
             )}
 
             <View style={styles.inputs}>
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.mutedForeground }]}>
-                  Weight (kg)
-                </Text>
+                <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>KG</Text>
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.foreground,
-                      backgroundColor: colors.muted,
-                      borderRadius: 12,
-                      fontVariant: ['tabular-nums'],
-                    },
-                  ]}
+                  style={[styles.numInput, { color: colors.foreground, backgroundColor: colors.muted, borderRadius: 10 }]}
                   keyboardType="decimal-pad"
                   value={weight}
                   onChangeText={setWeight}
@@ -118,20 +97,11 @@ export function SetLogModal({
                   returnKeyType="next"
                 />
               </View>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
               <View style={styles.inputGroup}>
-                <Text style={[styles.label, { color: colors.mutedForeground }]}>
-                  Reps
-                </Text>
+                <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>REPS</Text>
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      color: colors.foreground,
-                      backgroundColor: colors.muted,
-                      borderRadius: 12,
-                      fontVariant: ['tabular-nums'],
-                    },
-                  ]}
+                  style={[styles.numInput, { color: colors.foreground, backgroundColor: colors.muted, borderRadius: 10 }]}
                   keyboardType="number-pad"
                   value={reps}
                   onChangeText={setReps}
@@ -146,23 +116,11 @@ export function SetLogModal({
             <Pressable
               onPress={handleLog}
               style={({ pressed }) => [
-                styles.logButton,
-                {
-                  backgroundColor: colors.primary,
-                  borderRadius: 14,
-                  opacity: pressed ? 0.8 : 1,
-                },
+                styles.logBtn,
+                { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
               ]}
             >
-              <Text style={[styles.logButtonText, { color: colors.primaryForeground }]}>
-                Log Set
-              </Text>
-            </Pressable>
-
-            <Pressable onPress={onClose} style={styles.cancelButton}>
-              <Text style={[styles.cancelText, { color: colors.mutedForeground }]}>
-                Cancel
-              </Text>
+              <Text style={[styles.logBtnText, { color: colors.primaryForeground }]}>Log Set</Text>
             </Pressable>
           </Pressable>
         </KeyboardAvoidingView>
@@ -172,86 +130,28 @@ export function SetLogModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  keyboardView: {
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    paddingTop: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    marginBottom: 16,
-  },
-  pbRow: {
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 16,
-  },
-  pbText: {
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-    fontVariant: ['tabular-nums'],
-  },
-  inputs: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
-  },
-  inputGroup: {
-    flex: 1,
-    gap: 6,
-  },
-  label: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  input: {
-    height: 56,
-    paddingHorizontal: 16,
-    fontSize: 24,
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  kav: { justifyContent: 'flex-end' },
+  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingHorizontal: 20, paddingBottom: 40 },
+  handle: { width: 32, height: 3, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  sheetHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 },
+  sheetTitle: { fontSize: 20, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
+  sheetSub: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
+  pbBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, borderRadius: 8, marginBottom: 16 },
+  pbBannerText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  inputs: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
+  inputGroup: { flex: 1, alignItems: 'center', gap: 8 },
+  inputLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
+  numInput: {
+    width: '100%',
+    height: 72,
+    fontSize: 36,
     textAlign: 'center',
-    fontFamily: 'Inter_600SemiBold',
+    fontFamily: 'Inter_700Bold',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
   },
-  logButton: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  logButtonText: {
-    fontSize: 17,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  cancelText: {
-    fontSize: 16,
-    fontFamily: 'Inter_400Regular',
-  },
+  divider: { width: 1, height: 72, marginHorizontal: 10 },
+  logBtn: { height: 54, alignItems: 'center', justifyContent: 'center' },
+  logBtnText: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold' },
 });

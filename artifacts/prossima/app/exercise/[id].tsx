@@ -1,12 +1,5 @@
 import React, { useMemo } from 'react';
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,11 +7,8 @@ import { useColors } from '@/hooks/useColors';
 import { useTraining } from '@/context/TrainingContext';
 import { BarChart } from '@/components/BarChart';
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
 export default function ExerciseDetailScreen() {
@@ -27,156 +17,93 @@ export default function ExerciseDetailScreen() {
   const insets = useSafeAreaInsets();
   const { getExerciseEntries, getPersonalBest } = useTraining();
 
-  const exerciseName = decodeURIComponent(id);
-  const allEntries = getExerciseEntries(exerciseName);
-  const pb = getPersonalBest(exerciseName);
+  const name = decodeURIComponent(id);
+  const allEntries = getExerciseEntries(name);
+  const pb = getPersonalBest(name);
 
-  const topPadding = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
 
   const volumeByDate = useMemo(() => {
     const map = new Map<string, number>();
-    for (const entry of allEntries) {
-      const dateKey = formatDate(entry.completedAt);
-      const vol = (entry.weightKg ?? 0) * (entry.reps ?? 0);
-      map.set(dateKey, (map.get(dateKey) ?? 0) + vol);
+    for (const e of allEntries) {
+      const k = fmtDate(e.completedAt);
+      map.set(k, (map.get(k) ?? 0) + (e.weightKg ?? 0) * (e.reps ?? 0));
     }
-    const dates = [...map.entries()]
-      .map(([label, value]) => ({ label, value }))
-      .slice(-8);
-    return dates;
+    return [...map.entries()].map(([label, value]) => ({ label, value })).slice(-8);
   }, [allEntries]);
 
-  const recentSets = allEntries.slice(0, 20);
-
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
+    <View style={[{ flex: 1, backgroundColor: colors.background }]}>
       <View
         style={[
           styles.header,
-          {
-            paddingTop: topPadding + 8,
-            backgroundColor: colors.background,
-            borderBottomColor: colors.separator,
-          },
+          { paddingTop: topPad + 8, borderBottomColor: colors.separator },
         ]}
       >
-        <Pressable
-          onPress={() => router.back()}
-          style={({ pressed }) => [styles.backBtn, { opacity: pressed ? 0.6 : 1 }]}
-        >
-          <Ionicons name="chevron-back" size={24} color={colors.primary} />
+        <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.back, { opacity: pressed ? 0.6 : 1 }]}>
+          <Ionicons name="chevron-back" size={22} color={colors.primary} />
         </Pressable>
-        <View style={styles.headerCenter}>
-          <Text style={[styles.exerciseTitle, { color: colors.foreground }]} numberOfLines={1}>
-            {exerciseName}
-          </Text>
-        </View>
-        <View style={{ width: 40 }} />
+        <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
+          {name}
+        </Text>
+        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={[
-          styles.content,
-          {
-            paddingTop: 16,
-            paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 24,
-          },
-        ]}
+        contentContainerStyle={[styles.content, { paddingTop: 20, paddingBottom: botPad + 24 }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* PB card */}
         {pb ? (
           <View
             style={[
               styles.pbCard,
               {
-                backgroundColor: colors.primary + '18',
+                backgroundColor: colors.card,
                 borderRadius: colors.radius,
-                borderColor: colors.primary + '44',
+                borderLeftColor: colors.primary,
               },
             ]}
           >
-            <Ionicons name="star" size={20} color={colors.warning} />
             <View>
-              <Text style={[styles.pbLabel, { color: colors.mutedForeground }]}>
-                Personal Best
+              <Text style={[styles.pbMeta, { color: colors.mutedForeground }]}>
+                PERSONAL BEST · {fmtDate(pb.date)}
               </Text>
-              <Text
-                style={[
-                  styles.pbValue,
-                  { color: colors.foreground, fontVariant: ['tabular-nums'] },
-                ]}
-              >
-                {pb.weightKg}kg × {pb.reps} reps
-              </Text>
-              <Text style={[styles.pbDate, { color: colors.mutedForeground }]}>
-                {formatDate(pb.date)}
+              <Text style={[styles.pbValue, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
+                {pb.weightKg}kg × {pb.reps}
               </Text>
             </View>
+            <Ionicons name="star" size={18} color={colors.primary} />
           </View>
         ) : (
-          <View
-            style={[
-              styles.noPbCard,
-              { backgroundColor: colors.card, borderRadius: colors.radius },
-            ]}
-          >
+          <View style={[styles.noPb, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             <Text style={[styles.noPbText, { color: colors.mutedForeground }]}>
-              No personal best yet. Log some sets to track progress.
+              No personal best yet. Log some sets.
             </Text>
           </View>
         )}
 
+        {/* Volume chart */}
         {volumeByDate.length > 1 && (
-          <View
-            style={[
-              styles.section,
-              { backgroundColor: colors.card, borderRadius: colors.radius },
-            ]}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Volume over time
-            </Text>
-            <BarChart data={volumeByDate} height={80} />
+          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>VOLUME OVER TIME</Text>
+            <BarChart data={volumeByDate} height={72} />
           </View>
         )}
 
-        {recentSets.length > 0 && (
-          <View
-            style={[
-              styles.section,
-              { backgroundColor: colors.card, borderRadius: colors.radius },
-            ]}
-          >
-            <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Recent sets
-            </Text>
-            {recentSets.map((entry) => (
-              <View
-                key={entry.id}
-                style={[styles.entryRow, { borderBottomColor: colors.separator }]}
-              >
-                <View style={styles.entryLeft}>
-                  <Text style={[styles.entryDate, { color: colors.mutedForeground }]}>
-                    {formatDate(entry.completedAt)}
-                  </Text>
-                  <Text style={[styles.entrySet, { color: colors.mutedForeground }]}>
-                    Set {entry.setNumber}
-                  </Text>
-                </View>
+        {/* Recent sets */}
+        {allEntries.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>RECENT SETS</Text>
+            {allEntries.slice(0, 20).map((e) => (
+              <View key={e.id} style={[styles.entryRow, { borderBottomColor: colors.separator }]}>
+                <Text style={[styles.entryDate, { color: colors.mutedForeground }]}>{fmtDate(e.completedAt)}</Text>
+                <Text style={[styles.entrySet, { color: colors.mutedForeground }]}>Set {e.setNumber}</Text>
                 <View style={styles.entryRight}>
-                  {entry.personalBest && (
-                    <Ionicons name="star" size={12} color={colors.warning} />
-                  )}
-                  <Text
-                    style={[
-                      styles.entryValue,
-                      { color: colors.foreground, fontVariant: ['tabular-nums'] },
-                    ]}
-                  >
-                    {entry.weightKg ? `${entry.weightKg}kg` : ''}
-                    {entry.weightKg && entry.reps ? ' × ' : ''}
-                    {entry.reps ? `${entry.reps}` : ''}
+                  {e.personalBest && <Ionicons name="star" size={10} color={colors.primary} />}
+                  <Text style={[styles.entryVal, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
+                    {e.weightKg ? `${e.weightKg}kg` : ''}{e.weightKg && e.reps ? ' × ' : ''}{e.reps ?? ''}
                   </Text>
                 </View>
               </View>
@@ -184,12 +111,10 @@ export default function ExerciseDetailScreen() {
           </View>
         )}
 
-        {allEntries.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="barbell-outline" size={36} color={colors.mutedForeground} />
-            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-              No sets logged yet.
-            </Text>
+        {!allEntries.length && (
+          <View style={styles.empty}>
+            <Ionicons name="barbell-outline" size={32} color={colors.mutedForeground} />
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No sets logged yet.</Text>
           </View>
         )}
       </ScrollView>
@@ -198,104 +123,41 @@ export default function ExerciseDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
     paddingBottom: 12,
-    paddingHorizontal: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerCenter: { flex: 1, alignItems: 'center' },
-  exerciseTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  content: { paddingHorizontal: 16, gap: 12 },
+  back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 17, fontWeight: '600', fontFamily: 'Inter_600SemiBold', flex: 1, textAlign: 'center' },
+  content: { paddingHorizontal: 20, gap: 10 },
   pbCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    padding: 16,
-    borderWidth: 1,
+    justifyContent: 'space-between',
+    padding: 18,
+    borderLeftWidth: 3,
   },
-  pbLabel: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
-  },
-  pbValue: {
-    fontSize: 22,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.5,
-  },
-  pbDate: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    marginTop: 2,
-  },
-  noPbCard: {
-    padding: 16,
-  },
-  noPbText: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    textAlign: 'center',
-  },
-  section: {
-    padding: 16,
-    gap: 14,
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
+  pbMeta: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 1.5, marginBottom: 6 },
+  pbValue: { fontSize: 28, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -1 },
+  noPb: { padding: 16 },
+  noPbText: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
+  section: { padding: 16, gap: 12 },
+  sectionLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
   entryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 9,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  entryLeft: { flexDirection: 'row', gap: 10, alignItems: 'center' },
-  entryDate: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-    minWidth: 60,
-  },
-  entrySet: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-  },
-  entryRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  entryValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
     gap: 10,
-    paddingVertical: 48,
   },
-  emptyText: {
-    fontSize: 15,
-    fontFamily: 'Inter_400Regular',
-  },
+  entryDate: { fontSize: 12, fontFamily: 'Inter_400Regular', minWidth: 58 },
+  entrySet: { fontSize: 11, fontFamily: 'Inter_400Regular', flex: 1 },
+  entryRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  entryVal: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  empty: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 48 },
+  emptyText: { fontSize: 14, fontFamily: 'Inter_400Regular' },
 });

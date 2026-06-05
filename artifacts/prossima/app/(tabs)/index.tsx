@@ -15,19 +15,13 @@ import { useTraining } from '@/context/TrainingContext';
 import { useSession } from '@/context/SessionContext';
 import { ExerciseCard } from '@/components/ExerciseCard';
 
-function dayGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Morning';
-  if (h < 17) return 'Afternoon';
-  return 'Evening';
-}
+const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
 function formatDate(date: Date) {
-  return date.toLocaleDateString('en-US', {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-  });
+  const day = DAYS[date.getDay()];
+  const num = date.getDate();
+  const month = date.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+  return { day, num, month };
 }
 
 export default function HomeScreen() {
@@ -37,14 +31,7 @@ export default function HomeScreen() {
   const { activeSession, startSession } = useSession();
 
   const today = plan?.days[currentDayIndex % plan.days.length] ?? null;
-
-  const handleStartSession = () => {
-    if (!today || !plan) return;
-    if (!activeSession) {
-      startSession(plan.name, today.label, today.exercises);
-    }
-    router.navigate('/(tabs)/session');
-  };
+  const { day, num, month } = formatDate(new Date());
 
   const thisMonthSessions = useMemo(() => {
     const now = new Date();
@@ -54,17 +41,16 @@ export default function HomeScreen() {
     }).length;
   }, [sessions]);
 
-  const topPadding =
-    Platform.OS === 'web' ? 67 : insets.top;
+  const handleStart = () => {
+    if (!today || !plan) return;
+    if (!activeSession) startSession(plan.name, today.label, today.exercises);
+    router.navigate('/(tabs)/session');
+  };
+
+  const topPadding = Platform.OS === 'web' ? 67 : insets.top;
 
   if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: colors.background }]}>
-        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
-          Loading...
-        </Text>
-      </View>
-    );
+    return <View style={[styles.root, { backgroundColor: colors.background }]} />;
   }
 
   return (
@@ -73,29 +59,32 @@ export default function HomeScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[
           styles.content,
-          {
-            paddingTop: topPadding + 16,
-            paddingBottom: insets.bottom + 120,
-          },
+          { paddingTop: topPadding + 24, paddingBottom: insets.bottom + 120 },
         ]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={[styles.greeting, { color: colors.mutedForeground }]}>
-              {dayGreeting()}
+            <Text style={[styles.dateLabel, { color: colors.mutedForeground }]}>
+              {day} {month}
             </Text>
-            <Text style={[styles.dateText, { color: colors.foreground }]}>
-              {formatDate(new Date())}
+            <Text style={[styles.dateNum, { color: colors.foreground }]}>
+              {num}
             </Text>
           </View>
           {thisMonthSessions > 0 && (
-            <View style={[styles.monthBadge, { backgroundColor: colors.muted }]}>
-              <Text style={[styles.monthCount, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
+            <View style={[styles.monthBadge, { backgroundColor: colors.card }]}>
+              <Text
+                style={[
+                  styles.monthNum,
+                  { color: colors.primary, fontVariant: ['tabular-nums'] },
+                ]}
+              >
                 {thisMonthSessions}
               </Text>
-              <Text style={[styles.monthLabel, { color: colors.mutedForeground }]}>
-                this month
+              <Text style={[styles.monthSub, { color: colors.mutedForeground }]}>
+                sessions
               </Text>
             </View>
           )}
@@ -108,7 +97,7 @@ export default function HomeScreen() {
               { backgroundColor: colors.card, borderRadius: colors.radius },
             ]}
           >
-            <Ionicons name="document-text-outline" size={36} color={colors.mutedForeground} />
+            <Ionicons name="document-text-outline" size={32} color={colors.mutedForeground} />
             <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
               No training plan
             </Text>
@@ -118,25 +107,31 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => router.navigate('/(tabs)/settings')}
               style={({ pressed }) => [
-                styles.emptyButton,
+                styles.emptyBtn,
                 {
                   backgroundColor: colors.primary,
-                  borderRadius: 12,
+                  borderRadius: colors.radius,
                   opacity: pressed ? 0.8 : 1,
                 },
               ]}
             >
-              <Text style={[styles.emptyButtonText, { color: colors.primaryForeground }]}>
-                Go to Settings
+              <Text style={[styles.emptyBtnText, { color: colors.primaryForeground }]}>
+                Open Settings
               </Text>
             </Pressable>
           </View>
         ) : (
           <>
-            <View style={styles.dayHeader}>
+            {/* Day label */}
+            <View style={styles.dayRow}>
               <View>
-                <Text style={[styles.planName, { color: colors.mutedForeground }]}>
-                  {plan.name}
+                <Text
+                  style={[
+                    styles.planLabel,
+                    { color: colors.mutedForeground },
+                  ]}
+                >
+                  {plan.name.toUpperCase()}
                 </Text>
                 <Text style={[styles.dayName, { color: colors.foreground }]}>
                   {today?.label}
@@ -144,29 +139,31 @@ export default function HomeScreen() {
               </View>
               <Text
                 style={[
-                  styles.dayCount,
+                  styles.dayFraction,
                   { color: colors.mutedForeground, fontVariant: ['tabular-nums'] },
                 ]}
               >
-                Day {(currentDayIndex % plan.days.length) + 1}/{plan.days.length}
+                {(currentDayIndex % plan.days.length) + 1} / {plan.days.length}
               </Text>
             </View>
 
-            {today?.exercises.map((ex) => (
-              <ExerciseCard
-                key={ex.id}
-                name={ex.name}
-                sets={ex.sets}
-                reps={ex.reps}
-                personalBest={getPersonalBest(ex.name)}
-                onPress={() =>
-                  router.push({
-                    pathname: '/exercise/[id]',
-                    params: { id: ex.name },
-                  })
-                }
-              />
-            ))}
+            <View style={styles.exerciseList}>
+              {today?.exercises.map((ex) => (
+                <ExerciseCard
+                  key={ex.id}
+                  name={ex.name}
+                  sets={ex.sets}
+                  reps={ex.reps}
+                  personalBest={getPersonalBest(ex.name)}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/exercise/[id]',
+                      params: { id: encodeURIComponent(ex.name) },
+                    })
+                  }
+                />
+              ))}
+            </View>
           </>
         )}
       </ScrollView>
@@ -174,7 +171,7 @@ export default function HomeScreen() {
       {plan && (
         <View
           style={[
-            styles.ctaContainer,
+            styles.ctaWrap,
             {
               paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 16,
               backgroundColor: colors.background,
@@ -186,24 +183,7 @@ export default function HomeScreen() {
             <Pressable
               onPress={() => router.navigate('/(tabs)/session')}
               style={({ pressed }) => [
-                styles.ctaButton,
-                {
-                  backgroundColor: colors.success,
-                  borderRadius: colors.radius,
-                  opacity: pressed ? 0.85 : 1,
-                },
-              ]}
-            >
-              <Ionicons name="play" size={18} color="#fff" />
-              <Text style={[styles.ctaText, { color: '#fff' }]}>
-                Session in Progress
-              </Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={handleStartSession}
-              style={({ pressed }) => [
-                styles.ctaButton,
+                styles.ctaBtn,
                 {
                   backgroundColor: colors.primary,
                   borderRadius: colors.radius,
@@ -211,7 +191,26 @@ export default function HomeScreen() {
                 },
               ]}
             >
-              <Text style={[styles.ctaText, { color: colors.primaryForeground }]}>
+              <View style={styles.ctaBtnInner}>
+                <View style={[styles.liveDot, { backgroundColor: colors.primaryForeground }]} />
+                <Text style={[styles.ctaBtnText, { color: colors.primaryForeground }]}>
+                  Session in Progress
+                </Text>
+              </View>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={handleStart}
+              style={({ pressed }) => [
+                styles.ctaBtn,
+                {
+                  backgroundColor: colors.primary,
+                  borderRadius: colors.radius,
+                  opacity: pressed ? 0.85 : 1,
+                },
+              ]}
+            >
+              <Text style={[styles.ctaBtnText, { color: colors.primaryForeground }]}>
                 Begin {today?.label}
               </Text>
             </Pressable>
@@ -224,42 +223,68 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  loadingText: { fontSize: 15, fontFamily: 'Inter_400Regular' },
-  content: { paddingHorizontal: 16 },
+  content: { paddingHorizontal: 20 },
   header: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 28,
+    alignItems: 'flex-start',
+    marginBottom: 36,
   },
-  greeting: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-    marginBottom: 2,
+  dateLabel: {
+    fontSize: 12,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 2,
+    marginBottom: 4,
   },
-  dateText: {
-    fontSize: 22,
+  dateNum: {
+    fontSize: 56,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.3,
+    lineHeight: 56,
+    letterSpacing: -3,
+    fontVariant: ['tabular-nums'],
   },
   monthBadge: {
     alignItems: 'center',
-    padding: 10,
-    borderRadius: 12,
-    minWidth: 60,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 4,
   },
-  monthCount: {
-    fontSize: 20,
+  monthNum: {
+    fontSize: 22,
     fontWeight: '700',
     fontFamily: 'Inter_700Bold',
-    lineHeight: 22,
+    lineHeight: 24,
   },
-  monthLabel: {
+  monthSub: {
+    fontSize: 10,
+    fontFamily: 'Inter_400Regular',
+    letterSpacing: 0.5,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginBottom: 16,
+  },
+  planLabel: {
     fontSize: 11,
+    fontFamily: 'Inter_500Medium',
+    letterSpacing: 2,
+    marginBottom: 4,
+  },
+  dayName: {
+    fontSize: 28,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: -0.8,
+  },
+  dayFraction: {
+    fontSize: 13,
     fontFamily: 'Inter_400Regular',
   },
+  exerciseList: { gap: 0 },
   emptyCard: {
     padding: 32,
     alignItems: 'center',
@@ -277,58 +302,44 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_400Regular',
     textAlign: 'center',
   },
-  emptyButton: {
+  emptyBtn: {
     marginTop: 8,
     paddingHorizontal: 24,
     paddingVertical: 12,
   },
-  emptyButtonText: {
+  emptyBtnText: {
     fontSize: 15,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
   },
-  dayHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  planName: {
-    fontSize: 12,
-    fontFamily: 'Inter_500Medium',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 2,
-  },
-  dayName: {
-    fontSize: 26,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.5,
-  },
-  dayCount: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  ctaContainer: {
+  ctaWrap: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
-  ctaButton: {
-    height: 54,
-    flexDirection: 'row',
+  ctaBtn: {
+    height: 56,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  ctaBtnInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  ctaText: {
-    fontSize: 17,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
+  liveDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  ctaBtnText: {
+    fontSize: 16,
+    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
+    letterSpacing: 0.2,
   },
 });

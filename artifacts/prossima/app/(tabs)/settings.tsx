@@ -22,18 +22,18 @@ export default function SettingsScreen() {
   const [editingYaml, setEditingYaml] = useState(false);
   const [yamlDraft, setYamlDraft] = useState(yamlSource);
   const [saving, setSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [ok, setOk] = useState(false);
 
-  const topPadding = Platform.OS === 'web' ? 67 : insets.top;
+  const topPad = Platform.OS === 'web' ? 67 : insets.top;
+  const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
 
-  const handleSaveYaml = async () => {
+  const handleSave = async () => {
     setSaving(true);
-    setSaveSuccess(false);
     try {
       await loadPlan(yamlDraft);
-      setSaveSuccess(true);
+      setOk(true);
       setEditingYaml(false);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setTimeout(() => setOk(false), 3000);
     } catch (e: any) {
       Alert.alert('Invalid YAML', e.message);
     } finally {
@@ -41,86 +41,54 @@ export default function SettingsScreen() {
     }
   };
 
-  const handleReset = () => {
-    Alert.alert(
-      'Reset All Data',
-      `This will delete all ${sessions.length} sessions permanently. The training plan will remain.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => resetAllData(),
-        },
-      ]
-    );
-  };
+  const handleReset = () => Alert.alert(
+    'Reset All Data',
+    `Delete all ${sessions.length} sessions permanently?`,
+    [{ text: 'Cancel', style: 'cancel' }, { text: 'Reset', style: 'destructive', onPress: resetAllData }],
+  );
 
-  const handleResetYaml = () => {
-    Alert.alert('Reset Plan', 'Replace with the default Push Pull Legs plan?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Reset',
-        onPress: async () => {
-          setYamlDraft(DEFAULT_YAML);
-          await loadPlan(DEFAULT_YAML);
-        },
-      },
-    ]);
-  };
+  const handleResetYaml = () => Alert.alert(
+    'Reset Plan',
+    'Replace with default Push Pull Legs?',
+    [{ text: 'Cancel', style: 'cancel' }, { text: 'Reset', onPress: async () => { setYamlDraft(DEFAULT_YAML); await loadPlan(DEFAULT_YAML); } }],
+  );
 
   return (
     <ScrollView
-      style={[styles.root, { backgroundColor: colors.background }]}
-      contentContainerStyle={[
-        styles.content,
-        {
-          paddingTop: topPadding + 16,
-          paddingBottom: insets.bottom + (Platform.OS === 'web' ? 34 : 0) + 32,
-        },
-      ]}
+      style={[{ flex: 1, backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.content, { paddingTop: topPad + 24, paddingBottom: botPad + 32 }]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.screenTitle, { color: colors.foreground }]}>
-        Settings
-      </Text>
+      <Text style={[styles.screenTitle, { color: colors.foreground }]}>Settings</Text>
 
+      {/* Training Plan */}
       <View style={[styles.group, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-        <View style={styles.groupHeader}>
-          <Text style={[styles.groupTitle, { color: colors.foreground }]}>
-            Training Plan
-          </Text>
+        <View style={styles.groupHead}>
+          <Text style={[styles.groupLabel, { color: colors.mutedForeground }]}>TRAINING PLAN</Text>
           {plan && (
-            <Text style={[styles.planName, { color: colors.mutedForeground }]}>
+            <Text style={[styles.planName, { color: colors.foreground }]} numberOfLines={1}>
               {plan.name}
             </Text>
           )}
         </View>
 
         {plan && (
-          <View style={styles.planMeta}>
-            <Text style={[styles.planMetaText, { color: colors.mutedForeground }]}>
-              {plan.days.length} days · {plan.days.reduce((a, d) => a + d.exercises.length, 0)} exercises
-            </Text>
-          </View>
+          <Text style={[styles.planMeta, { color: colors.mutedForeground }]}>
+            {plan.days.length} days · {plan.days.reduce((a, d) => a + d.exercises.length, 0)} exercises
+          </Text>
         )}
 
         {parseError && !editingYaml && (
-          <View style={[styles.errorBanner, { backgroundColor: colors.destructive + '18' }]}>
-            <Ionicons name="warning" size={14} color={colors.destructive} />
-            <Text style={[styles.errorText, { color: colors.destructive }]} numberOfLines={2}>
-              {parseError}
-            </Text>
+          <View style={[styles.banner, { backgroundColor: colors.destructive + '18' }]}>
+            <Ionicons name="warning-outline" size={13} color={colors.destructive} />
+            <Text style={[styles.bannerText, { color: colors.destructive }]} numberOfLines={2}>{parseError}</Text>
           </View>
         )}
-
-        {saveSuccess && (
-          <View style={[styles.successBanner, { backgroundColor: colors.success + '18' }]}>
-            <Ionicons name="checkmark-circle" size={14} color={colors.success} />
-            <Text style={[styles.successText, { color: colors.success }]}>
-              Plan updated successfully
-            </Text>
+        {ok && (
+          <View style={[styles.banner, { backgroundColor: colors.primary + '20' }]}>
+            <Ionicons name="checkmark-circle" size={13} color={colors.primary} />
+            <Text style={[styles.bannerText, { color: colors.primary }]}>Plan updated</Text>
           </View>
         )}
 
@@ -128,13 +96,12 @@ export default function SettingsScreen() {
           <View>
             <TextInput
               style={[
-                styles.yamlEditor,
+                styles.yamlInput,
                 {
                   color: colors.foreground,
                   backgroundColor: colors.muted,
-                  borderRadius: 12,
+                  borderRadius: 8,
                   borderColor: parseError ? colors.destructive : colors.border,
-                  fontVariant: ['tabular-nums'],
                 },
               ]}
               value={yamlDraft}
@@ -143,127 +110,74 @@ export default function SettingsScreen() {
               autoCapitalize="none"
               autoCorrect={false}
               spellCheck={false}
-              placeholder="Paste your YAML plan here..."
               placeholderTextColor={colors.mutedForeground}
             />
-            <View style={styles.editorButtons}>
+            <View style={styles.rowBtns}>
               <Pressable
-                onPress={() => {
-                  setEditingYaml(false);
-                  setYamlDraft(yamlSource);
-                }}
-                style={({ pressed }) => [
-                  styles.secondaryBtn,
-                  {
-                    borderColor: colors.border,
-                    borderRadius: 12,
-                    opacity: pressed ? 0.7 : 1,
-                  },
-                ]}
+                onPress={() => { setEditingYaml(false); setYamlDraft(yamlSource); }}
+                style={({ pressed }) => [styles.secBtn, { borderColor: colors.border, borderRadius: 8, opacity: pressed ? 0.7 : 1 }]}
               >
-                <Text style={[styles.secondaryBtnText, { color: colors.foreground }]}>
-                  Cancel
-                </Text>
+                <Text style={[styles.secBtnText, { color: colors.mutedForeground }]}>Cancel</Text>
               </Pressable>
               <Pressable
-                onPress={handleSaveYaml}
+                onPress={handleSave}
                 disabled={saving}
-                style={({ pressed }) => [
-                  styles.primaryBtn,
-                  {
-                    backgroundColor: colors.primary,
-                    borderRadius: 12,
-                    opacity: pressed || saving ? 0.7 : 1,
-                  },
-                ]}
+                style={({ pressed }) => [styles.primBtn, { backgroundColor: colors.primary, borderRadius: 8, opacity: pressed || saving ? 0.7 : 1 }]}
               >
-                <Text style={[styles.primaryBtnText, { color: colors.primaryForeground }]}>
-                  {saving ? 'Saving...' : 'Apply Plan'}
+                <Text style={[styles.primBtnText, { color: colors.primaryForeground }]}>
+                  {saving ? 'Applying...' : 'Apply Plan'}
                 </Text>
               </Pressable>
             </View>
           </View>
         ) : (
-          <View style={styles.planActions}>
+          <View style={{ gap: 6 }}>
             <Pressable
-              onPress={() => {
-                setYamlDraft(yamlSource);
-                setEditingYaml(true);
-              }}
-              style={({ pressed }) => [
-                styles.actionRow,
-                {
-                  backgroundColor: colors.muted,
-                  borderRadius: 12,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
+              onPress={() => { setYamlDraft(yamlSource); setEditingYaml(true); }}
+              style={({ pressed }) => [styles.actionRow, { backgroundColor: colors.muted, borderRadius: 8, opacity: pressed ? 0.7 : 1 }]}
             >
-              <Ionicons name="code-slash" size={16} color={colors.primary} />
-              <Text style={[styles.actionText, { color: colors.foreground }]}>
-                Edit YAML Plan
-              </Text>
-              <Ionicons name="chevron-forward" size={14} color={colors.mutedForeground} />
+              <Ionicons name="code-slash" size={15} color={colors.primary} />
+              <Text style={[styles.actionText, { color: colors.foreground }]}>Edit YAML Plan</Text>
+              <Ionicons name="chevron-forward" size={13} color={colors.mutedForeground} />
             </Pressable>
             <Pressable
               onPress={handleResetYaml}
-              style={({ pressed }) => [
-                styles.actionRow,
-                {
-                  backgroundColor: colors.muted,
-                  borderRadius: 12,
-                  opacity: pressed ? 0.7 : 1,
-                },
-              ]}
+              style={({ pressed }) => [styles.actionRow, { backgroundColor: colors.muted, borderRadius: 8, opacity: pressed ? 0.7 : 1 }]}
             >
-              <Ionicons name="refresh" size={16} color={colors.mutedForeground} />
-              <Text style={[styles.actionText, { color: colors.foreground }]}>
-                Reset to Default Plan
-              </Text>
+              <Ionicons name="refresh" size={15} color={colors.mutedForeground} />
+              <Text style={[styles.actionText, { color: colors.foreground }]}>Reset to Default Plan</Text>
             </Pressable>
           </View>
         )}
       </View>
 
+      {/* About */}
       <View style={[styles.group, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-        <Text style={[styles.groupTitle, { color: colors.foreground }]}>
-          About
-        </Text>
-        <View style={styles.infoRow}>
-          <Text style={[styles.infoKey, { color: colors.mutedForeground }]}>App</Text>
-          <Text style={[styles.infoVal, { color: colors.foreground }]}>Prossima</Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={[styles.infoKey, { color: colors.mutedForeground }]}>Sessions logged</Text>
-          <Text style={[styles.infoVal, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
-            {sessions.length}
-          </Text>
-        </View>
-        <View style={styles.infoRow}>
-          <Text style={[styles.infoKey, { color: colors.mutedForeground }]}>Philosophy</Text>
-          <Text style={[styles.infoVal, { color: colors.foreground }]}>Less is more</Text>
-        </View>
+        <Text style={[styles.groupLabel, { color: colors.mutedForeground }]}>ABOUT</Text>
+        {[
+          ['App', 'Prossima'],
+          ['Sessions logged', String(sessions.length)],
+          ['Philosophy', 'Less is more'],
+        ].map(([k, v]) => (
+          <View key={k} style={[styles.infoRow, { borderBottomColor: colors.separator }]}>
+            <Text style={[styles.infoKey, { color: colors.mutedForeground }]}>{k}</Text>
+            <Text style={[styles.infoVal, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>{v}</Text>
+          </View>
+        ))}
       </View>
 
+      {/* Danger */}
       <View style={[styles.group, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-        <Text style={[styles.groupTitle, { color: colors.destructive }]}>
-          Danger Zone
-        </Text>
+        <Text style={[styles.groupLabel, { color: colors.destructive }]}>DANGER ZONE</Text>
         <Pressable
           onPress={handleReset}
           style={({ pressed }) => [
             styles.actionRow,
-            {
-              backgroundColor: colors.destructive + '18',
-              borderRadius: 12,
-              opacity: pressed ? 0.7 : 1,
-            },
+            { backgroundColor: colors.destructive + '14', borderRadius: 8, opacity: pressed ? 0.7 : 1 },
           ]}
         >
-          <Ionicons name="trash-outline" size={16} color={colors.destructive} />
-          <Text style={[styles.actionText, { color: colors.destructive }]}>
-            Reset All Session Data
-          </Text>
+          <Ionicons name="trash-outline" size={15} color={colors.destructive} />
+          <Text style={[styles.actionText, { color: colors.destructive }]}>Reset All Session Data</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -271,123 +185,28 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1 },
-  content: { paddingHorizontal: 16, gap: 16 },
-  screenTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-    letterSpacing: -0.5,
-    marginBottom: 4,
-  },
-  group: {
-    padding: 16,
-    gap: 12,
-  },
-  groupHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  groupTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  planName: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  planMeta: {},
-  planMetaText: {
-    fontSize: 13,
-    fontFamily: 'Inter_400Regular',
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    padding: 10,
-    borderRadius: 10,
-  },
-  errorText: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    flex: 1,
-  },
-  successBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    padding: 10,
-    borderRadius: 10,
-  },
-  successText: {
-    fontSize: 13,
-    fontFamily: 'Inter_500Medium',
-  },
-  yamlEditor: {
-    padding: 12,
-    fontSize: 12,
-    lineHeight: 18,
-    minHeight: 280,
-    borderWidth: 1,
-    textAlignVertical: 'top',
+  content: { paddingHorizontal: 20, gap: 12 },
+  screenTitle: { fontSize: 36, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -1, marginBottom: 8 },
+  group: { padding: 16, gap: 12 },
+  groupHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  groupLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
+  planName: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold', maxWidth: '60%' },
+  planMeta: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: -4 },
+  banner: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, borderRadius: 8 },
+  bannerText: { fontSize: 13, fontFamily: 'Inter_500Medium', flex: 1 },
+  yamlInput: {
+    padding: 12, fontSize: 12, lineHeight: 18, minHeight: 260,
+    borderWidth: 1, textAlignVertical: 'top',
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
-  editorButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  secondaryBtn: {
-    flex: 1,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  secondaryBtnText: {
-    fontSize: 15,
-    fontWeight: '500',
-    fontFamily: 'Inter_500Medium',
-  },
-  primaryBtn: {
-    flex: 1,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
-    fontFamily: 'Inter_600SemiBold',
-  },
-  planActions: {
-    gap: 8,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    gap: 10,
-  },
-  actionText: {
-    flex: 1,
-    fontSize: 15,
-    fontFamily: 'Inter_500Medium',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  infoKey: {
-    fontSize: 14,
-    fontFamily: 'Inter_400Regular',
-  },
-  infoVal: {
-    fontSize: 14,
-    fontFamily: 'Inter_500Medium',
-  },
+  rowBtns: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  secBtn: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  secBtnText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
+  primBtn: { flex: 1, height: 42, alignItems: 'center', justifyContent: 'center' },
+  primBtnText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  actionRow: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
+  actionText: { flex: 1, fontSize: 14, fontFamily: 'Inter_500Medium' },
+  infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9, borderBottomWidth: StyleSheet.hairlineWidth },
+  infoKey: { fontSize: 13, fontFamily: 'Inter_400Regular' },
+  infoVal: { fontSize: 13, fontFamily: 'Inter_500Medium' },
 });
