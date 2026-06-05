@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GlassView } from 'expo-glass-effect';
 import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/context/ThemeContext';
 import { useTraining } from '@/context/TrainingContext';
@@ -28,9 +29,7 @@ export default function ExerciseDetailScreen() {
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
 
   const isDark = resolvedScheme === 'dark';
-  const gradientColors: [string, string, string] = isDark
-    ? ['#111811', '#162016', '#111811']
-    : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
+  const gradientColors = colors.backgroundGradient;
 
   const volumeByDate = useMemo(() => {
     const map = new Map<string, number>();
@@ -43,7 +42,18 @@ export default function ExerciseDetailScreen() {
 
   return (
     <LinearGradient colors={gradientColors} style={{ flex: 1 }}>
-      <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.separator }]}>
+      <GlassView
+        colorScheme={resolvedScheme}
+        style={[
+          styles.header,
+          {
+            paddingTop: topPad + 8,
+            borderBottomColor: colors.separator,
+            borderBottomWidth: StyleSheet.hairlineWidth,
+            backgroundColor: colors.card,
+          },
+        ]}
+      >
         <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.back, { opacity: pressed ? 0.6 : 1 }]}>
           <Ionicons name="chevron-back" size={22} color={colors.accent} />
         </Pressable>
@@ -51,14 +61,18 @@ export default function ExerciseDetailScreen() {
           {name}
         </Text>
         <View style={{ width: 36 }} />
-      </View>
+      </GlassView>
 
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: 20, paddingBottom: botPad + 24 }]}
         showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
       >
         {pb ? (
-          <View style={[styles.pbCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <GlassView
+            colorScheme={resolvedScheme}
+            style={[styles.pbCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+          >
             <View>
               <Text style={[styles.pbMeta, { color: colors.mutedForeground }]}>
                 PERSONAL BEST · {fmtDate(pb.date)}
@@ -68,24 +82,33 @@ export default function ExerciseDetailScreen() {
               </Text>
             </View>
             <Ionicons name="star" size={18} color={colors.accent} />
-          </View>
+          </GlassView>
         ) : (
-          <View style={[styles.noPb, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <GlassView
+            colorScheme={resolvedScheme}
+            style={[styles.noPb, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+          >
             <Text style={[styles.noPbText, { color: colors.mutedForeground }]}>
               No personal best yet. Log some sets.
             </Text>
-          </View>
+          </GlassView>
         )}
 
         {volumeByDate.length > 1 && (
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <GlassView
+            colorScheme={resolvedScheme}
+            style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+          >
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>VOLUME OVER TIME</Text>
             <BarChart data={volumeByDate} height={72} />
-          </View>
+          </GlassView>
         )}
 
         {allEntries.length > 0 && (
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <GlassView
+            colorScheme={resolvedScheme}
+            style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+          >
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>RECENT SETS</Text>
             {allEntries.slice(0, 20).map((e) => (
               <View key={e.id} style={[styles.entryRow, { borderBottomColor: colors.separator }]}>
@@ -99,7 +122,7 @@ export default function ExerciseDetailScreen() {
                 </View>
               </View>
             ))}
-          </View>
+          </GlassView>
         )}
 
         {!allEntries.length && (

@@ -3,6 +3,7 @@ import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GlassView } from 'expo-glass-effect';
 import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/context/ThemeContext';
 import { useTraining } from '@/context/TrainingContext';
@@ -21,9 +22,21 @@ function fmtDate(iso: string) {
 
 function SessionRow({ session }: { session: Session }) {
   const colors = useColors();
+  const { resolvedScheme } = useTheme();
   const exNames = [...new Set(session.entries.map((e) => e.exerciseName))];
   return (
-    <View style={[styles.sessionRow, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+    <GlassView
+      colorScheme={resolvedScheme}
+      style={[
+        styles.sessionRow,
+        {
+          backgroundColor: colors.card,
+          borderRadius: colors.radius,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+      ]}
+    >
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={[styles.sessionDay, { color: colors.foreground }]}>{session.dayLabel}</Text>
         <Text style={[styles.sessionMeta, { color: colors.mutedForeground }]}>
@@ -35,7 +48,7 @@ function SessionRow({ session }: { session: Session }) {
           </Text>
         )}
       </View>
-    </View>
+    </GlassView>
   );
 }
 
@@ -51,9 +64,7 @@ export default function AnalyticsScreen() {
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
 
   const isDark = resolvedScheme === 'dark';
-  const gradientColors: [string, string, string] = isDark
-    ? ['#111811', '#162016', '#111811']
-    : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
+  const gradientColors = colors.backgroundGradient;
 
   const { thisMonth, totalVolume, avgDur, longestSession } = useMemo(() => {
     const now = new Date();
@@ -116,10 +127,14 @@ export default function AnalyticsScreen() {
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: topPad + 12, paddingBottom: botPad + 80 }]}
         showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
       >
         <Text style={[styles.screenTitle, { color: colors.foreground }]}>Review</Text>
 
-        <View style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+        <GlassView
+          colorScheme={resolvedScheme}
+          style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+        >
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>THIS MONTH</Text>
           <View style={styles.ringsRow}>
             <RingChart
@@ -146,15 +161,21 @@ export default function AnalyticsScreen() {
           <Text style={[styles.totalLine, { color: colors.mutedForeground }]}>
             {sessions.length} sessions total
           </Text>
-        </View>
+        </GlassView>
 
-        <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+        <GlassView
+          colorScheme={resolvedScheme}
+          style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+        >
           <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SESSIONS / WEEK</Text>
           <BarChart data={weeklyData} height={72} />
-        </View>
+        </GlassView>
 
         {bestLifts.length > 0 && (
-          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <GlassView
+            colorScheme={resolvedScheme}
+            style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+          >
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>BEST LIFTS</Text>
             {bestLifts.map(({ name, pb }) => (
               <View key={name} style={[styles.pbRow, { borderBottomColor: colors.separator }]}>
@@ -167,7 +188,7 @@ export default function AnalyticsScreen() {
                 </View>
               </View>
             ))}
-          </View>
+          </GlassView>
         )}
 
         <Text style={[styles.sectionHeader, { color: colors.foreground }]}>Recent</Text>

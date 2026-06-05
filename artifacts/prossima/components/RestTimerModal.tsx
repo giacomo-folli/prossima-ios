@@ -47,7 +47,7 @@ export function RestTimerModal({ visible, exerciseName, totalSeconds, onDismiss 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
-        <View style={[styles.card, { backgroundColor: colors.card, borderRadius: 24 }]}>
+        <View style={[styles.card, { backgroundColor: colors.cardElevated, borderRadius: 24 }]}>
           <Text style={[styles.label, { color: colors.mutedForeground }]}>{exerciseName}</Text>
           <Text style={[styles.restWord, { color: colors.mutedForeground }]}>Rest</Text>
           <Text style={[styles.time, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>

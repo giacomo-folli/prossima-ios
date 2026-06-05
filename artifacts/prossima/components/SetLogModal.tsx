@@ -50,7 +50,7 @@ export function SetLogModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} onShow={handleOpen}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kav}>
-          <Pressable style={[styles.sheet, { backgroundColor: colors.card }]} onPress={() => {}}>
+          <Pressable style={[styles.sheet, { backgroundColor: colors.cardElevated }]} onPress={() => {}}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
             <View style={styles.sheetHead}>

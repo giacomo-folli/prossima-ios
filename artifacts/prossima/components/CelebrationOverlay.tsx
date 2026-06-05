@@ -49,7 +49,7 @@ export function CelebrationOverlay({ visible, durationSeconds, sessionLabel, onD
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <Pressable style={styles.backdrop} onPress={onDismiss}>
-        <Animated.View style={[styles.card, { backgroundColor: colors.card, borderRadius: 24 }, cardStyle]}>
+        <Animated.View style={[styles.card, { backgroundColor: colors.cardElevated, borderRadius: 24 }, cardStyle]}>
           <Text style={[styles.sessionLabel, { color: colors.mutedForeground }]}>
             {sessionLabel.toUpperCase()}
           </Text>

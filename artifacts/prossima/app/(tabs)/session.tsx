@@ -11,6 +11,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GlassView } from 'expo-glass-effect';
 import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/context/ThemeContext';
 import { useTraining } from '@/context/TrainingContext';
@@ -48,12 +49,24 @@ function ExerciseBlock({
   onLogSet: (ex: PlannedExercise) => void;
 }) {
   const colors = useColors();
+  const { resolvedScheme } = useTheme();
   const completed = entries.length;
   const isDone = completed >= exercise.sets;
   const pb = getPersonalBest(exercise.name);
 
   return (
-    <View style={[styles.block, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+    <GlassView
+      colorScheme={resolvedScheme}
+      style={[
+        styles.block,
+        {
+          backgroundColor: colors.card,
+          borderRadius: colors.radius,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+      ]}
+    >
       <View style={styles.blockHeader}>
         <View style={{ flex: 1, gap: 3 }}>
           <Text style={[styles.blockName, { color: isDone ? colors.mutedForeground : colors.foreground }]}>
@@ -98,7 +111,7 @@ function ExerciseBlock({
           ))}
         </View>
       )}
-    </View>
+    </GlassView>
   );
 }
 
@@ -150,9 +163,7 @@ export default function SessionScreen() {
   const botPad = tabBarHeight + insets.bottom;
 
   const isDark = resolvedScheme === 'dark';
-  const gradientColors: [string, string, string] = isDark
-    ? ['#111811', '#162016', '#111811']
-    : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
+  const gradientColors = colors.backgroundGradient;
 
   if (!plan) {
     return (
@@ -170,6 +181,7 @@ export default function SessionScreen() {
         <ScrollView
           contentContainerStyle={[styles.scrollContent, { paddingTop: topPad + 12, paddingBottom: botPad + 80 }]}
           showsVerticalScrollIndicator={false}
+          contentInsetAdjustmentBehavior="never"
         >
           <View style={styles.greetBlock}>
             <Text style={[styles.readyLabel, { color: colors.mutedForeground }]}>NEXT UP</Text>
@@ -179,16 +191,25 @@ export default function SessionScreen() {
 
           <View style={{ marginTop: 8, gap: 8 }}>
             {today?.exercises.map((ex) => (
-              <View
+              <GlassView
                 key={ex.id}
-                style={[styles.previewRow, { backgroundColor: colors.card, borderRadius: colors.radius }]}
+                colorScheme={resolvedScheme}
+                style={[
+                  styles.previewRow,
+                  {
+                    backgroundColor: colors.card,
+                    borderRadius: colors.radius,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  },
+                ]}
               >
                 <View style={[styles.previewDot, { backgroundColor: colors.border }]} />
                 <Text style={[styles.previewName, { color: colors.foreground }]}>{ex.name}</Text>
                 <Text style={[styles.previewSpec, { color: colors.mutedForeground, fontVariant: ['tabular-nums'] }]}>
                   {ex.sets} × {ex.reps}
                 </Text>
-              </View>
+              </GlassView>
             ))}
           </View>
         </ScrollView>
@@ -216,7 +237,18 @@ export default function SessionScreen() {
 
   return (
     <LinearGradient colors={gradientColors} style={styles.root}>
-      <View style={[styles.sessionHead, { paddingTop: topPad + 8, borderBottomColor: colors.separator }]}>
+        <GlassView
+          colorScheme={resolvedScheme}
+          style={[
+            styles.sessionHead,
+            {
+              paddingTop: topPad + 8,
+              borderBottomColor: colors.separator,
+              borderBottomWidth: StyleSheet.hairlineWidth,
+              backgroundColor: colors.card,
+            },
+          ]}
+        >
         <View style={styles.sessionMeta}>
           <Text style={[styles.sessionDayLabel, { color: colors.mutedForeground }]}>
             {activeSession.planName.toUpperCase()}
@@ -233,7 +265,7 @@ export default function SessionScreen() {
             <Ionicons name="close" size={20} color={colors.mutedForeground} />
           </Pressable>
         </View>
-      </View>
+      </GlassView>
 
       <View style={[styles.overallTrack, { backgroundColor: colors.border }]}>
         <View style={[styles.overallFill, { backgroundColor: colors.accent, width: `${overallProg * 100}%` }]} />
@@ -243,6 +275,7 @@ export default function SessionScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={[styles.scrollContent, { paddingTop: 16, paddingBottom: botPad + 80 }]}
         showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
       >
         {activeSession.dayExercises.map((ex) => (
           <ExerciseBlock

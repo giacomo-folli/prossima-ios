@@ -1,7 +1,9 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { GlassView } from 'expo-glass-effect';
 import { useColors } from '@/hooks/useColors';
+import { useTheme } from '@/context/ThemeContext';
 import { PersonalBest } from '@/context/TrainingContext';
 
 interface ExerciseCardProps {
@@ -24,6 +26,7 @@ export function ExerciseCard({
   onPress,
 }: ExerciseCardProps) {
   const colors = useColors();
+  const { resolvedScheme } = useTheme();
   const isDone = completedSets >= sets && sets > 0;
   const hasProgress = completedSets > 0 && !isDone;
   const progress = sets > 0 ? Math.min(completedSets / sets, 1) : 0;
@@ -31,15 +34,22 @@ export function ExerciseCard({
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderRadius: colors.radius,
-          opacity: pressed ? 0.92 : 1,
-        },
-      ]}
+      style={styles.cardPressable}
     >
+      {({ pressed }) => (
+        <GlassView
+          colorScheme={resolvedScheme}
+          style={[
+            styles.card,
+            {
+              backgroundColor: colors.card,
+              borderRadius: colors.radius,
+              borderWidth: 1,
+              borderColor: colors.border,
+              opacity: pressed ? 0.88 : 1,
+            },
+          ]}
+        >
       <View style={styles.inner}>
         <View style={styles.left}>
           <View
@@ -134,13 +144,17 @@ export function ExerciseCard({
           />
         </View>
       )}
+        </GlassView>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardPressable: {
     marginBottom: 8,
+  },
+  card: {
     overflow: 'hidden',
   },
   inner: {

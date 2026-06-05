@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { GlassView } from 'expo-glass-effect';
 import { useColors } from '@/hooks/useColors';
 import { useTheme } from '@/context/ThemeContext';
 import { useTraining } from '@/context/TrainingContext';
@@ -72,9 +73,7 @@ export default function HomeScreen() {
   const ctaBottom = tabBarHeight + insets.bottom;
 
   const isDark = resolvedScheme === 'dark';
-  const gradientColors: [string, string, string] = isDark
-    ? ['#111811', '#162016', '#111811']
-    : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
+  const gradientColors = colors.backgroundGradient;
 
   const volDisplay =
     totalVolume >= 1000
@@ -95,6 +94,7 @@ export default function HomeScreen() {
           { paddingTop: topPadding + 12, paddingBottom: ctaBottom + 88 },
         ]}
         showsVerticalScrollIndicator={false}
+        contentInsetAdjustmentBehavior="never"
       >
         {/* ── Header ── */}
         <View style={styles.headerSection}>
@@ -132,7 +132,10 @@ export default function HomeScreen() {
           )}
         </View>
 
-        <View style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+        <GlassView
+          colorScheme={resolvedScheme}
+          style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+        >
           <View style={styles.ringsRow}>
             <RingChart
               progress={Math.min(thisMonth / MONTH_GOAL, 1)}
@@ -164,7 +167,7 @@ export default function HomeScreen() {
               color={colors.accent}
             />
           </View>
-        </View>
+        </GlassView>
 
         {/* ── Today's plan ── */}
         {!plan ? (
@@ -172,7 +175,10 @@ export default function HomeScreen() {
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>TODAY'S PLAN</Text>
             </View>
-            <View style={[styles.emptyCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+            <GlassView
+              colorScheme={resolvedScheme}
+              style={[styles.emptyCard, { backgroundColor: colors.card, borderRadius: colors.radius, borderWidth: 1, borderColor: colors.border }]}
+            >
               <Ionicons name="leaf-outline" size={28} color={colors.mutedForeground} />
               <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No training plan</Text>
               <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
@@ -189,7 +195,7 @@ export default function HomeScreen() {
                   Open Settings
                 </Text>
               </Pressable>
-            </View>
+            </GlassView>
           </>
         ) : (
           <>
