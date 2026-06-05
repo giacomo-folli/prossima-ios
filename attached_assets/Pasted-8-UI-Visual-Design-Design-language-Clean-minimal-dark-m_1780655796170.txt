@@ -1,0 +1,99 @@
+8. UI / Visual Design
+
+Design language: Clean, minimal, dark-mode-first. Inspired by Apple Fitness++ stripped of complexity.
+
+
+    Colours: System background, system grouped background, accent colour [Color.blue](https://color.blue/) (overridable). Use semantic colours only — no hard-coded hex.
+
+    Typography: SF Pro (system font). Large bold titles for section headers. Monospaced for numbers (reps, weight, timer).
+
+    Spacing: 16pt horizontal padding throughout. 12pt vertical card spacing.
+
+    Cards: Rounded rectangle background (.background(.ultraThinMaterial)), corner radius 16, subtle shadow.
+
+    Buttons: Prominent CTA buttons use full-width .buttonStyle(.borderedProminent). Secondary actions use .buttonStyle(.bordered).
+
+    Animations: Use .animation(.spring(), value:) for list transitions, progress bar fill, and set completion. Keep subtle — no gratuitous motion.
+
+    Accessibility: All interactive elements have .accessibilityLabel. Minimum tap target 44×44pt. Support Dynamic Type.
+
+
+9. Guiding Principles (from Original Project)
+
+Implement these product principles explicitly in the UX:
+
+
+    Less is more — every screen should have one clear primary action.
+
+    No streaks — never show a streak counter. Streaks turn motivation into obligation.
+
+    Random rewards — session completion celebration is shown randomly (not every time).
+
+    Close open loops — always show a clear way to complete a started action (Gestalt's principle). If a session is in progress and the app is backgrounded, show a persistent notification: "Your session is in progress — finish it up."
+
+    Micro-competition — optionally display a "personal best" badge on the exercise detail if today's set beat their record. Keep it subtle (not a banner, just a small ⭐ next to the value).
+
+
+10. iOS-Specific Integrations
+
+FeatureImplementation
+Widgets
+A small home screen widget (WidgetKit) showing today's exercise count and a "Start" deep link. Target: WidgetFamily.systemSmall.
+Notifications
+A local notification at a user-set time: "Ready for today's session?" Uses UNUserNotificationCenter. Configurable in Settings.
+Health app
+Write workout sessions to HealthKit as HKWorkout (category: .traditionalStrengthTraining). Request .share authorization for HKWorkoutType.
+Haptics
+Use UIImpactFeedbackGenerator(.medium) on set log, .success on session complete.
+Background sync
+Use BGAppRefreshTask to silently sync with Supabase when the app is in the background (if authenticated).
+iCloud backup
+SwiftData's ModelContainer should be configured with cloudKitDatabase: .automatic as a secondary persistence layer (works alongside Supabase sync).
+
+
+
+    Analytics Service
+
+    Project Configuration
+
+
+
+    Bundle ID: com.giacomofolli.prossima
+
+    Capabilities to enable in Xcode: HealthKit, Push Notifications, Background Modes (Background fetch, Remote notifications), iCloud (CloudKit).
+
+    Info.plist keys required:
+
+    NSHealthShareUsageDescription
+
+    NSHealthUpdateUsageDescription
+
+    NSUserNotificationsUsageDescription
+
+    SUPABASE_URL (from .xcconfig)
+
+    SUPABASE_ANON_KEY (from .xcconfig)
+
+
+
+
+    What NOT to Build (v1 Scope)
+
+
+
+    Social features (sharing, following other users)
+
+    In-app exercise library / exercise search
+
+    Video demonstrations
+
+    Subscription / paywall
+
+    Apple Watch companion app (future)
+
+    Multiple concurrent training plans
+
+    Custom exercise creation UI (exercises are auto-created from YAML plan on first session)
+
+
+
