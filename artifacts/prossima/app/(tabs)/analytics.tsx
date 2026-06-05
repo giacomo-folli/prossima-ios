@@ -34,12 +34,20 @@ function SessionRow({ session }: { session: Session }) {
 				styles.sessionRow,
 				{
 					backgroundColor: colors.card,
-					borderRadius: colors.radius,
+					borderRadius: 20,
 					borderColor: colors.border,
 				},
 			]}
 		>
-			<View style={{ flex: 1, gap: 3 }}>
+			<View
+				style={[
+					styles.sessionIconWrap,
+					{ backgroundColor: "rgba(94, 92, 230, 0.1)" },
+				]}
+			>
+				<Ionicons name="barbell" size={20} color="#5E5CE6" />
+			</View>
+			<View style={{ flex: 1, gap: 2 }}>
 				<Text style={[styles.sessionDay, { color: colors.foreground }]}>
 					{session.dayLabel}
 				</Text>
@@ -177,12 +185,12 @@ export default function AnalyticsScreen() {
 					styles.ringsCard,
 					{
 						backgroundColor: colors.card,
-						borderRadius: colors.radius,
+						borderRadius: 20,
 						borderColor: colors.border,
 					},
 				]}
 			>
-				<Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+				<Text style={[styles.sectionLabel, { color: colors.foreground }]}>
 					THIS MONTH
 				</Text>
 				<View style={styles.ringsRow}>
@@ -231,12 +239,12 @@ export default function AnalyticsScreen() {
 					styles.section,
 					{
 						backgroundColor: colors.card,
-						borderRadius: colors.radius,
+						borderRadius: 20,
 						borderColor: colors.border,
 					},
 				]}
 			>
-				<Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+				<Text style={[styles.sectionLabel, { color: colors.foreground }]}>
 					SESSIONS / WEEK
 				</Text>
 				<BarChart data={weeklyData} height={72} />
@@ -249,14 +257,12 @@ export default function AnalyticsScreen() {
 						styles.section,
 						{
 							backgroundColor: colors.card,
-							borderRadius: colors.radius,
+							borderRadius: 20,
 							borderColor: colors.border,
 						},
 					]}
 				>
-					<Text
-						style={[styles.sectionLabel, { color: colors.mutedForeground }]}
-					>
+					<Text style={[styles.sectionLabel, { color: colors.foreground }]}>
 						BEST LIFTS
 					</Text>
 					{bestLifts.map(({ name, pb }) => (
@@ -273,7 +279,7 @@ export default function AnalyticsScreen() {
 							<View
 								style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
 							>
-								<Ionicons name="star" size={10} color={colors.accent} />
+								<Ionicons name="star" size={14} color="#FFD700" />
 								<Text
 									style={[
 										styles.pbVal,
@@ -318,12 +324,13 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		textAlign: "center",
 	},
-	content: { paddingHorizontal: 20, gap: 12 },
+	content: { paddingHorizontal: 20, gap: 14 },
 	screenTitle: {
-		fontSize: 36,
-		fontWeight: "300",
+		fontSize: 32,
+		fontWeight: "700",
 		letterSpacing: -0.5,
-		marginBottom: 8,
+		lineHeight: 36,
+		marginBottom: 4,
 	},
 	ringsCard: { padding: 20, gap: 20 },
 	ringsRow: {
@@ -333,38 +340,50 @@ const styles = StyleSheet.create({
 	},
 	ringDivider: { width: StyleSheet.hairlineWidth, height: 64 },
 	totalLine: {
-		fontSize: 11,
+		fontSize: 12,
 		textAlign: "center",
 		marginTop: -4,
 	},
 	section: { padding: 16, gap: 14 },
 	sectionLabel: {
-		fontSize: 10,
-		letterSpacing: 2,
+		fontSize: 12,
+		fontWeight: "600",
+		letterSpacing: 1.2,
+		marginBottom: 4,
 	},
 	pbRow: {
 		flexDirection: "row",
 		alignItems: "center",
 		justifyContent: "space-between",
-		paddingVertical: 10,
+		paddingVertical: 12,
 		borderBottomWidth: StyleSheet.hairlineWidth,
 	},
-	pbName: { fontSize: 14, flex: 1 },
-	pbVal: { fontSize: 14, fontWeight: "600", },
+	pbName: { fontSize: 15, flex: 1, fontWeight: "500" },
+	pbVal: { fontSize: 15, fontWeight: "600" },
 	sectionHeader: {
-		fontSize: 22,
-		fontWeight: "300",
+		fontSize: 20,
+		fontWeight: "600",
 		letterSpacing: -0.3,
-		marginTop: 4,
+		marginTop: 8,
+		marginBottom: 4,
 	},
-	sessionRow: { padding: 14, marginBottom: 8 },
+	sessionRow: { padding: 16, marginBottom: 4, flexDirection: "row", alignItems: "center" },
+	sessionIconWrap: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		justifyContent: "center",
+		alignItems: "center",
+		marginRight: 14,
+	},
 	sessionDay: {
-		fontSize: 15,
+		fontSize: 16,
 		fontWeight: "600",
 	},
 	sessionMeta: {
-		fontSize: 12,
+		fontSize: 13,
 		fontVariant: ["tabular-nums"],
 	},
-	sessionEx: { fontSize: 11, marginTop: 1 },
+	sessionEx: { fontSize: 12, marginTop: 2 },
 });
+

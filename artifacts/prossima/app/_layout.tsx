@@ -11,6 +11,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { TrainingProvider } from '@/context/TrainingContext';
 import { SessionProvider } from '@/context/SessionContext';
+import { HealthProvider } from '@/context/HealthContext';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -42,7 +43,9 @@ export default function RootLayout() {
               <ThemeProvider>
                 <TrainingProvider>
                   <SessionProvider>
-                    <RootLayoutNav />
+                    <HealthProvider>
+                      <RootLayoutNav />
+                    </HealthProvider>
                   </SessionProvider>
                 </TrainingProvider>
               </ThemeProvider>

@@ -7,6 +7,7 @@ import {
 	StyleSheet,
 	Text,
 	View,
+	RefreshControl,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -17,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { useTraining } from "@/context/TrainingContext";
 import { useSession } from "@/context/SessionContext";
+import { useHealth } from "@/context/HealthContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
 
 function getGreeting() {
@@ -39,6 +41,14 @@ export default function HomeScreen() {
 	const insets = useSafeAreaInsets();
 	const { plan, currentDayIndex, loading } = useTraining();
 	const { activeSession, startSession } = useSession();
+	const { isConnected, stats, loading: healthLoading, requestPermissions, syncData } = useHealth();
+	const [refreshing, setRefreshing] = React.useState(false);
+
+	const onRefresh = React.useCallback(async () => {
+		setRefreshing(true);
+		await syncData();
+		setRefreshing(false);
+	}, [syncData]);
 
 	const today = plan?.days[currentDayIndex % plan.days.length] ?? null;
 
@@ -77,7 +87,7 @@ export default function HomeScreen() {
 		);
 	};
 
-	const topPadding = Platform.OS === "web" ? 84 : Math.max(insets.top, 47) + 16;
+	const topPadding = Platform.OS === "web" ? 20 : insets.top;
 	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
 	const bottomPadding = tabBarHeight + insets.bottom + 16;
 
@@ -97,6 +107,13 @@ export default function HomeScreen() {
 			]}
 			showsVerticalScrollIndicator={false}
 			contentInsetAdjustmentBehavior="never"
+			refreshControl={
+				<RefreshControl
+					refreshing={refreshing}
+					onRefresh={onRefresh}
+					tintColor={colors.foreground}
+				/>
+			}
 		>
 			{/* ── Header ── */}
 			<View style={styles.headerSection}>
@@ -140,16 +157,30 @@ export default function HomeScreen() {
 				</View>
 			</View>
 
+			{/* Apple Health Connection Alert */}
+			{!isConnected && !healthLoading && (
+				<Pressable onPress={requestPermissions} style={styles.healthAlertCard}>
+					<GlassView colorScheme={resolvedScheme} style={[styles.healthAlertGlass, { borderColor: colors.border }]}>
+						<Ionicons name="heart" size={20} color="#FF2D55" style={{ marginRight: 12 }} />
+						<View style={{ flex: 1 }}>
+							<Text style={[styles.healthAlertTitle, { color: colors.foreground }]}>Connect Apple Health</Text>
+							<Text style={[styles.healthAlertDesc, { color: colors.mutedForeground }]}>Tap to sync calories, steps, and activity</Text>
+						</View>
+						<Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+					</GlassView>
+				</Pressable>
+			)}
+
 			<View style={styles.chartWrapper}>
 				<ConcentricRingChart
-					stepsProgress={12482 / 15000}
-					calProgress={410 / 550}
-					activeProgress={45 / 60}
-					stepsValue="12,482"
+					stepsProgress={stats.steps / 15000}
+					calProgress={stats.calories / 550}
+					activeProgress={stats.activityTime / 60}
+					stepsValue={stats.steps.toLocaleString()}
 					stepsGoal="15,000"
-					calValue="410"
+					calValue={stats.calories.toString()}
 					calGoal="550"
-					activeValue="45m"
+					activeValue={`${stats.activityTime}m`}
 					activeGoal="60m"
 					size={240}
 				/>
@@ -342,6 +373,23 @@ const styles = StyleSheet.create({
 		textTransform: "none",
 		letterSpacing: 0.2,
 		marginBottom: 4,
+	},
+	healthAlertCard: {
+		marginBottom: 4,
+	},
+	healthAlertGlass: {
+		flexDirection: "row",
+		alignItems: "center",
+		padding: 14,
+		borderRadius: 14
+	},
+	healthAlertTitle: {
+		fontSize: 15,
+		fontWeight: "600",
+	},
+	healthAlertDesc: {
+		fontSize: 13,
+		marginTop: 2,
 	},
 	greeting: {
 		fontSize: 32,

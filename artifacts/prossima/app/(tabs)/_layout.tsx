@@ -19,10 +19,7 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'waveform.path.ecg', selected: 'waveform.path.ecg' }} />
         <Label>Activity</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="quicklog">
-        <Icon sf={{ default: 'plus.circle', selected: 'plus.circle.fill' }} />
-        <Label>(Quick Log)</Label>
-      </NativeTabs.Trigger>
+
       <NativeTabs.Trigger name="analytics">
         <Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />
         <Label>Trends</Label>
@@ -60,11 +57,7 @@ function ClassicTabLayout() {
         sfName = 'waveform.path.ecg';
         featherName = 'activity';
         break;
-      case 'quicklog':
-        sfName = focused ? 'plus.circle.fill' : 'plus.circle';
-        featherName = 'plus-circle';
-        size = 22;
-        break;
+
       case 'analytics':
         sfName = focused ? 'chart.bar.fill' : 'chart.bar';
         featherName = 'bar-chart-2';
@@ -131,13 +124,7 @@ function ClassicTabLayout() {
           tabBarIcon: ({ color, focused }) => renderTabIcon('session', focused, color),
         }}
       />
-      <Tabs.Screen
-        name="quicklog"
-        options={{
-          title: '(Quick Log)',
-          tabBarIcon: ({ color, focused }) => renderTabIcon('quicklog', focused, color),
-        }}
-      />
+
       <Tabs.Screen
         name="analytics"
         options={{

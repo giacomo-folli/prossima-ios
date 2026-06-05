@@ -18,6 +18,7 @@ import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
 import { useTheme, ThemePreference } from "@/context/ThemeContext";
 import { useTraining, DEFAULT_YAML } from "@/context/TrainingContext";
+import { useHealth } from "@/context/HealthContext";
 
 const THEME_OPTIONS: { value: ThemePreference; label: string; icon: string }[] =
 	[
@@ -165,6 +166,7 @@ export default function SettingsScreen() {
 	const { preference, setPreference } = useTheme();
 	const { yamlSource, loadPlan, parseError, plan, resetAllData, sessions } =
 		useTraining();
+	const { isConnected, requestPermissions } = useHealth();
 
 	const [yamlModalVisible, setYamlModalVisible] = useState(false);
 	const [yamlDraft, setYamlDraft] = useState(yamlSource);
@@ -340,6 +342,29 @@ export default function SettingsScreen() {
 					label="Reset to Default Plan"
 					onPress={handleResetYaml}
 					isLast={true}
+				/>
+			</SettingSection>
+
+			{/* Integrations Section */}
+			<SettingSection label="INTEGRATIONS">
+				<SettingRow
+					icon="heart"
+					iconBg="#FF2D55"
+					label="Apple Health"
+					sublabel={
+						isConnected
+							? "Connected"
+							: "Sync calories, steps, and activity"
+					}
+					isLast={true}
+					rightContent={
+						isConnected ? (
+							<Text style={{ color: colors.success, fontSize: 14, fontWeight: "500" }}>
+								Connected
+							</Text>
+						) : undefined
+					}
+					onPress={isConnected ? undefined : requestPermissions}
 				/>
 			</SettingSection>
 

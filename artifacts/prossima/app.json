@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.giacomofolli.prossima"
+      "bundleIdentifier": "com.giacomofolli.prossima",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.giacomofolli.prossima"
@@ -31,11 +34,24 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "react-native-health",
+        {
+          "NSHealthShareUsageDescription": "We need access to your health data to track your steps, active energy, and workout duration.",
+          "NSHealthUpdateUsageDescription": "We need access to your health data to save workouts securely to Apple Health."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "35fe234c-d40b-4f9c-ac03-74b52d4e15ba"
+      }
+    },
+    "owner": "seceda"
   }
 }
