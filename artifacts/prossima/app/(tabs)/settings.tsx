@@ -166,7 +166,18 @@ export default function SettingsScreen() {
 	const { preference, setPreference } = useTheme();
 	const { yamlSource, loadPlan, parseError, plan, resetAllData, sessions } =
 		useTraining();
-	const { isConnected, requestPermissions } = useHealth();
+	const { isConnected, requestPermissions, disconnect } = useHealth();
+
+	const handleDisconnectHealth = () => {
+		Alert.alert(
+			"Disconnect Apple Health",
+			"Are you sure you want to disconnect? We won't be able to sync your fitness data.",
+			[
+				{ text: "Cancel", style: "cancel" },
+				{ text: "Disconnect", style: "destructive", onPress: disconnect },
+			]
+		);
+	};
 
 	const [yamlModalVisible, setYamlModalVisible] = useState(false);
 	const [yamlDraft, setYamlDraft] = useState(yamlSource);
@@ -364,7 +375,7 @@ export default function SettingsScreen() {
 							</Text>
 						) : undefined
 					}
-					onPress={isConnected ? undefined : requestPermissions}
+					onPress={isConnected ? handleDisconnectHealth : requestPermissions}
 				/>
 			</SettingSection>
 

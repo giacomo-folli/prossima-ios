@@ -17,6 +17,7 @@ interface HealthContextType {
   loading: boolean;
   requestPermissions: () => Promise<void>;
   syncData: () => Promise<void>;
+  disconnect: () => Promise<void>;
 }
 
 const HealthContext = createContext<HealthContextType | null>(null);
@@ -116,13 +117,10 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
 
   const requestPermissions = useCallback(async () => {
     if (Platform.OS !== 'ios' || !AppleHealthKit.initHealthKit) {
-      // On non-iOS or Expo Go, mock the successful connection
       Alert.alert(
-        'Apple Health Not Available',
-        'Apple Health requires a custom iOS build. We will simulate a connected state for testing.'
+        'Connection Failed',
+        'Apple Health is only available on iOS devices.'
       );
-      await AsyncStorage.setItem(HEALTH_CONNECTED_KEY, 'true');
-      setIsConnected(true);
       return;
     }
 
@@ -138,20 +136,41 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
     };
 
     return new Promise<void>((resolve, reject) => {
-      AppleHealthKit.initHealthKit(permissions, async (err: any, results: any) => {
-        if (err) {
-          console.error('Error initializing HealthKit: ', err);
-          Alert.alert('Permission Denied', 'Could not connect to Apple Health.');
-          reject(err);
-          return;
-        }
+      try {
+        AppleHealthKit.initHealthKit(permissions, async (err: any, results: any) => {
+          if (err) {
+            const errorMsg = typeof err === 'string' ? err : err?.message || 'Unknown error occurred while connecting to Apple Health.';
+            console.error('Error initializing HealthKit: ', err);
+            Alert.alert('Connection Failed', `Could not connect to Apple Health: ${errorMsg}`);
+            reject(err);
+            return;
+          }
 
-        // According to Apple's UX, if init doesn't throw, we assume we can proceed
-        await AsyncStorage.setItem(HEALTH_CONNECTED_KEY, 'true');
-        setIsConnected(true);
-        resolve();
-      });
+          // According to Apple's UX, if init doesn't throw, we assume we can proceed
+          await AsyncStorage.setItem(HEALTH_CONNECTED_KEY, 'true');
+          setIsConnected(true);
+          resolve();
+        });
+      } catch (e: any) {
+        const errorMsg = e?.message || 'An unexpected error occurred.';
+        Alert.alert('Connection Failed', `Could not connect to Apple Health: ${errorMsg}`);
+        reject(e);
+      }
     });
+  }, []);
+
+  const disconnect = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(HEALTH_CONNECTED_KEY);
+      setIsConnected(false);
+      setStats({
+        steps: 0,
+        calories: 0,
+        activityTime: 0,
+      });
+    } catch (e) {
+      console.error('Error disconnecting health', e);
+    }
   }, []);
 
   return (
@@ -162,6 +181,7 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
         loading,
         requestPermissions,
         syncData,
+        disconnect,
       }}
     >
       {children}

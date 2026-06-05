@@ -24,10 +24,7 @@ function NativeTabLayout() {
         <Icon sf={{ default: 'chart.bar', selected: 'chart.bar.fill' }} />
         <Label>Trends</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="settings">
-        <Icon sf={{ default: 'person.crop.circle', selected: 'person.crop.circle.fill' }} />
-        <Label>Profile</Label>
-      </NativeTabs.Trigger>
+
     </NativeTabs>
   );
 }
@@ -136,6 +133,7 @@ function ClassicTabLayout() {
         name="settings"
         options={{
           title: 'Profile',
+          href: null,
           tabBarIcon: ({ color, focused }) => renderTabIcon('settings', focused, color),
         }}
       />

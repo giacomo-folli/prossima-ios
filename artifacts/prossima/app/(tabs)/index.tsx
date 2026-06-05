@@ -151,9 +151,11 @@ export default function HomeScreen() {
 							<Text style={styles.liveChipText}>Live</Text>
 						</Pressable>
 					)}
-					<View style={[styles.avatarCircle, { backgroundColor: "#8E7355" }]}>
-						<Text style={styles.avatarLetter}>M</Text>
-					</View>
+					<Pressable onPress={() => router.navigate("/(tabs)/settings")}>
+						<View style={[styles.avatarCircle, { backgroundColor: "#8E7355" }]}>
+							<Text style={styles.avatarLetter}>M</Text>
+						</View>
+					</Pressable>
 				</View>
 			</View>
 
