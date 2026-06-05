@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "Prossima"
+version = "1.0.0"
+id = "artifacts/prossima"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 22478
+
+[services.development]
+run = "pnpm --filter @workspace/prossima run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/prossima", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/prossima", "run", "serve" ]
+
+[services.env]
+PORT = "22478"
+BASE_PATH = "/"
