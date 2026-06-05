@@ -26,8 +26,8 @@ export function BarChart({ data, height = 72, showLabels = true }: BarChartProps
                     styles.bar,
                     {
                       height: Math.max(barH, item.value > 0 ? 3 : 0),
-                      backgroundColor: isTop ? colors.primary : colors.primary + '44',
-                      borderRadius: 3,
+                      backgroundColor: isTop ? colors.accent : colors.border,
+                      borderRadius: 6,
                     },
                   ]}
                 />
@@ -47,8 +47,8 @@ export function BarChart({ data, height = 72, showLabels = true }: BarChartProps
 
 const styles = StyleSheet.create({
   container: { width: '100%' },
-  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 3 },
-  barWrap: { flex: 1, alignItems: 'center', gap: 5 },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
+  barWrap: { flex: 1, alignItems: 'center', gap: 6 },
   track: { width: '100%', justifyContent: 'flex-end' },
   bar: { width: '100%' },
   label: { fontSize: 9, fontFamily: 'Inter_400Regular', textAlign: 'center', letterSpacing: 0.2 },

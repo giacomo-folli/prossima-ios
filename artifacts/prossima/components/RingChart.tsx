@@ -17,7 +17,7 @@ interface RingChartProps {
 export function RingChart({
   progress,
   size = 80,
-  strokeWidth = 7,
+  strokeWidth = 6,
   color,
   trackColor,
   label,
@@ -25,7 +25,7 @@ export function RingChart({
   sublabel,
 }: RingChartProps) {
   const colors = useColors();
-  const c = color ?? colors.primary;
+  const c = color ?? colors.accent;
   const t = trackColor ?? colors.border;
 
   const r = (size - strokeWidth) / 2;
@@ -38,21 +38,10 @@ export function RingChart({
     <View style={styles.wrap}>
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+          <Circle cx={center} cy={center} r={r} stroke={t} strokeWidth={strokeWidth} fill="none" />
           <Circle
-            cx={center}
-            cy={center}
-            r={r}
-            stroke={t}
-            strokeWidth={strokeWidth}
-            fill="none"
-          />
-          <Circle
-            cx={center}
-            cy={center}
-            r={r}
-            stroke={c}
-            strokeWidth={strokeWidth}
-            fill="none"
+            cx={center} cy={center} r={r}
+            stroke={c} strokeWidth={strokeWidth} fill="none"
             strokeDasharray={`${circumference} ${circumference}`}
             strokeDashoffset={dashOffset}
             strokeLinecap="round"
@@ -77,7 +66,7 @@ export function RingChart({
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: 8 },
   center: { alignItems: 'center', justifyContent: 'center' },
-  value: { fontSize: 17, fontWeight: '700', fontFamily: 'Inter_700Bold', lineHeight: 19 },
+  value: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold', lineHeight: 18 },
   sublabel: { fontSize: 9, fontFamily: 'Inter_400Regular', marginTop: 1 },
   label: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 1, textTransform: 'uppercase' },
 });

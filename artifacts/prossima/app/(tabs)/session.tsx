@@ -8,9 +8,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
+import { useTheme } from '@/context/ThemeContext';
 import { useTraining } from '@/context/TrainingContext';
 import { useSession } from '@/context/SessionContext';
 import { SetLogModal } from '@/components/SetLogModal';
@@ -38,10 +40,7 @@ function formatElapsed(s: number) {
 }
 
 function ExerciseBlock({
-  exercise,
-  entries,
-  getPersonalBest,
-  onLogSet,
+  exercise, entries, getPersonalBest, onLogSet,
 }: {
   exercise: PlannedExercise;
   entries: SessionEntry[];
@@ -54,28 +53,19 @@ function ExerciseBlock({
   const pb = getPersonalBest(exercise.name);
 
   return (
-    <View
-      style={[
-        styles.block,
-        {
-          backgroundColor: colors.card,
-          borderRadius: colors.radius,
-          borderLeftColor: isDone ? colors.primary : colors.border,
-        },
-      ]}
-    >
+    <View style={[styles.block, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
       <View style={styles.blockHeader}>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, gap: 3 }}>
           <Text style={[styles.blockName, { color: isDone ? colors.mutedForeground : colors.foreground }]}>
             {exercise.name}
           </Text>
           <Text style={[styles.blockSpec, { color: colors.mutedForeground }]}>
-            {exercise.sets} × {exercise.reps}
+            {exercise.sets} sets · {exercise.reps} reps
             {pb ? `  ·  PB ${pb.weightKg}kg×${pb.reps}` : ''}
           </Text>
         </View>
         {isDone ? (
-          <View style={[styles.doneIcon, { backgroundColor: colors.primary }]}>
+          <View style={[styles.doneIcon, { backgroundColor: colors.primary, borderRadius: 13 }]}>
             <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />
           </View>
         ) : (
@@ -83,11 +73,7 @@ function ExerciseBlock({
             onPress={() => onLogSet(exercise)}
             style={({ pressed }) => [
               styles.logBtn,
-              {
-                backgroundColor: colors.primary,
-                borderRadius: 8,
-                opacity: pressed ? 0.8 : 1,
-              },
+              { backgroundColor: colors.primary, borderRadius: 50, opacity: pressed ? 0.8 : 1 },
             ]}
           >
             <Text style={[styles.logBtnText, { color: colors.primaryForeground }]}>
@@ -102,24 +88,11 @@ function ExerciseBlock({
           {entries.map((e) => (
             <View
               key={e.id}
-              style={[
-                styles.chip,
-                {
-                  backgroundColor: colors.primary + '20',
-                  borderColor: e.personalBest ? colors.primary : 'transparent',
-                  borderWidth: e.personalBest ? 1 : 0,
-                },
-              ]}
+              style={[styles.chip, { backgroundColor: colors.secondary, borderRadius: 20 }]}
             >
-              {e.personalBest && <Ionicons name="star" size={9} color={colors.primary} />}
-              <Text
-                style={[
-                  styles.chipText,
-                  { color: colors.foreground, fontVariant: ['tabular-nums'] },
-                ]}
-              >
-                {e.weightKg ? `${e.weightKg}` : '—'}
-                {e.reps ? ` × ${e.reps}` : ''}
+              {e.personalBest && <Ionicons name="star" size={9} color={colors.accent} />}
+              <Text style={[styles.chipText, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
+                {e.weightKg ? `${e.weightKg}` : '—'}{e.reps ? ` × ${e.reps}` : ''}
               </Text>
             </View>
           ))}
@@ -133,6 +106,7 @@ interface LogState { exercise: PlannedExercise; setNumber: number; }
 
 export default function SessionScreen() {
   const colors = useColors();
+  const { resolvedScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const { plan, currentDayIndex, getPersonalBest } = useTraining();
   const {
@@ -175,36 +149,41 @@ export default function SessionScreen() {
   const tabBarHeight = Platform.OS === 'web' ? 84 : 49;
   const botPad = tabBarHeight + insets.bottom;
 
+  const isDark = resolvedScheme === 'dark';
+  const gradientColors: [string, string, string] = isDark
+    ? ['#111811', '#162016', '#111811']
+    : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
+
   if (!plan) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: topPad }]}>
-        <Ionicons name="document-text-outline" size={36} color={colors.mutedForeground} />
+      <LinearGradient colors={gradientColors} style={[styles.center, { paddingTop: topPad }]}>
+        <Ionicons name="leaf-outline" size={36} color={colors.mutedForeground} />
         <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No plan configured</Text>
         <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>Go to Settings to add one.</Text>
-      </View>
+      </LinearGradient>
     );
   }
 
   if (!activeSession) {
     return (
-      <View style={[styles.root, { backgroundColor: colors.background }]}>
+      <LinearGradient colors={gradientColors} style={styles.root}>
         <ScrollView
-          contentContainerStyle={[styles.scrollContent, { paddingTop: topPad + 24, paddingBottom: botPad + 72 }]}
+          contentContainerStyle={[styles.scrollContent, { paddingTop: topPad + 28, paddingBottom: botPad + 80 }]}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={[styles.readyLabel, { color: colors.mutedForeground }]}>NEXT UP</Text>
-          <Text style={[styles.readyDay, { color: colors.foreground }]}>{today?.label}</Text>
-          <Text style={[styles.readyPlan, { color: colors.mutedForeground }]}>{plan.name}</Text>
+          <View style={styles.greetBlock}>
+            <Text style={[styles.readyLabel, { color: colors.mutedForeground }]}>NEXT UP</Text>
+            <Text style={[styles.readyDay, { color: colors.foreground }]}>{today?.label}</Text>
+            <Text style={[styles.readyPlan, { color: colors.mutedForeground }]}>{plan.name}</Text>
+          </View>
 
-          <View style={{ marginTop: 28, gap: 6 }}>
+          <View style={{ marginTop: 8, gap: 8 }}>
             {today?.exercises.map((ex) => (
               <View
                 key={ex.id}
-                style={[
-                  styles.previewRow,
-                  { backgroundColor: colors.card, borderRadius: colors.radius, borderLeftColor: colors.border },
-                ]}
+                style={[styles.previewRow, { backgroundColor: colors.card, borderRadius: colors.radius }]}
               >
+                <View style={[styles.previewDot, { backgroundColor: colors.border }]} />
                 <Text style={[styles.previewName, { color: colors.foreground }]}>{ex.name}</Text>
                 <Text style={[styles.previewSpec, { color: colors.mutedForeground, fontVariant: ['tabular-nums'] }]}>
                   {ex.sets} × {ex.reps}
@@ -214,15 +193,20 @@ export default function SessionScreen() {
           </View>
         </ScrollView>
 
-        <View style={[styles.bottomBar, { bottom: botPad, paddingBottom: 16, backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+        <View style={[styles.bottomBar, { bottom: botPad, paddingBottom: 16 }]}>
           <Pressable
             onPress={() => { if (today && plan) startSession(plan.name, today.label, today.exercises); }}
-            style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.85 : 1 }]}
+            style={({ pressed }) => [
+              styles.pillBtn,
+              { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1 },
+            ]}
           >
-            <Text style={[styles.startBtnText, { color: colors.primaryForeground }]}>Begin {today?.label}</Text>
+            <Text style={[styles.pillBtnText, { color: colors.primaryForeground }]}>
+              Begin {today?.label}
+            </Text>
           </Pressable>
         </View>
-      </View>
+      </LinearGradient>
     );
   }
 
@@ -231,8 +215,7 @@ export default function SessionScreen() {
   const overallProg = totalSets > 0 ? doneSets / totalSets : 0;
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.background }]}>
-      {/* Session header */}
+    <LinearGradient colors={gradientColors} style={styles.root}>
       <View style={[styles.sessionHead, { paddingTop: topPad + 8, borderBottomColor: colors.separator }]}>
         <View style={styles.sessionMeta}>
           <Text style={[styles.sessionDayLabel, { color: colors.mutedForeground }]}>
@@ -243,23 +226,22 @@ export default function SessionScreen() {
           </Text>
         </View>
         <View style={styles.timerBlock}>
-          <Text style={[styles.timerText, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
+          <Text style={[styles.timerText, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
             {formatElapsed(elapsed)}
           </Text>
-          <Pressable onPress={handleCancel} hitSlop={12} style={styles.cancelBtn}>
+          <Pressable onPress={handleCancel} hitSlop={12}>
             <Ionicons name="close" size={20} color={colors.mutedForeground} />
           </Pressable>
         </View>
       </View>
 
-      {/* Progress bar */}
       <View style={[styles.overallTrack, { backgroundColor: colors.border }]}>
-        <View style={[styles.overallFill, { backgroundColor: colors.primary, width: `${overallProg * 100}%` }]} />
+        <View style={[styles.overallFill, { backgroundColor: colors.accent, width: `${overallProg * 100}%` }]} />
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={[styles.scrollContent, { paddingTop: 16, paddingBottom: botPad + 72 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: 16, paddingBottom: botPad + 80 }]}
         showsVerticalScrollIndicator={false}
       >
         {activeSession.dayExercises.map((ex) => (
@@ -273,13 +255,20 @@ export default function SessionScreen() {
         ))}
       </ScrollView>
 
-      <View style={[styles.bottomBar, { bottom: botPad, paddingBottom: 16, backgroundColor: colors.background, borderTopColor: colors.separator }]}>
+      <View style={[styles.bottomBar, { bottom: botPad, paddingBottom: 16 }]}>
         <Pressable
           onPress={handleComplete}
-          style={({ pressed }) => [styles.startBtn, { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.85 : 1 }]}
+          style={({ pressed }) => [
+            styles.pillBtn,
+            { backgroundColor: colors.primary, opacity: pressed ? 0.88 : 1 },
+          ]}
         >
-          <Ionicons name="checkmark" size={18} color={colors.primaryForeground} />
-          <Text style={[styles.startBtnText, { color: colors.primaryForeground }]}>Finish Session</Text>
+          <View style={styles.finishRow}>
+            <Ionicons name="checkmark" size={16} color={colors.primaryForeground} />
+            <Text style={[styles.pillBtnText, { color: colors.primaryForeground }]}>
+              Finish Session
+            </Text>
+          </View>
         </Pressable>
       </View>
 
@@ -313,7 +302,7 @@ export default function SessionScreen() {
           onDismiss={() => { setCelebrated(false); setCelebData(null); }}
         />
       )}
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -323,18 +312,19 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 20, fontWeight: '600', fontFamily: 'Inter_600SemiBold', textAlign: 'center' },
   emptyBody: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
   scrollContent: { paddingHorizontal: 20 },
-  readyLabel: { fontSize: 11, fontFamily: 'Inter_500Medium', letterSpacing: 2, marginBottom: 6 },
-  readyDay: { fontSize: 36, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -1, lineHeight: 40 },
-  readyPlan: { fontSize: 14, fontFamily: 'Inter_400Regular', marginTop: 4 },
+  greetBlock: { gap: 6, marginBottom: 8 },
+  readyLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 2, marginBottom: 4 },
+  readyDay: { fontSize: 34, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -1, lineHeight: 38 },
+  readyPlan: { fontSize: 14, fontFamily: 'Inter_400Regular' },
   previewRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderLeftWidth: 3,
+    gap: 12,
   },
-  previewName: { fontSize: 15, fontWeight: '500', fontFamily: 'Inter_500Medium' },
+  previewDot: { width: 7, height: 7, borderRadius: 4 },
+  previewName: { flex: 1, fontSize: 15, fontWeight: '500', fontFamily: 'Inter_500Medium' },
   previewSpec: { fontSize: 13, fontFamily: 'Inter_400Regular' },
   sessionHead: {
     flexDirection: 'row',
@@ -348,45 +338,32 @@ const styles = StyleSheet.create({
   sessionDayLabel: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 2 },
   sessionDayName: { fontSize: 22, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -0.5 },
   timerBlock: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  timerText: { fontSize: 22, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  cancelBtn: { padding: 2 },
+  timerText: { fontSize: 20, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   overallTrack: { height: 2 },
   overallFill: { height: 2 },
-  block: {
-    marginBottom: 6,
-    borderLeftWidth: 3,
-    overflow: 'hidden',
-  },
-  blockHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
-  },
+  block: { marginBottom: 8, overflow: 'hidden' },
+  blockHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 16, gap: 12 },
   blockName: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold', letterSpacing: -0.2 },
-  blockSpec: { fontSize: 12, fontFamily: 'Inter_400Regular', fontVariant: ['tabular-nums'], marginTop: 2 },
-  doneIcon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  logBtn: { paddingHorizontal: 14, paddingVertical: 8 },
-  logBtnText: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 16, paddingBottom: 12 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6 },
+  blockSpec: { fontSize: 12, fontFamily: 'Inter_400Regular', fontVariant: ['tabular-nums'] },
+  doneIcon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
+  logBtn: { paddingHorizontal: 16, paddingVertical: 8 },
+  logBtnText: { fontSize: 13, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  chipsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 16, paddingBottom: 14 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5 },
   chipText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   bottomBar: {
     position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 20,
+    left: 20,
+    right: 20,
     paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  startBtn: {
+  pillBtn: {
     height: 56,
-    flexDirection: 'row',
+    borderRadius: 50,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    width: '100%',
   },
-  startBtnText: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: 0.2 },
+  pillBtnText: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold', letterSpacing: 0.1 },
+  finishRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 });

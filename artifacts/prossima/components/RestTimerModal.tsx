@@ -47,19 +47,20 @@ export function RestTimerModal({ visible, exerciseName, totalSeconds, onDismiss 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
-        <View style={[styles.card, { backgroundColor: colors.card, borderRadius: 20 }]}>
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>Rest · {exerciseName}</Text>
+        <View style={[styles.card, { backgroundColor: colors.card, borderRadius: 24 }]}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>{exerciseName}</Text>
+          <Text style={[styles.restWord, { color: colors.mutedForeground }]}>Rest</Text>
           <Text style={[styles.time, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
             {m > 0 ? `${m}:${String(s).padStart(2, '0')}` : `${s}s`}
           </Text>
           <View style={[styles.track, { backgroundColor: colors.border }]}>
-            <Animated.View style={[styles.fill, { backgroundColor: colors.primary }, fillStyle]} />
+            <Animated.View style={[styles.fill, { backgroundColor: colors.accent }, fillStyle]} />
           </View>
           <Pressable
             onPress={onDismiss}
             style={({ pressed }) => [
               styles.skipBtn,
-              { borderColor: colors.border, borderRadius: 8, opacity: pressed ? 0.7 : 1 },
+              { backgroundColor: colors.secondary, borderRadius: 50, opacity: pressed ? 0.7 : 1 },
             ]}
           >
             <Text style={[styles.skipText, { color: colors.mutedForeground }]}>Skip</Text>
@@ -71,12 +72,13 @@ export function RestTimerModal({ visible, exerciseName, totalSeconds, onDismiss 
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  card: { width: '100%', padding: 28, alignItems: 'center', gap: 16 },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  card: { width: '100%', padding: 32, alignItems: 'center', gap: 8 },
+  restWord: { fontSize: 12, fontFamily: 'Inter_500Medium', letterSpacing: 2, marginTop: 4 },
   label: { fontSize: 13, fontFamily: 'Inter_400Regular', textAlign: 'center' },
-  time: { fontSize: 64, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -3, lineHeight: 68 },
-  track: { width: '100%', height: 3, borderRadius: 2, overflow: 'hidden' },
+  time: { fontSize: 68, fontWeight: '300', fontFamily: 'Inter_400Regular', letterSpacing: -3, lineHeight: 72, marginTop: 4 },
+  track: { width: '100%', height: 3, borderRadius: 2, overflow: 'hidden', marginTop: 16 },
   fill: { height: '100%', borderRadius: 2 },
-  skipBtn: { paddingHorizontal: 28, paddingVertical: 10, borderWidth: 1 },
+  skipBtn: { marginTop: 16, paddingHorizontal: 32, paddingVertical: 12 },
   skipText: { fontSize: 14, fontFamily: 'Inter_500Medium' },
 });

@@ -36,16 +36,26 @@ export function ExerciseCard({
         {
           backgroundColor: colors.card,
           borderRadius: colors.radius,
-          opacity: pressed ? 0.88 : 1,
-          borderLeftColor: isDone
-            ? colors.primary
-            : hasProgress
-            ? colors.primary + '88'
-            : colors.border,
+          opacity: pressed ? 0.92 : 1,
         },
       ]}
     >
       <View style={styles.inner}>
+        <View style={styles.left}>
+          <View
+            style={[
+              styles.statusDot,
+              {
+                backgroundColor: isDone
+                  ? colors.primary
+                  : hasProgress
+                  ? colors.accent + 'AA'
+                  : colors.border,
+              },
+            ]}
+          />
+        </View>
+
         <View style={styles.info}>
           <View style={styles.nameRow}>
             <Text
@@ -55,10 +65,10 @@ export function ExerciseCard({
               ]}
               numberOfLines={1}
             >
-              {name}
+              {isDone ? <Text style={[styles.strikeThrough]}>{name}</Text> : name}
             </Text>
             {personalBest && !isDone && (
-              <Ionicons name="star" size={11} color={colors.warning} />
+              <Ionicons name="star" size={10} color={colors.mutedForeground} />
             )}
           </View>
           <Text
@@ -67,14 +77,18 @@ export function ExerciseCard({
               { color: colors.mutedForeground, fontVariant: ['tabular-nums'] },
             ]}
           >
-            {sets} × {reps}
+            {sets} sets · {reps} reps
+            {personalBest ? `  ·  PB ${personalBest.weightKg}kg×${personalBest.reps}` : ''}
           </Text>
           {muscles && muscles.length > 0 && (
             <View style={styles.tags}>
               {muscles.slice(0, 3).map((m) => (
                 <View
                   key={m}
-                  style={[styles.tag, { backgroundColor: colors.muted }]}
+                  style={[
+                    styles.tag,
+                    { backgroundColor: colors.secondary, borderRadius: colors.radius },
+                  ]}
                 >
                   <Text style={[styles.tagText, { color: colors.mutedForeground }]}>
                     {m}
@@ -87,20 +101,25 @@ export function ExerciseCard({
 
         <View style={styles.right}>
           {isDone ? (
-            <View style={[styles.doneCircle, { backgroundColor: colors.primary }]}>
-              <Ionicons name="checkmark" size={14} color={colors.primaryForeground} />
+            <View
+              style={[
+                styles.doneCircle,
+                { backgroundColor: colors.primary, borderRadius: 13 },
+              ]}
+            >
+              <Ionicons name="checkmark" size={13} color={colors.primaryForeground} />
             </View>
           ) : hasProgress ? (
             <Text
               style={[
                 styles.progressLabel,
-                { color: colors.primary, fontVariant: ['tabular-nums'] },
+                { color: colors.accent, fontVariant: ['tabular-nums'] },
               ]}
             >
               {completedSets}/{sets}
             </Text>
           ) : (
-            <Ionicons name="chevron-forward" size={14} color={colors.border} />
+            <Ionicons name="chevron-forward" size={13} color={colors.border} />
           )}
         </View>
       </View>
@@ -121,78 +140,37 @@ export function ExerciseCard({
 
 const styles = StyleSheet.create({
   card: {
-    marginBottom: 6,
-    borderLeftWidth: 3,
+    marginBottom: 8,
     overflow: 'hidden',
   },
   inner: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 12,
+    paddingTop: 16,
+    paddingBottom: 14,
+    gap: 12,
   },
-  info: { flex: 1, gap: 3 },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
+  left: { alignItems: 'center', justifyContent: 'flex-start', paddingTop: 2 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  info: { flex: 1, gap: 4 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: {
     fontSize: 16,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: -0.2,
   },
-  spec: {
-    fontSize: 12,
-    fontFamily: 'Inter_400Regular',
-    letterSpacing: 0.2,
+  strikeThrough: {
+    textDecorationLine: 'line-through',
   },
-  tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 5,
-    marginTop: 6,
-  },
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 5,
-  },
-  tagText: {
-    fontSize: 10,
-    fontFamily: 'Inter_500Medium',
-    letterSpacing: 0.3,
-  },
-  right: {
-    marginLeft: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'flex-start',
-    marginTop: 2,
-  },
-  doneCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: 'Inter_700Bold',
-  },
-  progressTrack: {
-    height: 2,
-    marginHorizontal: 16,
-    marginBottom: 10,
-    borderRadius: 1,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 1,
-  },
+  spec: { fontSize: 12, fontFamily: 'Inter_400Regular', letterSpacing: 0.1 },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 6 },
+  tag: { paddingHorizontal: 8, paddingVertical: 3 },
+  tagText: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 0.3 },
+  right: { alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-start', marginTop: 2 },
+  doneCircle: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
+  progressLabel: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  progressTrack: { height: 2, marginHorizontal: 16, marginBottom: 12, borderRadius: 1, overflow: 'hidden' },
+  progressFill: { height: '100%', borderRadius: 1 },
 });

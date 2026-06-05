@@ -1,8 +1,10 @@
 import React, { useMemo } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
+import { useTheme } from '@/context/ThemeContext';
 import { useTraining } from '@/context/TrainingContext';
 import { BarChart } from '@/components/BarChart';
 import { RingChart } from '@/components/RingChart';
@@ -21,12 +23,7 @@ function SessionRow({ session }: { session: Session }) {
   const colors = useColors();
   const exNames = [...new Set(session.entries.map((e) => e.exerciseName))];
   return (
-    <View
-      style={[
-        styles.sessionRow,
-        { backgroundColor: colors.card, borderRadius: colors.radius, borderLeftColor: colors.border },
-      ]}
-    >
+    <View style={[styles.sessionRow, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
       <View style={{ flex: 1, gap: 3 }}>
         <Text style={[styles.sessionDay, { color: colors.foreground }]}>{session.dayLabel}</Text>
         <Text style={[styles.sessionMeta, { color: colors.mutedForeground }]}>
@@ -46,11 +43,17 @@ const MONTH_GOAL = 12;
 
 export default function AnalyticsScreen() {
   const colors = useColors();
+  const { resolvedScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const { sessions, getPersonalBest, plan } = useTraining();
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
+
+  const isDark = resolvedScheme === 'dark';
+  const gradientColors: [string, string, string] = isDark
+    ? ['#111811', '#162016', '#111811']
+    : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
 
   const { thisMonth, totalVolume, avgDur, longestSession } = useMemo(() => {
     const now = new Date();
@@ -62,11 +65,8 @@ export default function AnalyticsScreen() {
       (acc, s) => acc + s.entries.reduce((a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a), 0), 0,
     );
     const avgDur = sessions.length
-      ? Math.round(sessions.reduce((a, s) => a + s.durationSeconds, 0) / sessions.length)
-      : 0;
-    const longestSession = sessions.length
-      ? Math.max(...sessions.map((s) => s.durationSeconds))
-      : 0;
+      ? Math.round(sessions.reduce((a, s) => a + s.durationSeconds, 0) / sessions.length) : 0;
+    const longestSession = sessions.length ? Math.max(...sessions.map((s) => s.durationSeconds)) : 0;
     return { thisMonth, totalVolume, avgDur, longestSession };
   }, [sessions]);
 
@@ -95,13 +95,13 @@ export default function AnalyticsScreen() {
 
   if (!sessions.length) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.background, paddingTop: topPad }]}>
-        <Ionicons name="bar-chart-outline" size={36} color={colors.mutedForeground} />
+      <LinearGradient colors={gradientColors} style={[styles.center, { paddingTop: topPad }]}>
+        <Ionicons name="leaf-outline" size={36} color={colors.mutedForeground} />
         <Text style={[styles.emptyTitle, { color: colors.foreground }]}>No data yet</Text>
         <Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
           Complete a session to see your stats.
         </Text>
-      </View>
+      </LinearGradient>
     );
   }
 
@@ -112,80 +112,68 @@ export default function AnalyticsScreen() {
     : `${Math.round(totalVolume)}`;
 
   return (
-    <ScrollView
-      style={[{ flex: 1, backgroundColor: colors.background }]}
-      contentContainerStyle={[styles.content, { paddingTop: topPad + 24, paddingBottom: botPad + 80 }]}
-      showsVerticalScrollIndicator={false}
-    >
-      <Text style={[styles.screenTitle, { color: colors.foreground }]}>Review</Text>
+    <LinearGradient colors={gradientColors} style={{ flex: 1 }}>
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingTop: topPad + 28, paddingBottom: botPad + 80 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.screenTitle, { color: colors.foreground }]}>Review</Text>
 
-      {/* Ring stats */}
-      <View style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>THIS MONTH</Text>
-        <View style={styles.ringsRow}>
-          <RingChart
-            progress={Math.min(thisMonth / MONTH_GOAL, 1)}
-            size={90}
-            strokeWidth={8}
-            label="Sessions"
-            value={String(thisMonth)}
-            sublabel={`/${MONTH_GOAL}`}
-            color={colors.primary}
-          />
-          <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
-          <RingChart
-            progress={Math.min(totalVolume / 50000, 1)}
-            size={90}
-            strokeWidth={8}
-            label="Volume"
-            value={volDisplay}
-            sublabel={totalVolume < 1000 ? 'kg' : undefined}
-            color="#3D7FFF"
-          />
-          <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
-          <RingChart
-            progress={longestMin > 0 ? Math.min(avgMin / longestMin, 1) : 0}
-            size={90}
-            strokeWidth={8}
-            label="Avg Time"
-            value={avgMin > 0 ? `${avgMin}` : '—'}
-            sublabel={avgMin > 0 ? 'min' : undefined}
-            color="#BF5AF2"
-          />
+        <View style={[styles.ringsCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>THIS MONTH</Text>
+          <View style={styles.ringsRow}>
+            <RingChart
+              progress={Math.min(thisMonth / MONTH_GOAL, 1)}
+              size={90} strokeWidth={7}
+              label="Sessions" value={String(thisMonth)} sublabel={`/ ${MONTH_GOAL}`}
+              color={colors.accent}
+            />
+            <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
+            <RingChart
+              progress={Math.min(totalVolume / 50000, 1)}
+              size={90} strokeWidth={7}
+              label="Volume" value={volDisplay} sublabel={totalVolume < 1000 ? 'kg' : undefined}
+              color={colors.accent}
+            />
+            <View style={[styles.ringDivider, { backgroundColor: colors.separator }]} />
+            <RingChart
+              progress={longestMin > 0 ? Math.min(avgMin / longestMin, 1) : 0}
+              size={90} strokeWidth={7}
+              label="Avg Time" value={avgMin > 0 ? `${avgMin}` : '—'} sublabel={avgMin > 0 ? 'min' : undefined}
+              color={colors.accent}
+            />
+          </View>
+          <Text style={[styles.totalLine, { color: colors.mutedForeground }]}>
+            {sessions.length} sessions total
+          </Text>
         </View>
-        <Text style={[styles.totalLine, { color: colors.mutedForeground }]}>
-          {sessions.length} sessions total
-        </Text>
-      </View>
 
-      {/* Weekly frequency */}
-      <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-        <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>SESSIONS / WEEK</Text>
-        <BarChart data={weeklyData} height={72} />
-      </View>
-
-      {/* Best lifts */}
-      {bestLifts.length > 0 && (
         <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
-          <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>BEST LIFTS</Text>
-          {bestLifts.map(({ name, pb }) => (
-            <View key={name} style={[styles.pbRow, { borderBottomColor: colors.separator }]}>
-              <Text style={[styles.pbName, { color: colors.foreground }]} numberOfLines={1}>{name}</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Ionicons name="star" size={10} color={colors.primary} />
-                <Text style={[styles.pbVal, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
-                  {pb!.weightKg}kg × {pb!.reps}
-                </Text>
-              </View>
-            </View>
-          ))}
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>SESSIONS / WEEK</Text>
+          <BarChart data={weeklyData} height={72} />
         </View>
-      )}
 
-      {/* History */}
-      <Text style={[styles.sectionHeader, { color: colors.foreground }]}>Recent</Text>
-      {sessions.slice(0, 10).map((s) => <SessionRow key={s.id} session={s} />)}
-    </ScrollView>
+        {bestLifts.length > 0 && (
+          <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
+            <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>BEST LIFTS</Text>
+            {bestLifts.map(({ name, pb }) => (
+              <View key={name} style={[styles.pbRow, { borderBottomColor: colors.separator }]}>
+                <Text style={[styles.pbName, { color: colors.foreground }]} numberOfLines={1}>{name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                  <Ionicons name="star" size={10} color={colors.accent} />
+                  <Text style={[styles.pbVal, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
+                    {pb!.weightKg}kg × {pb!.reps}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Text style={[styles.sectionHeader, { color: colors.foreground }]}>Recent</Text>
+        {sessions.slice(0, 10).map((s) => <SessionRow key={s.id} session={s} />)}
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
@@ -194,24 +182,21 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 20, fontWeight: '600', fontFamily: 'Inter_600SemiBold', textAlign: 'center' },
   emptyBody: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
   content: { paddingHorizontal: 20, gap: 12 },
-  screenTitle: { fontSize: 36, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -1, marginBottom: 8 },
+  screenTitle: { fontSize: 36, fontWeight: '300', fontFamily: 'Inter_400Regular', letterSpacing: -0.5, marginBottom: 8 },
   ringsCard: { padding: 20, gap: 20 },
   ringsRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   ringDivider: { width: StyleSheet.hairlineWidth, height: 64 },
   totalLine: { fontSize: 11, fontFamily: 'Inter_400Regular', textAlign: 'center', marginTop: -4 },
   section: { padding: 16, gap: 14 },
-  sectionTitle: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
+  sectionLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
   pbRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   pbName: { fontSize: 14, fontFamily: 'Inter_500Medium', flex: 1 },
-  pbVal: { fontSize: 14, fontWeight: '700', fontFamily: 'Inter_700Bold' },
-  sectionHeader: { fontSize: 22, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -0.5, marginTop: 4 },
-  sessionRow: { padding: 14, marginBottom: 6, borderLeftWidth: 3 },
+  pbVal: { fontSize: 14, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
+  sectionHeader: { fontSize: 22, fontWeight: '300', fontFamily: 'Inter_400Regular', letterSpacing: -0.3, marginTop: 4 },
+  sessionRow: { padding: 14, marginBottom: 8 },
   sessionDay: { fontSize: 15, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
   sessionMeta: { fontSize: 12, fontFamily: 'Inter_400Regular', fontVariant: ['tabular-nums'] },
   sessionEx: { fontSize: 11, fontFamily: 'Inter_400Regular', marginTop: 1 },

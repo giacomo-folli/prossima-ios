@@ -27,15 +27,8 @@ interface SetLogModalProps {
 }
 
 export function SetLogModal({
-  visible,
-  exerciseName,
-  plannedReps,
-  setNumber,
-  previousWeight,
-  previousReps,
-  personalBest,
-  onLog,
-  onClose,
+  visible, exerciseName, plannedReps, setNumber,
+  previousWeight, previousReps, personalBest, onLog, onClose,
 }: SetLogModalProps) {
   const colors = useColors();
   const [weight, setWeight] = useState(previousWeight ? String(previousWeight) : '');
@@ -57,10 +50,7 @@ export function SetLogModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} onShow={handleOpen}>
       <Pressable style={styles.backdrop} onPress={onClose}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.kav}>
-          <Pressable
-            style={[styles.sheet, { backgroundColor: colors.card }]}
-            onPress={() => {}}
-          >
+          <Pressable style={[styles.sheet, { backgroundColor: colors.card }]} onPress={() => {}}>
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
             <View style={styles.sheetHead}>
@@ -76,9 +66,9 @@ export function SetLogModal({
             </View>
 
             {personalBest && (
-              <View style={[styles.pbBanner, { backgroundColor: colors.primary + '18' }]}>
-                <Ionicons name="star" size={12} color={colors.primary} />
-                <Text style={[styles.pbBannerText, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
+              <View style={[styles.pbBanner, { backgroundColor: colors.secondary, borderRadius: 10 }]}>
+                <Ionicons name="star" size={12} color={colors.accent} />
+                <Text style={[styles.pbBannerText, { color: colors.mutedForeground, fontVariant: ['tabular-nums'] }]}>
                   PB: {personalBest.weightKg}kg × {personalBest.reps}
                 </Text>
               </View>
@@ -88,7 +78,10 @@ export function SetLogModal({
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>KG</Text>
                 <TextInput
-                  style={[styles.numInput, { color: colors.foreground, backgroundColor: colors.muted, borderRadius: 10 }]}
+                  style={[
+                    styles.numInput,
+                    { color: colors.foreground, backgroundColor: colors.secondary, borderRadius: 14 },
+                  ]}
                   keyboardType="decimal-pad"
                   value={weight}
                   onChangeText={setWeight}
@@ -101,7 +94,10 @@ export function SetLogModal({
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.mutedForeground }]}>REPS</Text>
                 <TextInput
-                  style={[styles.numInput, { color: colors.foreground, backgroundColor: colors.muted, borderRadius: 10 }]}
+                  style={[
+                    styles.numInput,
+                    { color: colors.foreground, backgroundColor: colors.secondary, borderRadius: 14 },
+                  ]}
                   keyboardType="number-pad"
                   value={reps}
                   onChangeText={setReps}
@@ -117,7 +113,7 @@ export function SetLogModal({
               onPress={handleLog}
               style={({ pressed }) => [
                 styles.logBtn,
-                { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
+                { backgroundColor: colors.primary, borderRadius: 50, opacity: pressed ? 0.8 : 1 },
               ]}
             >
               <Text style={[styles.logBtnText, { color: colors.primaryForeground }]}>Log Set</Text>
@@ -130,28 +126,23 @@ export function SetLogModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
   kav: { justifyContent: 'flex-end' },
-  sheet: { borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingHorizontal: 20, paddingBottom: 40 },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingTop: 10, paddingHorizontal: 20, paddingBottom: 40 },
   handle: { width: 32, height: 3, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
   sheetHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -0.3 },
   sheetSub: { fontSize: 13, fontFamily: 'Inter_400Regular', marginTop: 2 },
-  pbBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, borderRadius: 8, marginBottom: 16 },
-  pbBannerText: { fontSize: 13, fontFamily: 'Inter_600SemiBold' },
+  pbBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 10, marginBottom: 16 },
+  pbBannerText: { fontSize: 13, fontFamily: 'Inter_500Medium' },
   inputs: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   inputGroup: { flex: 1, alignItems: 'center', gap: 8 },
   inputLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
   numInput: {
-    width: '100%',
-    height: 72,
-    fontSize: 36,
-    textAlign: 'center',
-    fontFamily: 'Inter_700Bold',
-    fontVariant: ['tabular-nums'],
-    letterSpacing: -1,
+    width: '100%', height: 80, fontSize: 38, textAlign: 'center',
+    fontFamily: 'Inter_700Bold', fontVariant: ['tabular-nums'], letterSpacing: -1,
   },
-  divider: { width: 1, height: 72, marginHorizontal: 10 },
-  logBtn: { height: 54, alignItems: 'center', justifyContent: 'center' },
-  logBtnText: { fontSize: 16, fontWeight: '700', fontFamily: 'Inter_700Bold' },
+  divider: { width: 1, height: 80, marginHorizontal: 10 },
+  logBtn: { height: 56, alignItems: 'center', justifyContent: 'center' },
+  logBtnText: { fontSize: 16, fontWeight: '600', fontFamily: 'Inter_600SemiBold' },
 });

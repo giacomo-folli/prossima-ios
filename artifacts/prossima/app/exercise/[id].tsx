@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColors } from '@/hooks/useColors';
+import { useTheme } from '@/context/ThemeContext';
 import { useTraining } from '@/context/TrainingContext';
 import { BarChart } from '@/components/BarChart';
 
@@ -14,6 +16,7 @@ function fmtDate(iso: string) {
 export default function ExerciseDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
+  const { resolvedScheme } = useTheme();
   const insets = useSafeAreaInsets();
   const { getExerciseEntries, getPersonalBest } = useTraining();
 
@@ -23,6 +26,11 @@ export default function ExerciseDetailScreen() {
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const botPad = insets.bottom + (Platform.OS === 'web' ? 34 : 0);
+
+  const isDark = resolvedScheme === 'dark';
+  const gradientColors: [string, string, string] = isDark
+    ? ['#111811', '#162016', '#111811']
+    : ['#B8D4B0', '#C4D9BC', '#CCE0C4'];
 
   const volumeByDate = useMemo(() => {
     const map = new Map<string, number>();
@@ -34,15 +42,10 @@ export default function ExerciseDetailScreen() {
   }, [allEntries]);
 
   return (
-    <View style={[{ flex: 1, backgroundColor: colors.background }]}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: topPad + 8, borderBottomColor: colors.separator },
-        ]}
-      >
+    <LinearGradient colors={gradientColors} style={{ flex: 1 }}>
+      <View style={[styles.header, { paddingTop: topPad + 8, borderBottomColor: colors.separator }]}>
         <Pressable onPress={() => router.back()} style={({ pressed }) => [styles.back, { opacity: pressed ? 0.6 : 1 }]}>
-          <Ionicons name="chevron-back" size={22} color={colors.primary} />
+          <Ionicons name="chevron-back" size={22} color={colors.accent} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.foreground }]} numberOfLines={1}>
           {name}
@@ -54,27 +57,17 @@ export default function ExerciseDetailScreen() {
         contentContainerStyle={[styles.content, { paddingTop: 20, paddingBottom: botPad + 24 }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* PB card */}
         {pb ? (
-          <View
-            style={[
-              styles.pbCard,
-              {
-                backgroundColor: colors.card,
-                borderRadius: colors.radius,
-                borderLeftColor: colors.primary,
-              },
-            ]}
-          >
+          <View style={[styles.pbCard, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             <View>
               <Text style={[styles.pbMeta, { color: colors.mutedForeground }]}>
                 PERSONAL BEST · {fmtDate(pb.date)}
               </Text>
-              <Text style={[styles.pbValue, { color: colors.primary, fontVariant: ['tabular-nums'] }]}>
+              <Text style={[styles.pbValue, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
                 {pb.weightKg}kg × {pb.reps}
               </Text>
             </View>
-            <Ionicons name="star" size={18} color={colors.primary} />
+            <Ionicons name="star" size={18} color={colors.accent} />
           </View>
         ) : (
           <View style={[styles.noPb, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
@@ -84,7 +77,6 @@ export default function ExerciseDetailScreen() {
           </View>
         )}
 
-        {/* Volume chart */}
         {volumeByDate.length > 1 && (
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>VOLUME OVER TIME</Text>
@@ -92,7 +84,6 @@ export default function ExerciseDetailScreen() {
           </View>
         )}
 
-        {/* Recent sets */}
         {allEntries.length > 0 && (
           <View style={[styles.section, { backgroundColor: colors.card, borderRadius: colors.radius }]}>
             <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>RECENT SETS</Text>
@@ -101,7 +92,7 @@ export default function ExerciseDetailScreen() {
                 <Text style={[styles.entryDate, { color: colors.mutedForeground }]}>{fmtDate(e.completedAt)}</Text>
                 <Text style={[styles.entrySet, { color: colors.mutedForeground }]}>Set {e.setNumber}</Text>
                 <View style={styles.entryRight}>
-                  {e.personalBest && <Ionicons name="star" size={10} color={colors.primary} />}
+                  {e.personalBest && <Ionicons name="star" size={10} color={colors.accent} />}
                   <Text style={[styles.entryVal, { color: colors.foreground, fontVariant: ['tabular-nums'] }]}>
                     {e.weightKg ? `${e.weightKg}kg` : ''}{e.weightKg && e.reps ? ' × ' : ''}{e.reps ?? ''}
                   </Text>
@@ -113,46 +104,35 @@ export default function ExerciseDetailScreen() {
 
         {!allEntries.length && (
           <View style={styles.empty}>
-            <Ionicons name="barbell-outline" size={32} color={colors.mutedForeground} />
+            <Ionicons name="leaf-outline" size={32} color={colors.mutedForeground} />
             <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No sets logged yet.</Text>
           </View>
         )}
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth,
   },
   back: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 17, fontWeight: '600', fontFamily: 'Inter_600SemiBold', flex: 1, textAlign: 'center' },
   content: { paddingHorizontal: 20, gap: 10 },
   pbCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 18,
-    borderLeftWidth: 3,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20,
   },
-  pbMeta: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 1.5, marginBottom: 6 },
-  pbValue: { fontSize: 28, fontWeight: '700', fontFamily: 'Inter_700Bold', letterSpacing: -1 },
+  pbMeta: { fontSize: 10, fontFamily: 'Inter_500Medium', letterSpacing: 1.5, marginBottom: 8 },
+  pbValue: { fontSize: 28, fontWeight: '300', fontFamily: 'Inter_400Regular', letterSpacing: -0.5 },
   noPb: { padding: 16 },
   noPbText: { fontSize: 14, fontFamily: 'Inter_400Regular', textAlign: 'center' },
   section: { padding: 16, gap: 12 },
   sectionLabel: { fontSize: 10, fontFamily: 'Inter_600SemiBold', letterSpacing: 2 },
   entryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 9,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 10,
+    flexDirection: 'row', alignItems: 'center', paddingVertical: 9,
+    borderBottomWidth: StyleSheet.hairlineWidth, gap: 10,
   },
   entryDate: { fontSize: 12, fontFamily: 'Inter_400Regular', minWidth: 58 },
   entrySet: { fontSize: 11, fontFamily: 'Inter_400Regular', flex: 1 },
