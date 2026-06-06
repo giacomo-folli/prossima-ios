@@ -1,37 +1,198 @@
-import React, { useMemo } from "react";
-import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useMemo, useState } from "react";
+import {
+	Platform,
+	Pressable,
+	ScrollView,
+	StyleSheet,
+	Text,
+	View,
+} from "react-native";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { useTraining } from "@/context/TrainingContext";
+import { useHealth } from "@/context/HealthContext";
 import { BarChart } from "@/components/BarChart";
-import { RingChart } from "@/components/RingChart";
-import { Session } from "@/types";
 
-function fmt(s: number) {
-	const m = Math.floor(s / 60);
-	return m > 0 ? `${m}m` : `${s}s`;
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type RangeKey = "1W" | "1M" | "3M" | "6M" | "1Y";
+
+const RANGES: { key: RangeKey; label: string; days: number }[] = [
+	{ key: "1W", label: "1W", days: 7 },
+	{ key: "1M", label: "1M", days: 30 },
+	{ key: "3M", label: "3M", days: 90 },
+	{ key: "6M", label: "6M", days: 180 },
+	{ key: "1Y", label: "1Y", days: 365 },
+];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function startOfDay(d: Date) {
+	const c = new Date(d);
+	c.setHours(0, 0, 0, 0);
+	return c;
 }
 
-function fmtDate(iso: string) {
-	return new Date(iso).toLocaleDateString("en-US", {
-		month: "short",
-		day: "numeric",
+/**
+ * Divide [rangeStart, now] into `buckets` equally-sized buckets and
+ * return a label per bucket.
+ */
+function buildBuckets(
+	days: number,
+	buckets: number
+): { start: Date; end: Date; label: string }[] {
+	const now = new Date();
+	const rangeStart = startOfDay(new Date());
+	rangeStart.setDate(rangeStart.getDate() - days);
+
+	const msPerBucket = (now.getTime() - rangeStart.getTime()) / buckets;
+
+	return Array.from({ length: buckets }, (_, i) => {
+		const start = new Date(rangeStart.getTime() + i * msPerBucket);
+		const end = new Date(rangeStart.getTime() + (i + 1) * msPerBucket);
+
+		// Label: last bucket always shows "Now", others show shortest useful date
+		let label: string;
+		if (i === buckets - 1) {
+			label = "Now";
+		} else if (days <= 7) {
+			label = start.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2);
+		} else if (days <= 90) {
+			label = start.toLocaleDateString("en-US", { month: "short", day: "numeric" }).replace(" ", "\n");
+		} else {
+			label = start.toLocaleDateString("en-US", { month: "short" });
+		}
+
+		return { start, end, label };
 	});
 }
 
-function SessionRow({ session }: { session: Session }) {
+/** Arrow + colour for the trend delta chip */
+function trendMeta(delta: number | null): {
+	icon: "arrow-up" | "arrow-down" | "remove";
+	color: string;
+	good: boolean;
+} {
+	if (delta === null || delta === 0)
+		return { icon: "remove", color: "#94A3B8", good: true };
+	if (delta > 0) return { icon: "arrow-up", color: "#10B981", good: true };
+	return { icon: "arrow-down", color: "#EF4444", good: false };
+}
+
+function fmt(n: number, decimals = 0) {
+	return n.toLocaleString("en-US", {
+		minimumFractionDigits: decimals,
+		maximumFractionDigits: decimals,
+	});
+}
+
+/** Return % delta between first and second halves of `values`. Null if no data. */
+function halfDelta(values: number[]): number | null {
+	if (!values.length) return null;
+	const half = Math.floor(values.length / 2);
+	const first = values.slice(0, half);
+	const second = values.slice(half);
+	const avgFirst = first.reduce((a, b) => a + b, 0) / (first.length || 1);
+	const avgSecond = second.reduce((a, b) => a + b, 0) / (second.length || 1);
+	if (avgFirst === 0) return null;
+	return ((avgSecond - avgFirst) / avgFirst) * 100;
+}
+
+// ─── Mini MicroBar (inline sparkline without labels) ─────────────────────────
+
+function MicroBar({
+	data,
+	accentColor,
+}: {
+	data: { label: string; value: number }[];
+	accentColor: string;
+}) {
+	const colors = useColors();
+	const maxValue = Math.max(...data.map((d) => d.value), 1);
+	const H = 48;
+
+	return (
+		<View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: H }}>
+			{data.map((item, i) => {
+				const barH = maxValue > 0 ? Math.max((item.value / maxValue) * H, item.value > 0 ? 3 : 0) : 0;
+				const isTop = item.value === maxValue && item.value > 0;
+				return (
+					<View
+						key={i}
+						style={{
+							flex: 1,
+							height: H,
+							justifyContent: "flex-end",
+						}}
+					>
+						<View
+							style={{
+								height: Math.max(barH, 2),
+								borderRadius: 4,
+								backgroundColor: isTop
+									? accentColor
+									: `${accentColor}44`,
+							}}
+						/>
+					</View>
+				);
+			})}
+		</View>
+	);
+}
+
+// ─── Trend Card ──────────────────────────────────────────────────────────────
+
+interface TrendCardProps {
+	icon: React.ReactNode;
+	title: string;
+	subtitle: string;
+	value: string;
+	unit: string;
+	delta: number | null;
+	positiveIsGood: boolean;
+	chartData: { label: string; value: number }[];
+	accentColor: string;
+	/** optional note below the chart */
+	note?: string;
+}
+
+function TrendCard({
+	icon,
+	title,
+	subtitle,
+	value,
+	unit,
+	delta,
+	positiveIsGood,
+	chartData,
+	accentColor,
+	note,
+}: TrendCardProps) {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
-	const exNames = [...new Set(session.entries.map((e) => e.exerciseName))];
+	const hasData = chartData.some((d) => d.value > 0);
+
+	// Flip good/bad logic for metrics where down = bad (e.g. sleep)
+	const { icon: deltaIcon, color: deltaColor } = useMemo(() => {
+		if (delta === null || delta === 0)
+			return { icon: "remove" as const, color: "#94A3B8" };
+		const isUp = delta > 0;
+		const isGood = positiveIsGood ? isUp : !isUp;
+		return {
+			icon: isUp ? ("arrow-up" as const) : ("arrow-down" as const),
+			color: isGood ? "#10B981" : "#EF4444",
+		};
+	}, [delta, positiveIsGood]);
+
 	return (
 		<GlassView
 			colorScheme={resolvedScheme}
 			style={[
-				styles.sessionRow,
+				styles.card,
 				{
 					backgroundColor: colors.card,
 					borderRadius: 20,
@@ -39,135 +200,219 @@ function SessionRow({ session }: { session: Session }) {
 				},
 			]}
 		>
-			<View
-				style={[
-					styles.sessionIconWrap,
-					{ backgroundColor: "rgba(94, 92, 230, 0.1)" },
-				]}
-			>
-				<Ionicons name="barbell" size={20} color="#5E5CE6" />
-			</View>
-			<View style={{ flex: 1, gap: 2 }}>
-				<Text style={[styles.sessionDay, { color: colors.foreground }]}>
-					{session.dayLabel}
-				</Text>
-				<Text style={[styles.sessionMeta, { color: colors.mutedForeground }]}>
-					{fmtDate(session.date)} · {fmt(session.durationSeconds)} ·{" "}
-					{session.entries.length} sets
-				</Text>
-				{exNames.length > 0 && (
-					<Text
-						style={[styles.sessionEx, { color: colors.mutedForeground }]}
-						numberOfLines={1}
-					>
-						{exNames.join(" · ")}
+			{/* Header row */}
+			<View style={styles.cardHeader}>
+				<View style={[styles.cardIconWrap, { backgroundColor: `${accentColor}18` }]}>
+					{icon}
+				</View>
+				<View style={{ flex: 1 }}>
+					<Text style={[styles.cardTitle, { color: colors.foreground }]}>{title}</Text>
+					<Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
+				</View>
+				{/* Value + delta */}
+				<View style={styles.cardValueBlock}>
+					<Text style={[styles.cardValue, { color: colors.foreground }]}>
+						{hasData ? value : "—"}
 					</Text>
-				)}
+					<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>{unit}</Text>
+					{delta !== null && hasData && (
+						<View style={[styles.deltaBadge, { backgroundColor: `${deltaColor}18` }]}>
+							<Ionicons name={deltaIcon} size={10} color={deltaColor} />
+							<Text style={[styles.deltaText, { color: deltaColor }]}>
+								{Math.abs(delta).toFixed(0)}%
+							</Text>
+						</View>
+					)}
+				</View>
 			</View>
+
+			{/* Mini bar chart */}
+			{hasData ? (
+				<MicroBar data={chartData} accentColor={accentColor} />
+			) : (
+				<View style={styles.noDataRow}>
+					<Ionicons name="analytics-outline" size={18} color={colors.mutedForeground} />
+					<Text style={[styles.noDataText, { color: colors.mutedForeground }]}>
+						No data for this period
+					</Text>
+				</View>
+			)}
+
+			{/* X-axis labels */}
+			{hasData && (
+				<View style={styles.axisRow}>
+					{chartData.map((d, i) => (
+						<Text
+							key={i}
+							style={[styles.axisLabel, { color: colors.mutedForeground, flex: 1 }]}
+							numberOfLines={1}
+						>
+							{i === 0 || i === chartData.length - 1 ? d.label : ""}
+						</Text>
+					))}
+				</View>
+			)}
+
+			{note ? (
+				<Text style={[styles.cardNote, { color: colors.mutedForeground }]}>{note}</Text>
+			) : null}
 		</GlassView>
 	);
 }
 
-const MONTH_GOAL = 12;
+// ─── Range Selector ──────────────────────────────────────────────────────────
 
-export default function AnalyticsScreen() {
+function RangeSelector({
+	selected,
+	onChange,
+}: {
+	selected: RangeKey;
+	onChange: (k: RangeKey) => void;
+}) {
+	const colors = useColors();
+	return (
+		<View style={[styles.rangeRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+			{RANGES.map((r) => {
+				const active = r.key === selected;
+				return (
+					<Pressable
+						key={r.key}
+						style={[
+							styles.rangeBtn,
+							active && { backgroundColor: colors.accent },
+						]}
+						onPress={() => onChange(r.key)}
+					>
+						<Text
+							style={[
+								styles.rangeBtnText,
+								{ color: active ? "#fff" : colors.mutedForeground },
+							]}
+						>
+							{r.label}
+						</Text>
+					</Pressable>
+				);
+			})}
+		</View>
+	);
+}
+
+// ─── Main Screen ─────────────────────────────────────────────────────────────
+
+export default function TrendsScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
-	const { sessions, getPersonalBest, plan } = useTraining();
+	const { sessions } = useTraining();
+	const { isConnected, stats } = useHealth();
+
+	const [range, setRange] = useState<RangeKey>("1W");
+	const rangeDays = RANGES.find((r) => r.key === range)!.days;
 
 	const topPad = Platform.OS === "web" ? 20 : insets.top;
 	const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
-	const isDark = resolvedScheme === "dark";
-	const gradientColors = colors.backgroundGradient;
+	// Bucket count: keep bars readable
+	const bucketCount = useMemo(() => {
+		if (rangeDays <= 7) return 7;
+		if (rangeDays <= 30) return 8;
+		if (rangeDays <= 90) return 9;
+		if (rangeDays <= 180) return 9;
+		return 12;
+	}, [rangeDays]);
 
-	const { thisMonth, totalVolume, avgDur, longestSession } = useMemo(() => {
-		const now = new Date();
-		const thisMonth = sessions.filter((s) => {
-			const d = new Date(s.date);
-			return (
-				d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-			);
-		}).length;
-		const totalVolume = sessions.reduce(
-			(acc, s) =>
-				acc +
-				s.entries.reduce(
-					(a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a),
-					0,
-				),
-			0,
-		);
-		const avgDur = sessions.length
-			? Math.round(
-					sessions.reduce((a, s) => a + s.durationSeconds, 0) / sessions.length,
-				)
-			: 0;
-		const longestSession = sessions.length
-			? Math.max(...sessions.map((s) => s.durationSeconds))
-			: 0;
-		return { thisMonth, totalVolume, avgDur, longestSession };
-	}, [sessions]);
+	const buckets = useMemo(
+		() => buildBuckets(rangeDays, bucketCount),
+		[rangeDays, bucketCount]
+	);
 
-	const weeklyData = useMemo(() => {
-		const now = new Date();
-		return Array.from({ length: 8 }, (_, i) => {
-			const wk = 7 - i;
-			const start = new Date(now);
-			start.setDate(now.getDate() - wk * 7);
-			const end = new Date(start);
-			end.setDate(start.getDate() + 7);
+	// ── Training Volume per bucket ───────────────────────────────────────────
+	const volumeData = useMemo(() => {
+		return buckets.map((b) => {
+			const vol = sessions
+				.filter((s) => {
+					const d = new Date(s.date);
+					return d >= b.start && d < b.end;
+				})
+				.reduce(
+					(acc, s) =>
+						acc +
+						s.entries.reduce(
+							(a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a),
+							0
+						),
+					0
+				);
+			return { label: b.label, value: Math.round(vol) };
+		});
+	}, [buckets, sessions]);
+
+	// ── Workout frequency (session count) per bucket ─────────────────────────
+	const workoutsData = useMemo(() => {
+		return buckets.map((b) => {
 			const count = sessions.filter((s) => {
 				const d = new Date(s.date);
-				return d >= start && d < end;
+				return d >= b.start && d < b.end;
 			}).length;
-			return { label: wk === 0 ? "Now" : `-${wk}w`, value: count };
-		}).reverse();
-	}, [sessions]);
+			return { label: b.label, value: count };
+		});
+	}, [buckets, sessions]);
 
-	const bestLifts = useMemo(() => {
-		if (!plan) return [];
-		const names = [
-			...new Set(plan.days.flatMap((d) => d.exercises.map((e) => e.name))),
-		];
-		return names
-			.map((n) => ({ name: n, pb: getPersonalBest(n) }))
-			.filter((x) => x.pb)
-			.sort((a, b) => (b.pb?.volume ?? 0) - (a.pb?.volume ?? 0))
-			.slice(0, 6);
-	}, [plan, getPersonalBest]);
+	// ── Avg session duration per bucket ─────────────────────────────────────
+	const durationData = useMemo(() => {
+		return buckets.map((b) => {
+			const inBucket = sessions.filter((s) => {
+				const d = new Date(s.date);
+				return d >= b.start && d < b.end;
+			});
+			const avg =
+				inBucket.length > 0
+					? inBucket.reduce((a, s) => a + s.durationSeconds, 0) /
+					  inBucket.length /
+					  60
+					: 0;
+			return { label: b.label, value: Math.round(avg) };
+		});
+	}, [buckets, sessions]);
 
-	if (!sessions.length) {
-		return (
-			<LinearGradient
-				colors={gradientColors}
-				style={[styles.center, { paddingTop: topPad }]}
-			>
-				<Ionicons
-					name="leaf-outline"
-					size={36}
-					color={colors.mutedForeground}
-				/>
-				<Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-					No data yet
-				</Text>
-				<Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-					Complete a session to see your stats.
-				</Text>
-			</LinearGradient>
-		);
-	}
+	// ── Aggregate summaries ──────────────────────────────────────────────────
+	const totalVolume = volumeData.reduce((a, b) => a + b.value, 0);
+	const totalWorkouts = workoutsData.reduce((a, b) => a + b.value, 0);
+	const avgDurationMin =
+		durationData.filter((d) => d.value > 0).length > 0
+			? Math.round(
+					durationData.reduce((a, b) => a + b.value, 0) /
+						durationData.filter((d) => d.value > 0).length
+			  )
+			: 0;
 
-	const avgMin = Math.floor(avgDur / 60);
-	const longestMin = Math.floor(longestSession / 60);
-	const volDisplay =
-		totalVolume >= 1000
-			? `${(totalVolume / 1000).toFixed(1)}t`
-			: `${Math.round(totalVolume)}`;
+	// Deltas (compare first half vs second half of period)
+	const volumeDelta = halfDelta(volumeData.map((d) => d.value));
+	const workoutsDelta = halfDelta(workoutsData.map((d) => d.value));
+	const durationDelta = halfDelta(durationData.map((d) => d.value));
+
+	// ── Personal bests count in window ──────────────────────────────────────
+	const pbInWindow = useMemo(() => {
+		const cutoff = new Date();
+		cutoff.setDate(cutoff.getDate() - rangeDays);
+		return sessions
+			.filter((s) => new Date(s.date) >= cutoff)
+			.flatMap((s) => s.entries)
+			.filter((e) => e.personalBest).length;
+	}, [sessions, rangeDays]);
+
+	// ── Health data (today only — HealthKit does not give historical per-day) ─
+	// We show today's live values as single-point "snapshot" tiles when connected.
+	// For the bar charts of health metrics, we can only show what's in sessions.
+	// Apple HealthKit historical queries are out of scope here (would require
+	// storing time-series ourselves), so we show a "Live Today" card.
+
+	const rangeLabel = RANGES.find((r) => r.key === range)!.label;
 
 	return (
 		<ScrollView
+			style={{ flex: 1 }}
 			contentContainerStyle={[
 				styles.content,
 				{ paddingTop: topPad, paddingBottom: botPad + 80 },
@@ -175,86 +420,160 @@ export default function AnalyticsScreen() {
 			showsVerticalScrollIndicator={false}
 			contentInsetAdjustmentBehavior="never"
 		>
-			<Text style={[styles.screenTitle, { color: colors.foreground }]}>
-				Review
+			{/* ── Header ── */}
+			<Text style={[styles.screenTitle, { color: colors.foreground }]}>Trends</Text>
+
+			{/* ── Range Selector ── */}
+			<RangeSelector selected={range} onChange={setRange} />
+
+			{/* ── Live Health Snapshot (Apple Health) ── */}
+			{isConnected && (
+				<>
+					<Text style={[styles.sectionHeading, { color: colors.foreground }]}>
+						Today's Health
+					</Text>
+
+					<View style={styles.healthRow}>
+						{/* Sleep */}
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[
+								styles.healthTile,
+								{ backgroundColor: colors.card, borderColor: colors.border },
+							]}
+						>
+							<View style={[styles.tileIcon, { backgroundColor: "rgba(88,86,214,0.12)" }]}>
+								<Ionicons name="moon" size={16} color="#5856D6" />
+							</View>
+							<Text style={[styles.tileValue, { color: colors.foreground }]}>
+								{stats.sleepHours > 0
+									? `${Math.floor(stats.sleepHours)}h ${Math.round((stats.sleepHours % 1) * 60)}m`
+									: "—"}
+							</Text>
+							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+								Sleep
+							</Text>
+						</GlassView>
+
+						{/* Steps */}
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[
+								styles.healthTile,
+								{ backgroundColor: colors.card, borderColor: colors.border },
+							]}
+						>
+							<View style={[styles.tileIcon, { backgroundColor: "rgba(0,180,216,0.12)" }]}>
+								<MaterialCommunityIcons name="shoe-print" size={16} color="#00B4D8" />
+							</View>
+							<Text style={[styles.tileValue, { color: colors.foreground }]}>
+								{stats.steps > 0 ? fmt(stats.steps) : "—"}
+							</Text>
+							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+								Steps
+							</Text>
+						</GlassView>
+
+						{/* Active cal */}
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[
+								styles.healthTile,
+								{ backgroundColor: colors.card, borderColor: colors.border },
+							]}
+						>
+							<View style={[styles.tileIcon, { backgroundColor: "rgba(255,107,0,0.12)" }]}>
+								<MaterialCommunityIcons name="fire" size={16} color="#FF6B00" />
+							</View>
+							<Text style={[styles.tileValue, { color: colors.foreground }]}>
+								{stats.calories > 0 ? fmt(stats.calories) : "—"}
+							</Text>
+							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+								Cal
+							</Text>
+						</GlassView>
+
+						{/* Activity time */}
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[
+								styles.healthTile,
+								{ backgroundColor: colors.card, borderColor: colors.border },
+							]}
+						>
+							<View style={[styles.tileIcon, { backgroundColor: "rgba(16,185,129,0.12)" }]}>
+								<Ionicons name="timer-outline" size={16} color="#10B981" />
+							</View>
+							<Text style={[styles.tileValue, { color: colors.foreground }]}>
+								{stats.activityTime > 0 ? `${stats.activityTime}m` : "—"}
+							</Text>
+							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+								Active
+							</Text>
+						</GlassView>
+					</View>
+				</>
+			)}
+
+			{/* ── Training Trend Cards ── */}
+			<Text style={[styles.sectionHeading, { color: colors.foreground }]}>
+				Training · {rangeLabel}
 			</Text>
 
-			<GlassView
-				colorScheme={resolvedScheme}
-				style={[
-					styles.ringsCard,
-					{
-						backgroundColor: colors.card,
-						borderRadius: 20,
-						borderColor: colors.border,
-					},
-				]}
-			>
-				<Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-					THIS MONTH
-				</Text>
-				<View style={styles.ringsRow}>
-					<RingChart
-						progress={Math.min(thisMonth / MONTH_GOAL, 1)}
-						size={90}
-						strokeWidth={7}
-						label="Sessions"
-						value={String(thisMonth)}
-						sublabel={`/ ${MONTH_GOAL}`}
-						color={colors.accent}
-					/>
-					<View
-						style={[styles.ringDivider, { backgroundColor: colors.separator }]}
-					/>
-					<RingChart
-						progress={Math.min(totalVolume / 50000, 1)}
-						size={90}
-						strokeWidth={7}
-						label="Volume"
-						value={volDisplay}
-						sublabel={totalVolume < 1000 ? "kg" : undefined}
-						color={colors.accent}
-					/>
-					<View
-						style={[styles.ringDivider, { backgroundColor: colors.separator }]}
-					/>
-					<RingChart
-						progress={longestMin > 0 ? Math.min(avgMin / longestMin, 1) : 0}
-						size={90}
-						strokeWidth={7}
-						label="Avg Time"
-						value={avgMin > 0 ? `${avgMin}` : "—"}
-						sublabel={avgMin > 0 ? "min" : undefined}
-						color={colors.accent}
-					/>
-				</View>
-				<Text style={[styles.totalLine, { color: colors.mutedForeground }]}>
-					{sessions.length} sessions total
-				</Text>
-			</GlassView>
+			{/* Workout Frequency */}
+			<TrendCard
+				icon={<Ionicons name="barbell" size={18} color="#5856D6" />}
+				title="Workouts"
+				subtitle="Sessions logged"
+				value={fmt(totalWorkouts)}
+				unit="sessions"
+				delta={workoutsDelta}
+				positiveIsGood
+				chartData={workoutsData}
+				accentColor="#5856D6"
+				note={
+					totalWorkouts > 0
+						? `${(totalWorkouts / (rangeDays / 7)).toFixed(1)} per week on average`
+						: undefined
+				}
+			/>
 
-			<GlassView
-				colorScheme={resolvedScheme}
-				style={[
-					styles.section,
-					{
-						backgroundColor: colors.card,
-						borderRadius: 20,
-						borderColor: colors.border,
-					},
-				]}
-			>
-				<Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-					SESSIONS / WEEK
-				</Text>
-				<BarChart data={weeklyData} height={72} />
-			</GlassView>
+			{/* Training Volume */}
+			<TrendCard
+				icon={<MaterialCommunityIcons name="dumbbell" size={18} color="#00B4D8" />}
+				title="Volume"
+				subtitle="Total weight lifted"
+				value={
+					totalVolume >= 1000
+						? fmt(totalVolume / 1000, 1)
+						: fmt(totalVolume)
+				}
+				unit={totalVolume >= 1000 ? "tonnes" : "kg"}
+				delta={volumeDelta}
+				positiveIsGood
+				chartData={volumeData}
+				accentColor="#00B4D8"
+			/>
 
-			{bestLifts.length > 0 && (
+			{/* Avg Session Duration */}
+			<TrendCard
+				icon={<Ionicons name="time-outline" size={18} color="#10B981" />}
+				title="Avg Duration"
+				subtitle="Per session"
+				value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
+				unit="min"
+				delta={durationDelta}
+				positiveIsGood
+				chartData={durationData}
+				accentColor="#10B981"
+			/>
+
+			{/* Personal Bests */}
+			{pbInWindow > 0 && (
 				<GlassView
 					colorScheme={resolvedScheme}
 					style={[
-						styles.section,
+						styles.pbCard,
 						{
 							backgroundColor: colors.card,
 							borderRadius: 20,
@@ -262,69 +581,51 @@ export default function AnalyticsScreen() {
 						},
 					]}
 				>
-					<Text style={[styles.sectionLabel, { color: colors.foreground }]}>
-						BEST LIFTS
-					</Text>
-					{bestLifts.map(({ name, pb }) => (
-						<View
-							key={name}
-							style={[styles.pbRow, { borderBottomColor: colors.separator }]}
-						>
-							<Text
-								style={[styles.pbName, { color: colors.foreground }]}
-								numberOfLines={1}
-							>
-								{name}
-							</Text>
-							<View
-								style={{ flexDirection: "row", alignItems: "center", gap: 5 }}
-							>
-								<Ionicons name="star" size={14} color="#FFD700" />
-								<Text
-									style={[
-										styles.pbVal,
-										{
-											color: colors.foreground,
-											fontVariant: ["tabular-nums"],
-										},
-									]}
-								>
-									{pb!.weightKg}kg × {pb!.reps}
-								</Text>
-							</View>
-						</View>
-					))}
+					<View style={[styles.pbIconWrap, { backgroundColor: "rgba(255,215,0,0.12)" }]}>
+						<Ionicons name="star" size={20} color="#FFD700" />
+					</View>
+					<View style={{ flex: 1 }}>
+						<Text style={[styles.pbTitle, { color: colors.foreground }]}>
+							{pbInWindow} Personal Best{pbInWindow > 1 ? "s" : ""}
+						</Text>
+						<Text style={[styles.pbSub, { color: colors.mutedForeground }]}>
+							Achieved in the last {rangeLabel}
+						</Text>
+					</View>
 				</GlassView>
 			)}
 
-			<Text style={[styles.sectionHeader, { color: colors.foreground }]}>
-				Recent
-			</Text>
-			{sessions.slice(0, 10).map((s) => (
-				<SessionRow key={s.id} session={s} />
-			))}
+			{/* Empty state */}
+			{totalWorkouts === 0 && (
+				<GlassView
+					colorScheme={resolvedScheme}
+					style={[
+						styles.emptyCard,
+						{
+							backgroundColor: colors.card,
+							borderRadius: 20,
+							borderColor: colors.border,
+						},
+					]}
+				>
+					<Ionicons name="leaf-outline" size={32} color={colors.mutedForeground} />
+					<Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+						No training data
+					</Text>
+					<Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+						Complete sessions to see your trends here.
+					</Text>
+				</GlassView>
+			)}
 		</ScrollView>
 	);
 }
 
+// ─── Styles ──────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-	center: {
-		flex: 1,
-		alignItems: "center",
-		justifyContent: "center",
-		gap: 10,
-		paddingHorizontal: 32,
-	},
-	emptyTitle: {
-		fontSize: 20,
-		fontWeight: "600",
-		textAlign: "center",
-	},
-	emptyBody: {
-		fontSize: 14,
-		textAlign: "center",
-	},
 	content: { paddingHorizontal: 20, gap: 14 },
+
 	screenTitle: {
 		fontSize: 32,
 		fontWeight: "700",
@@ -332,58 +633,183 @@ const styles = StyleSheet.create({
 		lineHeight: 36,
 		marginBottom: 4,
 	},
-	ringsCard: { padding: 20, gap: 20 },
-	ringsRow: {
+
+	// Range selector
+	rangeRow: {
+		flexDirection: "row",
+		borderRadius: 14,
+		padding: 4,
+		gap: 2,
+		borderWidth: StyleSheet.hairlineWidth,
+	},
+	rangeBtn: {
+		flex: 1,
+		paddingVertical: 7,
+		borderRadius: 10,
+		alignItems: "center",
+	},
+	rangeBtnText: {
+		fontSize: 13,
+		fontWeight: "600",
+		letterSpacing: 0.2,
+	},
+
+	sectionHeading: {
+		fontSize: 18,
+		fontWeight: "600",
+		letterSpacing: -0.2,
+		marginTop: 4,
+		marginBottom: -2,
+	},
+
+	// Health tiles row
+	healthRow: {
+		flexDirection: "row",
+		gap: 10,
+	},
+	healthTile: {
+		flex: 1,
+		borderRadius: 16,
+		borderWidth: StyleSheet.hairlineWidth,
+		alignItems: "center",
+		paddingVertical: 14,
+		paddingHorizontal: 6,
+		gap: 6,
+	},
+	tileIcon: {
+		width: 32,
+		height: 32,
+		borderRadius: 16,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	tileValue: {
+		fontSize: 14,
+		fontWeight: "700",
+		letterSpacing: -0.3,
+		textAlign: "center",
+	},
+	tileLabel: {
+		fontSize: 10,
+		letterSpacing: 0.3,
+		textTransform: "uppercase",
+	},
+
+	// Trend card
+	card: {
+		padding: 16,
+		gap: 12,
+		borderWidth: StyleSheet.hairlineWidth,
+	},
+	cardHeader: {
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "space-around",
+		gap: 12,
 	},
-	ringDivider: { width: StyleSheet.hairlineWidth, height: 64 },
-	totalLine: {
+	cardIconWrap: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	cardTitle: {
+		fontSize: 15,
+		fontWeight: "600",
+	},
+	cardSubtitle: {
+		fontSize: 12,
+		marginTop: 1,
+	},
+	cardValueBlock: {
+		alignItems: "flex-end",
+		gap: 2,
+	},
+	cardValue: {
+		fontSize: 20,
+		fontWeight: "700",
+		letterSpacing: -0.5,
+		fontVariant: ["tabular-nums"],
+	},
+	cardUnit: {
+		fontSize: 11,
+	},
+	deltaBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 2,
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: 8,
+		marginTop: 2,
+	},
+	deltaText: {
+		fontSize: 11,
+		fontWeight: "600",
+	},
+	noDataRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "center",
+		gap: 8,
+		paddingVertical: 16,
+	},
+	noDataText: {
+		fontSize: 13,
+	},
+	axisRow: {
+		flexDirection: "row",
+		marginTop: -4,
+	},
+	axisLabel: {
+		fontSize: 9,
+		textAlign: "center",
+		letterSpacing: 0.2,
+	},
+	cardNote: {
 		fontSize: 12,
 		textAlign: "center",
 		marginTop: -4,
 	},
-	section: { padding: 16, gap: 14 },
-	sectionLabel: {
-		fontSize: 12,
-		fontWeight: "600",
-		letterSpacing: 1.2,
-		marginBottom: 4,
-	},
-	pbRow: {
+
+	// Personal bests card
+	pbCard: {
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "space-between",
-		paddingVertical: 12,
-		borderBottomWidth: StyleSheet.hairlineWidth,
+		padding: 16,
+		gap: 14,
+		borderWidth: StyleSheet.hairlineWidth,
 	},
-	pbName: { fontSize: 15, flex: 1, fontWeight: "500" },
-	pbVal: { fontSize: 15, fontWeight: "600" },
-	sectionHeader: {
-		fontSize: 20,
-		fontWeight: "600",
-		letterSpacing: -0.3,
-		marginTop: 8,
-		marginBottom: 4,
-	},
-	sessionRow: { padding: 16, marginBottom: 4, flexDirection: "row", alignItems: "center" },
-	sessionIconWrap: {
+	pbIconWrap: {
 		width: 40,
 		height: 40,
 		borderRadius: 20,
-		justifyContent: "center",
 		alignItems: "center",
-		marginRight: 14,
+		justifyContent: "center",
 	},
-	sessionDay: {
+	pbTitle: {
 		fontSize: 16,
 		fontWeight: "600",
 	},
-	sessionMeta: {
-		fontSize: 13,
-		fontVariant: ["tabular-nums"],
+	pbSub: {
+		fontSize: 12,
+		marginTop: 2,
 	},
-	sessionEx: { fontSize: 12, marginTop: 2 },
-});
 
+	// Empty
+	emptyCard: {
+		padding: 32,
+		alignItems: "center",
+		gap: 10,
+		borderWidth: StyleSheet.hairlineWidth,
+	},
+	emptyTitle: {
+		fontSize: 18,
+		fontWeight: "600",
+	},
+	emptyBody: {
+		fontSize: 14,
+		textAlign: "center",
+		lineHeight: 20,
+	},
+});

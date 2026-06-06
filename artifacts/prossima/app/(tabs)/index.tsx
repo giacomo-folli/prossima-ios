@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React from "react";
 import {
 	Platform,
 	Pressable,
@@ -14,18 +14,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
-import { useTraining } from "@/context/TrainingContext";
 import { useHealth, HealthWorkout } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
 import { Image } from "expo-image";
-
-function formatDuration(seconds: number): string {
-	const m = Math.floor(seconds / 60);
-	const h = Math.floor(m / 60);
-	if (h > 0) return `${h}h ${m % 60}m`;
-	return `${m}m`;
-}
 
 function fmtDate(iso: string) {
 	return new Date(iso).toLocaleDateString("en-US", {
@@ -47,7 +39,6 @@ export default function HomeScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
-	const { plan, currentDayIndex, loading, sessions } = useTraining();
 	const { isConnected, stats, loading: healthLoading, requestPermissions, syncData } = useHealth();
 	const { name, imageUri } = useProfile();
 	const [refreshing, setRefreshing] = React.useState(false);
@@ -58,22 +49,15 @@ export default function HomeScreen() {
 		setRefreshing(false);
 	}, [syncData]);
 
-	// Today's planned workout day
-	const today = plan?.days[currentDayIndex % plan.days.length] ?? null;
-
-	// Most recent completed session (app-logged)
-	const lastSession = sessions.length > 0 ? sessions[0] : null;
-
 	// Most recent Apple Health workout
 	const healthWorkout: HealthWorkout | null = stats.recentWorkout;
 
 	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
 	const bottomPadding = tabBarHeight + insets.bottom + 16;
 
-	const isDark = resolvedScheme === "dark";
 	const gradientColors = colors.backgroundGradient;
 
-	if (loading) {
+	if (healthLoading) {
 		return <LinearGradient colors={gradientColors} style={{ flex: 1 }} />;
 	}
 
@@ -132,7 +116,7 @@ export default function HomeScreen() {
 						<Ionicons name="heart" size={20} color="#FF2D55" style={{ marginRight: 12 }} />
 						<View style={{ flex: 1 }}>
 							<Text style={[styles.healthAlertTitle, { color: colors.foreground }]}>Connect Apple Health</Text>
-							<Text style={[styles.healthAlertDesc, { color: colors.mutedForeground }]}>Tap to sync calories, steps, and activity</Text>
+							<Text style={[styles.healthAlertDesc, { color: colors.mutedForeground }]}>Tap to sync calories, steps, sleep & activity</Text>
 						</View>
 						<Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
 					</GlassView>
@@ -161,7 +145,7 @@ export default function HomeScreen() {
 
 			{/* ── Health Quick Stats Capsules ── */}
 			<View style={styles.capsulesRow}>
-				{/* Sleep capsule — real data from HealthKit SleepAnalysis */}
+				{/* Sleep capsule */}
 				<GlassView
 					colorScheme={resolvedScheme}
 					style={[
@@ -181,7 +165,7 @@ export default function HomeScreen() {
 						style={{ marginRight: 6 }}
 					/>
 					<Text style={[styles.capsuleText, { color: colors.mutedForeground }]}>
-						Sleep:{" "}
+						Sleep{" "}
 						<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
 							{isConnected ? formatSleep(stats.sleepHours) : "—"}
 						</Text>
@@ -208,7 +192,7 @@ export default function HomeScreen() {
 						style={{ marginRight: 6 }}
 					/>
 					<Text style={[styles.capsuleText, { color: colors.mutedForeground }]} numberOfLines={1}>
-						Last workout:{" "}
+						Last workout{" "}
 						<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
 							{isConnected && healthWorkout
 								? `${healthWorkout.durationMinutes}m`
@@ -285,186 +269,73 @@ export default function HomeScreen() {
 				</>
 			)}
 
-			{/* ── Today's Workout ── */}
-			<View style={styles.sectionHeader}>
-				<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-					Today's Workout
-				</Text>
-			</View>
-
-			{today ? (
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.todayCard,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 20,
-							borderColor: colors.border,
-						},
-					]}
-				>
-					{/* Day label & exercise count */}
-					<View style={styles.todayCardHeader}>
-						<View
-							style={[
-								styles.workoutIconWrap,
-								{ backgroundColor: "rgba(94, 92, 230, 0.12)" },
-							]}
-						>
-							<MaterialCommunityIcons name="dumbbell" size={18} color="#5856D6" />
-						</View>
-						<View style={{ flex: 1 }}>
-							<Text style={[styles.todayDayLabel, { color: colors.foreground }]}>
-								{today.label}
-							</Text>
-							<Text style={[styles.todayMeta, { color: colors.mutedForeground }]}>
-								{today.exercises.length} exercise{today.exercises.length !== 1 ? "s" : ""}
-							</Text>
-						</View>
-						<View style={[styles.dayBadge, { backgroundColor: colors.muted }]}>
-							<Text style={[styles.dayBadgeText, { color: colors.accent }]}>
-								Day {(currentDayIndex % (plan?.days.length ?? 1)) + 1}
-							</Text>
-						</View>
+			{/* ── Today's Health Stats ── */}
+			{isConnected && (
+				<>
+					<View style={styles.sectionHeader}>
+						<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+							Today
+						</Text>
 					</View>
 
-					{/* Exercise list (first 4) */}
-					{today.exercises.slice(0, 4).map((ex, i) => (
-						<View
-							key={ex.id}
-							style={[
-								styles.exerciseRow,
-								i < Math.min(today.exercises.length, 4) - 1 && {
-									borderBottomWidth: StyleSheet.hairlineWidth,
-									borderBottomColor: colors.separator,
-								},
-							]}
-						>
-							<View style={[styles.exDot, { backgroundColor: colors.accent }]} />
-							<Text
-								style={[styles.exName, { color: colors.foreground }]}
-								numberOfLines={1}
-							>
-								{ex.name}
-							</Text>
-							<Text style={[styles.exMeta, { color: colors.mutedForeground }]}>
-								{ex.sets} × {ex.reps}
-							</Text>
+					<GlassView
+						colorScheme={resolvedScheme}
+						style={[
+							styles.todayStatsCard,
+							{
+								backgroundColor: colors.card,
+								borderRadius: 20,
+								borderColor: colors.border,
+							},
+						]}
+					>
+						{/* Steps */}
+						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(52, 199, 89, 0.1)" }]}>
+								<MaterialCommunityIcons name="shoe-print" size={18} color="#34C759" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Steps</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{stats.steps.toLocaleString()}
+								</Text>
+							</View>
+							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 15,000</Text>
 						</View>
-					))}
 
-					{today.exercises.length > 4 && (
-						<Text style={[styles.moreText, { color: colors.mutedForeground }]}>
-							+{today.exercises.length - 4} more exercises
-						</Text>
-					)}
-				</GlassView>
-			) : (
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.emptyCard,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 20,
-							borderColor: colors.border,
-						},
-					]}
-				>
-					<Ionicons name="calendar-outline" size={28} color={colors.mutedForeground} />
-					<Text style={[styles.emptyCardText, { color: colors.mutedForeground }]}>
-						No training plan yet.{"\n"}Add one in Settings.
-					</Text>
-				</GlassView>
+						{/* Calories */}
+						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(255, 107, 0, 0.1)" }]}>
+								<MaterialCommunityIcons name="fire" size={18} color="#FF6B00" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Active Calories</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{stats.calories} kcal
+								</Text>
+							</View>
+							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 550</Text>
+						</View>
+
+						{/* Activity time */}
+						<View style={styles.statRow}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(0, 180, 216, 0.1)" }]}>
+								<Ionicons name="timer-outline" size={18} color="#00B4D8" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Activity Time</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{stats.activityTime} min
+								</Text>
+							</View>
+							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 60m</Text>
+						</View>
+					</GlassView>
+				</>
 			)}
 
-			{/* ── Last Session ── */}
-			<View style={styles.sectionHeader}>
-				<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-					Last Session
-				</Text>
-			</View>
-
-			{lastSession ? (
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.lastSessionCard,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 20,
-							borderColor: colors.border,
-						},
-					]}
-				>
-					<View style={styles.lastSessionHeader}>
-						<View
-							style={[
-								styles.workoutIconWrap,
-								{ backgroundColor: "rgba(0, 180, 216, 0.1)" },
-							]}
-						>
-							<Ionicons name="barbell" size={18} color="#00B4D8" />
-						</View>
-						<View style={{ flex: 1 }}>
-							<Text
-								style={[styles.lastSessionLabel, { color: colors.foreground }]}
-								numberOfLines={1}
-							>
-								{lastSession.dayLabel}
-							</Text>
-							<Text style={[styles.lastSessionMeta, { color: colors.mutedForeground }]}>
-								{fmtDate(lastSession.date)} · {formatDuration(lastSession.durationSeconds)}
-							</Text>
-						</View>
-						{/* Volume badge */}
-						{(() => {
-							const vol = lastSession.entries.reduce(
-								(a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a),
-								0
-							);
-							return vol > 0 ? (
-								<View style={[styles.volBadge, { backgroundColor: "rgba(0, 180, 216, 0.1)" }]}>
-									<Text style={[styles.volBadgeText, { color: "#00B4D8" }]}>
-										{vol >= 1000 ? `${(vol / 1000).toFixed(1)}t` : `${Math.round(vol)}kg`}
-									</Text>
-								</View>
-							) : null;
-						})()}
-					</View>
-
-					{/* Sets summary row */}
-					<View style={styles.lastSessionStats}>
-						<View style={styles.lastSessionStat}>
-							<Text style={[styles.lastSessionStatVal, { color: colors.foreground }]}>
-								{lastSession.entries.length}
-							</Text>
-							<Text style={[styles.lastSessionStatLabel, { color: colors.mutedForeground }]}>
-								sets
-							</Text>
-						</View>
-						<View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
-						<View style={styles.lastSessionStat}>
-							<Text style={[styles.lastSessionStatVal, { color: colors.foreground }]}>
-								{[...new Set(lastSession.entries.map((e) => e.exerciseName))].length}
-							</Text>
-							<Text style={[styles.lastSessionStatLabel, { color: colors.mutedForeground }]}>
-								exercises
-							</Text>
-						</View>
-						<View style={[styles.statDivider, { backgroundColor: colors.separator }]} />
-						<View style={styles.lastSessionStat}>
-							<Text style={[styles.lastSessionStatVal, { color: colors.foreground }]}>
-								{sessions.length}
-							</Text>
-							<Text style={[styles.lastSessionStatLabel, { color: colors.mutedForeground }]}>
-								total sessions
-							</Text>
-						</View>
-					</View>
-				</GlassView>
-			) : (
+			{/* Empty state when not connected */}
+			{!isConnected && (
 				<GlassView
 					colorScheme={resolvedScheme}
 					style={[
@@ -476,10 +347,18 @@ export default function HomeScreen() {
 						},
 					]}
 				>
-					<Ionicons name="fitness-outline" size={28} color={colors.mutedForeground} />
+					<Ionicons name="heart-outline" size={32} color={colors.mutedForeground} />
 					<Text style={[styles.emptyCardText, { color: colors.mutedForeground }]}>
-						No sessions yet.{"\n"}Complete your first workout to see stats here.
+						Connect Apple Health{"\n"}to start seeing your data here.
 					</Text>
+					<Pressable
+						onPress={requestPermissions}
+						style={[styles.connectButton, { backgroundColor: colors.primary }]}
+					>
+						<Text style={[styles.connectButtonText, { color: colors.primaryForeground }]}>
+							Connect Now
+						</Text>
+					</Pressable>
 				</GlassView>
 			)}
 		</ScrollView>
@@ -577,16 +456,6 @@ const styles = StyleSheet.create({
 		letterSpacing: -0.3,
 	},
 
-	// Today's Workout card
-	todayCard: {
-		padding: 14,
-		gap: 0,
-	},
-	todayCardHeader: {
-		flexDirection: "row",
-		alignItems: "center",
-		marginBottom: 12,
-	},
 	workoutIconWrap: {
 		width: 34,
 		height: 34,
@@ -594,97 +463,6 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		alignItems: "center",
 		marginRight: 10,
-	},
-	todayDayLabel: {
-		fontSize: 16,
-		fontWeight: "600",
-	},
-	todayMeta: {
-		fontSize: 12,
-		marginTop: 1,
-	},
-	dayBadge: {
-		paddingHorizontal: 10,
-		paddingVertical: 4,
-		borderRadius: 10,
-	},
-	dayBadgeText: {
-		fontSize: 12,
-		fontWeight: "600",
-	},
-	exerciseRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingVertical: 9,
-		gap: 10,
-	},
-	exDot: {
-		width: 6,
-		height: 6,
-		borderRadius: 3,
-	},
-	exName: {
-		flex: 1,
-		fontSize: 14,
-		fontWeight: "500",
-	},
-	exMeta: {
-		fontSize: 13,
-		fontVariant: ["tabular-nums"],
-	},
-	moreText: {
-		fontSize: 12,
-		textAlign: "center",
-		marginTop: 8,
-	},
-
-	// Last Session card
-	lastSessionCard: {
-		padding: 14,
-		gap: 14,
-	},
-	lastSessionHeader: {
-		flexDirection: "row",
-		alignItems: "center",
-	},
-	lastSessionLabel: {
-		fontSize: 16,
-		fontWeight: "600",
-	},
-	lastSessionMeta: {
-		fontSize: 12,
-		marginTop: 1,
-	},
-	volBadge: {
-		paddingHorizontal: 10,
-		paddingVertical: 4,
-		borderRadius: 10,
-	},
-	volBadgeText: {
-		fontSize: 12,
-		fontWeight: "700",
-	},
-	lastSessionStats: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-around",
-	},
-	lastSessionStat: {
-		alignItems: "center",
-		flex: 1,
-	},
-	lastSessionStatVal: {
-		fontSize: 22,
-		fontWeight: "700",
-		letterSpacing: -0.5,
-	},
-	lastSessionStatLabel: {
-		fontSize: 11,
-		marginTop: 2,
-	},
-	statDivider: {
-		width: StyleSheet.hairlineWidth,
-		height: 36,
 	},
 
 	// Apple Health recent workout card
@@ -724,15 +502,56 @@ const styles = StyleSheet.create({
 		height: 28,
 	},
 
+	// Today's stats card
+	todayStatsCard: {
+		overflow: "hidden",
+	},
+	statRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingVertical: 14,
+		paddingHorizontal: 16,
+		gap: 12,
+	},
+	statIconWrap: {
+		width: 34,
+		height: 34,
+		borderRadius: 17,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	statLabel: {
+		fontSize: 12,
+		marginBottom: 2,
+	},
+	statValue: {
+		fontSize: 17,
+		fontWeight: "700",
+		letterSpacing: -0.3,
+	},
+	statGoal: {
+		fontSize: 13,
+	},
+
 	// Empty state
 	emptyCard: {
-		padding: 28,
+		padding: 32,
 		alignItems: "center",
-		gap: 10,
+		gap: 12,
 	},
 	emptyCardText: {
 		fontSize: 14,
 		textAlign: "center",
 		lineHeight: 20,
+	},
+	connectButton: {
+		paddingHorizontal: 24,
+		paddingVertical: 12,
+		borderRadius: 24,
+		marginTop: 4,
+	},
+	connectButtonText: {
+		fontSize: 15,
+		fontWeight: "600",
 	},
 });

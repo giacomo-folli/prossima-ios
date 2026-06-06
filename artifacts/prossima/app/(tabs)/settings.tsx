@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
 	Alert,
 	Platform,
@@ -6,18 +6,13 @@ import {
 	ScrollView,
 	StyleSheet,
 	Text,
-	TextInput,
 	View,
-	Modal,
-	KeyboardAvoidingView,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
 import { useTheme, ThemePreference } from "@/context/ThemeContext";
-import { useTraining, DEFAULT_YAML } from "@/context/TrainingContext";
 import { useHealth } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { Image } from "expo-image";
@@ -30,7 +25,8 @@ const THEME_OPTIONS: { value: ThemePreference; label: string; icon: string }[] =
 		{ value: "dark", label: "Dark", icon: "moon-outline" },
 	];
 
-// Sub-components for Settings Layout
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
 interface SettingSectionProps {
 	label?: string;
 	children: React.ReactNode;
@@ -162,14 +158,19 @@ const SettingRow: React.FC<SettingRowProps> = ({
 	return <View style={styles.rowPressable}>{rowContent}</View>;
 };
 
+// ─── Main Screen ────────────────────────────────────────────────────────────────
+
 export default function SettingsScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { preference, setPreference } = useTheme();
-	const { yamlSource, loadPlan, parseError, plan } = useTraining();
 	const { isConnected, requestPermissions, disconnect } = useHealth();
 	const { name, imageUri } = useProfile();
+
+	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
+	const topPad = Platform.OS === "web" ? 20 : insets.top;
+	const botPad = insets.bottom + tabBarHeight + (Platform.OS === "web" ? 34 : 0);
 
 	const handleDisconnectHealth = () => {
 		Alert.alert(
@@ -182,61 +183,22 @@ export default function SettingsScreen() {
 		);
 	};
 
-	const [yamlModalVisible, setYamlModalVisible] = useState(false);
-	const [yamlDraft, setYamlDraft] = useState(yamlSource);
-	const [saving, setSaving] = useState(false);
-	const [ok, setOk] = useState(false);
-
-	const topPad = Platform.OS === "web" ? 20 : insets.top;
-	const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
-
-	const isDark = resolvedScheme === "dark";
-	const gradientColors = colors.backgroundGradient;
-
-	const handleSave = async () => {
-		setSaving(true);
-		try {
-			await loadPlan(yamlDraft);
-			setOk(true);
-			setYamlModalVisible(false);
-			setTimeout(() => setOk(false), 3000);
-		} catch (e: any) {
-			Alert.alert("Invalid YAML", e.message);
-		} finally {
-			setSaving(false);
-		}
-	};
-
-	const handleResetYaml = () =>
-		Alert.alert(
-			"Reset Plan",
-			"Replace current plan with default Push Pull Legs?",
-			[
-				{ text: "Cancel", style: "cancel" },
-				{
-					text: "Reset",
-					onPress: async () => {
-						setYamlDraft(DEFAULT_YAML);
-						await loadPlan(DEFAULT_YAML);
-					},
-				},
-			],
-		);
-
 	return (
 		<ScrollView
 			contentContainerStyle={[
 				styles.content,
-				{ paddingTop: topPad, paddingBottom: botPad + 32 },
+				{ paddingTop: topPad, paddingBottom: botPad + 16 },
 			]}
 			keyboardShouldPersistTaps="handled"
 			showsVerticalScrollIndicator={false}
 			contentInsetAdjustmentBehavior="never"
 		>
+			{/* ── Page Title ── */}
 			<Text style={[styles.screenTitle, { color: colors.foreground }]}>
 				Settings
 			</Text>
 
+			{/* ── Profile Card ── */}
 			<Pressable
 				style={styles.profileCard}
 				onPress={() => router.push("/edit-profile")}
@@ -248,6 +210,8 @@ export default function SettingsScreen() {
 						{
 							backgroundColor: colors.card,
 							borderRadius: colors.radius,
+							borderWidth: 1,
+							borderColor: colors.border,
 						},
 					]}
 				>
@@ -285,36 +249,14 @@ export default function SettingsScreen() {
 				</GlassView>
 			</Pressable>
 
-			{ok && (
-				<View
-					style={[
-						styles.toastBanner,
-						{
-							backgroundColor: colors.success + "20",
-							borderColor: colors.success,
-						},
-					]}
-				>
-					<Ionicons name="checkmark-circle" size={15} color={colors.success} />
-					<Text
-						style={[
-							styles.toastText,
-							{ color: colors.successForeground || colors.foreground },
-						]}
-					>
-						Plan updated successfully
-					</Text>
-				</View>
-			)}
-
-			{/* Appearance Section */}
+			{/* ── Appearance ── */}
 			<SettingSection label="APPEARANCE">
 				<View style={{ padding: 16 }}>
 					<View style={{ flexDirection: "row", alignItems: "center", marginBottom: 16 }}>
 						<View style={[styles.iconContainer, { backgroundColor: "#A180F4" }]}>
 							<Ionicons name="color-palette" size={15} color="#FFFFFF" />
 						</View>
-						<Text style={[styles.rowLabel, { color: colors.foreground }]}>
+						<Text style={[styles.rowLabel, { color: colors.foreground, marginLeft: 0 }]}>
 							App Theme
 						</Text>
 					</View>
@@ -371,66 +313,40 @@ export default function SettingsScreen() {
 				</View>
 			</SettingSection>
 
-			{/* Training Plan Section */}
-			<SettingSection label="TRAINING PLAN">
-				<SettingRow
-					icon="fitness"
-					iconBg="#007AFF"
-					label={plan ? plan.name : "No active plan"}
-					sublabel={
-						plan
-							? `${plan.days.length} days · ${plan.days.reduce((a, d) => a + d.exercises.length, 0)} exercises`
-							: "Configure a plan to start training"
-					}
-					isLast={false}
-				/>
-				<SettingRow
-					icon="code-slash"
-					iconBg="#30B0C7"
-					label="Edit Plan YAML"
-					onPress={() => {
-						setYamlDraft(yamlSource);
-						setYamlModalVisible(true);
-					}}
-					isLast={false}
-				/>
-				<SettingRow
-					icon="refresh"
-					iconBg="#FF9500"
-					label="Reset to Default Plan"
-					onPress={handleResetYaml}
-					isLast={true}
-				/>
-			</SettingSection>
-
-			{/* Integrations Section */}
-			<SettingSection label="INTEGRATIONS">
+			{/* ── Apple Health ── */}
+			<SettingSection
+				label="APPLE HEALTH"
+				footer={
+					isConnected
+						? "Syncing steps, calories, sleep, and workouts."
+						: "Connect to start tracking your health data."
+				}
+			>
 				<SettingRow
 					icon="heart"
 					iconBg="#FF2D55"
 					label="Apple Health"
 					sublabel={
-						isConnected ? "Connected" : "Sync calories, steps, and activity"
+						isConnected
+							? "Connected · syncing your data"
+							: "Sync calories, steps, sleep & workouts"
 					}
 					isLast={true}
 					rightContent={
 						isConnected ? (
-							<Text
-								style={{
-									color: colors.success,
-									fontSize: 14,
-									fontWeight: "500",
-								}}
-							>
-								Connected
-							</Text>
+							<View style={[styles.connectedBadge, { backgroundColor: colors.success + "20", borderColor: colors.success }]}>
+								<View style={[styles.connectedDot, { backgroundColor: colors.success }]} />
+								<Text style={{ color: colors.success, fontSize: 12, fontWeight: "600" }}>
+									Connected
+								</Text>
+							</View>
 						) : undefined
 					}
 					onPress={isConnected ? handleDisconnectHealth : requestPermissions}
 				/>
 			</SettingSection>
 
-			{/* About Section */}
+			{/* ── About ── */}
 			<SettingSection label="ABOUT">
 				<SettingRow
 					icon="information-circle"
@@ -444,138 +360,17 @@ export default function SettingsScreen() {
 					}
 				/>
 				<SettingRow
-					icon="leaf"
-					iconBg="#52D171"
-					label="Philosophy"
+					icon="heart-outline"
+					iconBg="#FF6B8A"
+					label="Data Source"
 					isLast={true}
 					rightContent={
 						<Text style={[styles.infoValue, { color: colors.mutedForeground }]}>
-							Less is more
+							Apple Health
 						</Text>
 					}
 				/>
 			</SettingSection>
-
-			{/* YAML Editor Modal */}
-			<Modal
-				visible={yamlModalVisible}
-				animationType="slide"
-				presentationStyle="pageSheet"
-				onRequestClose={() => setYamlModalVisible(false)}
-			>
-				<LinearGradient colors={gradientColors} style={styles.modalRoot}>
-					<View
-						style={[
-							styles.modalHeader,
-							{ borderBottomColor: colors.separator },
-						]}
-					>
-						<Pressable
-							onPress={() => setYamlModalVisible(false)}
-							accessibilityRole="button"
-							accessibilityLabel="Cancel"
-							style={styles.modalHeaderBtn}
-						>
-							<Text
-								style={[
-									styles.modalHeaderBtnText,
-									{ color: colors.mutedForeground },
-								]}
-							>
-								Cancel
-							</Text>
-						</Pressable>
-						<Text style={[styles.modalTitle, { color: colors.foreground }]}>
-							Edit YAML Plan
-						</Text>
-						<Pressable
-							onPress={handleSave}
-							disabled={saving}
-							accessibilityRole="button"
-							accessibilityLabel="Apply"
-							style={styles.modalHeaderBtn}
-						>
-							<Text
-								style={[
-									styles.modalHeaderBtnText,
-									{ color: colors.primary, fontWeight: "600" },
-								]}
-							>
-								{saving ? "Applying..." : "Apply"}
-							</Text>
-						</Pressable>
-					</View>
-
-					<KeyboardAvoidingView
-						behavior={Platform.OS === "ios" ? "padding" : "height"}
-						style={{ flex: 1 }}
-					>
-						<ScrollView
-							style={{ flex: 1 }}
-							contentContainerStyle={styles.modalScrollContent}
-							keyboardShouldPersistTaps="handled"
-							contentInsetAdjustmentBehavior="never"
-						>
-							<Text
-								style={[
-									styles.modalHelpText,
-									{ color: colors.mutedForeground },
-								]}
-							>
-								Define your days, exercises, sets, reps, rest timers, muscles,
-								and notes in YAML format.
-							</Text>
-
-							{parseError && (
-								<View
-									style={[
-										styles.modalErrorBanner,
-										{
-											backgroundColor: colors.destructive + "14",
-											borderColor: colors.destructive,
-										},
-									]}
-								>
-									<Ionicons
-										name="warning-outline"
-										size={16}
-										color={colors.destructive}
-									/>
-									<Text
-										style={[
-											styles.modalErrorText,
-											{ color: colors.destructive },
-										]}
-									>
-										{parseError}
-									</Text>
-								</View>
-							)}
-
-							<TextInput
-								style={[
-									styles.yamlTextInput,
-									{
-										color: colors.foreground,
-										backgroundColor: colors.card,
-										borderColor: parseError
-											? colors.destructive
-											: colors.border,
-										borderRadius: colors.radius,
-									},
-								]}
-								value={yamlDraft}
-								onChangeText={setYamlDraft}
-								multiline
-								autoCapitalize="none"
-								autoCorrect={false}
-								spellCheck={false}
-								placeholderTextColor={colors.mutedForeground}
-							/>
-						</ScrollView>
-					</KeyboardAvoidingView>
-				</LinearGradient>
-			</Modal>
 		</ScrollView>
 	);
 }
@@ -589,55 +384,42 @@ const styles = StyleSheet.create({
 		marginBottom: 4,
 	},
 
-	toastBanner: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 8,
-		padding: 12,
-		borderRadius: 12,
-		borderWidth: 1,
-		marginBottom: 8,
-	},
-	toastText: {
-		fontSize: 14,
-	},
-
 	// Profile Card
 	profileCard: {
-		marginBottom: 16,
+		marginBottom: 4,
 	},
 	profileCardInner: {
 		flexDirection: "row",
 		alignItems: "center",
 		padding: 16,
-		borderRadius: 16,
+		overflow: "hidden",
 	},
 	profileImage: {
-		width: 60,
-		height: 60,
-		borderRadius: 30,
+		width: 56,
+		height: 56,
+		borderRadius: 28,
 	},
 	profileAvatarPlaceholder: {
-		width: 60,
-		height: 60,
-		borderRadius: 30,
+		width: 56,
+		height: 56,
+		borderRadius: 28,
 		justifyContent: "center",
 		alignItems: "center",
 	},
 	profileAvatarText: {
-		fontSize: 24,
+		fontSize: 22,
 		color: "#FFFFFF",
 		fontWeight: "600",
 	},
 	profileInfo: {
 		flex: 1,
-		marginLeft: 16,
+		marginLeft: 14,
 		justifyContent: "center",
 	},
 	profileName: {
-		fontSize: 20,
+		fontSize: 18,
 		fontWeight: "600",
-		marginBottom: 4,
+		marginBottom: 3,
 	},
 	profileSub: {
 		fontSize: 14,
@@ -652,6 +434,7 @@ const styles = StyleSheet.create({
 		fontSize: 10,
 		letterSpacing: 2,
 		paddingLeft: 4,
+		fontWeight: "600",
 	},
 	sectionFooter: {
 		fontSize: 12,
@@ -665,7 +448,7 @@ const styles = StyleSheet.create({
 
 	// SettingRow styles
 	rowPressable: {
-		minHeight: 48,
+		minHeight: 52,
 		justifyContent: "center",
 	},
 	rowContainer: {
@@ -699,6 +482,22 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 
+	// Connected badge
+	connectedBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 5,
+		paddingHorizontal: 10,
+		paddingVertical: 5,
+		borderRadius: 20,
+		borderWidth: 1,
+	},
+	connectedDot: {
+		width: 6,
+		height: 6,
+		borderRadius: 3,
+	},
+
 	// Segmented picker styles
 	segmentedContainer: {
 		flexDirection: "row",
@@ -719,63 +518,7 @@ const styles = StyleSheet.create({
 		fontSize: 11,
 	},
 
-	statsValue: {
-		fontSize: 15,
-	},
 	infoValue: {
 		fontSize: 14,
-	},
-
-	// Modal styles
-	modalRoot: {
-		flex: 1,
-	},
-	modalHeader: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingHorizontal: 16,
-		paddingVertical: 14,
-		borderBottomWidth: StyleSheet.hairlineWidth,
-	},
-	modalHeaderBtn: {
-		paddingVertical: 6,
-		paddingHorizontal: 12,
-	},
-	modalHeaderBtnText: {
-		fontSize: 16,
-	},
-	modalTitle: {
-		fontSize: 17,
-		fontWeight: "600",
-	},
-	modalScrollContent: {
-		padding: 20,
-		gap: 16,
-	},
-	modalHelpText: {
-		fontSize: 13,
-		lineHeight: 18,
-	},
-	modalErrorBanner: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 8,
-		padding: 12,
-		borderRadius: 12,
-		borderWidth: 1,
-	},
-	modalErrorText: {
-		fontSize: 13,
-		flex: 1,
-	},
-	yamlTextInput: {
-		padding: 16,
-		fontSize: 13,
-		lineHeight: 20,
-		minHeight: 320,
-		borderWidth: 1,
-		textAlignVertical: "top",
-		fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
 	},
 });
