@@ -17,12 +17,11 @@ import { useHealth } from "@/context/HealthContext";
 import { MicroBar } from "@/components/MicroBar";
 import { LineChart } from "@/components/LineChart";
 import { DailyHealthSample } from "@/context/HealthStore";
+import { TrendCard } from "@/components/TrendCard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type RangeKey = "1W" | "1M" | "3M" | "6M" | "1Y";
-/** Which chart style a TrendCard renders */
-type ChartType = "bar" | "line";
 
 const RANGES: { key: RangeKey; label: string; days: number }[] = [
 	{ key: "1W", label: "1W", days: 7 },
@@ -91,168 +90,8 @@ function halfDelta(values: number[]): number | null {
 	return ((avgSecond - avgFirst) / avgFirst) * 100;
 }
 
-// ─── TrendCard ───────────────────────────────────────────────────────────────
-interface TrendCardProps {
-	icon: React.ReactNode;
-	title: string;
-	subtitle?: string;
-	value: string;
-	unit: string;
-	delta: number | null;
-	positiveIsGood: boolean;
-	chartData: { label: string; value: number }[];
-	accentColor: string;
-	note?: string;
-	/** "bar" | "line" */
-	chartType?: ChartType;
-	/** Passed through to LineChart: reference line value */
-	referenceValue?: number;
-	/** Passed through to LineChart: reference line label */
-	referenceLabel?: string;
-	/** Passed through to LineChart: format y-axis labels */
-	formatY?: (v: number) => string;
-	/** Passed through to LineChart: show y-axis value labels */
-	showYLabels?: boolean;
-}
 
-function TrendCard({
-	icon,
-	title,
-	subtitle,
-	value,
-	unit,
-	delta,
-	positiveIsGood,
-	chartData,
-	accentColor,
-	note,
-	chartType = "bar",
-	referenceValue,
-	referenceLabel,
-	formatY,
-	showYLabels,
-}: TrendCardProps) {
-	const colors = useColors();
-	const { resolvedScheme } = useTheme();
-	const hasData = chartData.some((d) => d.value > 0);
 
-	const { icon: deltaIcon, color: deltaColor } = useMemo(() => {
-		if (delta === null || delta === 0)
-			return { icon: "remove" as const, color: "#94A3B8" };
-		const isUp = delta > 0;
-		const isGood = positiveIsGood ? isUp : !isUp;
-		return {
-			icon: isUp ? ("arrow-up" as const) : ("arrow-down" as const),
-			color: isGood ? "#10B981" : "#EF4444",
-		};
-	}, [delta, positiveIsGood]);
-
-	return (
-		<GlassView
-			colorScheme={resolvedScheme}
-			style={[
-				styles.card,
-				{
-					backgroundColor: colors.card,
-					borderRadius: 20,
-					borderColor: colors.border,
-				},
-			]}
-		>
-			{/* Header */}
-			<View style={styles.cardHeader}>
-				<View
-					style={[styles.cardIconWrap, { backgroundColor: `${accentColor}18` }]}
-				>
-					{icon}
-				</View>
-				<View style={{ flex: 1 }}>
-					<Text style={[styles.cardTitle, { color: colors.foreground }]}>
-						{title}
-					</Text>
-					<Text
-						style={[styles.cardSubtitle, { color: colors.mutedForeground }]}
-					>
-						{!!subtitle
-							? subtitle
-							: delta !== null &&
-								hasData && (
-									<>
-										<Ionicons name={deltaIcon} size={10} color={deltaColor} />
-										<Text style={[styles.deltaText, { color: deltaColor }]}>
-											{Math.abs(delta).toFixed(0)}%
-										</Text>
-									</>
-								)}
-					</Text>
-				</View>
-				<View style={styles.cardValueBlock}>
-					<Text style={[styles.cardValue, { color: colors.foreground }]}>
-						{hasData ? value : "—"}
-					</Text>
-					<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>
-						{unit}
-					</Text>
-				</View>
-			</View>
-
-			{/* Chart area */}
-			{hasData ? (
-				chartType === "line" ? (
-					<LineChart
-						data={chartData}
-						height={80}
-						accentColor={accentColor}
-						labelColor={colors.mutedForeground}
-						guideCount={2}
-						showYLabels={showYLabels}
-						referenceValue={referenceValue}
-						referenceLabel={referenceLabel}
-						formatY={formatY}
-						strokeWidth={2}
-						animationDuration={700}
-					/>
-				) : (
-					<>
-						<MicroBar data={chartData} accentColor={accentColor} />
-						{/* X-axis labels for bar chart */}
-						<View style={styles.axisRow}>
-							{chartData.map((d, i) => (
-								<Text
-									key={i}
-									style={[
-										styles.axisLabel,
-										{ color: colors.mutedForeground, flex: 1 },
-									]}
-									numberOfLines={1}
-								>
-									{i === 0 || i === chartData.length - 1 ? d.label : ""}
-								</Text>
-							))}
-						</View>
-					</>
-				)
-			) : (
-				<View style={styles.noDataRow}>
-					<Ionicons
-						name="analytics-outline"
-						size={18}
-						color={colors.mutedForeground}
-					/>
-					<Text style={[styles.noDataText, { color: colors.mutedForeground }]}>
-						No data for this period
-					</Text>
-				</View>
-			)}
-
-			{note ? (
-				<Text style={[styles.cardNote, { color: colors.mutedForeground }]}>
-					{note}
-				</Text>
-			) : null}
-		</GlassView>
-	);
-}
 
 // ─── Range Selector ──────────────────────────────────────────────────────────
 

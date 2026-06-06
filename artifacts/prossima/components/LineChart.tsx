@@ -220,8 +220,9 @@ export function LineChart({
 
 	// ── X-axis labels ──────────────────────────────────────────────────────
 	const showLabel = (i: number) => {
-		if (data.length <= 4) return true;
-		return i === 0 || i === data.length - 1;
+		if (data.length <= 7) return true;
+		if (data.length >= 20) return i === 0 || i === data.length - 1;
+		return i % 2 == 0;
 	};
 
 	// ── Last valid dot ──────────────────────────────────────────────────────
