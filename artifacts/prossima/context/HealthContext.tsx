@@ -90,6 +90,7 @@ interface HealthContextType {
 	syncData: () => Promise<void>;
 	fullHistoricalSync: () => Promise<void>;
 	disconnect: () => Promise<void>;
+	clearLocalData: () => Promise<void>;
 }
 
 // ─── Factories (avoid shared mutable references) ──────────────────────────────
@@ -1185,20 +1186,28 @@ export function HealthProvider({
 		});
 	}, []);
 
-	// ── Disconnect ────────────────────────────────────────────────────────────
+	// ── Disconnect & Clear ────────────────────────────────────────────────────
 
-	const disconnect = useCallback(async () => {
+	const clearLocalData = useCallback(async () => {
 		try {
-			await AsyncStorage.removeItem(HEALTH_CONNECTED_KEY);
 			await clearAllHealthData();
-			setIsConnected(false);
 			setStats(makeDefaultStats());
 			setTimeSeries(makeEmptyTimeSeries());
 			setReadiness(null);
 		} catch (e) {
-			console.error("Error disconnecting health", e);
+			console.error("Error clearing local data", e);
 		}
 	}, []);
+
+	const disconnect = useCallback(async () => {
+		try {
+			await AsyncStorage.removeItem(HEALTH_CONNECTED_KEY);
+			await clearLocalData();
+			setIsConnected(false);
+		} catch (e) {
+			console.error("Error disconnecting health", e);
+		}
+	}, [clearLocalData]);
 
 	return (
 		<HealthContext.Provider
@@ -1214,6 +1223,7 @@ export function HealthProvider({
 				syncData,
 				fullHistoricalSync,
 				disconnect,
+				clearLocalData,
 			}}
 		>
 			{children}

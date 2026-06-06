@@ -1,5 +1,6 @@
 import React from "react";
 import {
+	ActivityIndicator,
 	Alert,
 	Platform,
 	Pressable,
@@ -165,7 +166,7 @@ export default function SettingsScreen() {
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { preference, setPreference } = useTheme();
-	const { isConnected, requestPermissions, disconnect } = useHealth();
+	const { isConnected, requestPermissions, disconnect, clearLocalData, fullHistoricalSync, syncing } = useHealth();
 	const { name, imageUri } = useProfile();
 
 	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
@@ -181,6 +182,41 @@ export default function SettingsScreen() {
 				{ text: "Disconnect", style: "destructive", onPress: disconnect },
 			],
 		);
+	};
+
+	const handleDeleteAllData = () => {
+		Alert.alert(
+			"Delete Imported Data",
+			"Are you sure you want to delete all locally imported data? This will clear all cached health and history data.",
+			[
+				{ text: "Cancel", style: "cancel" },
+				{
+					text: "Delete",
+					style: "destructive",
+					onPress: async () => {
+						try {
+							await clearLocalData();
+							Alert.alert("Success", "All locally imported data has been deleted.");
+						} catch (e) {
+							Alert.alert("Error", "Failed to delete data.");
+						}
+					},
+				},
+			],
+		);
+	};
+
+	const handleSyncAllData = async () => {
+		if (!isConnected) {
+			Alert.alert("Not Connected", "Please connect to Apple Health first.");
+			return;
+		}
+		try {
+			await fullHistoricalSync();
+			Alert.alert("Sync Complete", "All historical data has been imported.");
+		} catch (e) {
+			Alert.alert("Error", "Failed to sync data.");
+		}
 	};
 
 	return (
@@ -343,6 +379,28 @@ export default function SettingsScreen() {
 						) : undefined
 					}
 					onPress={isConnected ? handleDisconnectHealth : requestPermissions}
+				/>
+			</SettingSection>
+
+			{/* ── Data Management ── */}
+			<SettingSection label="DATA MANAGEMENT">
+				<SettingRow
+					icon="sync"
+					iconBg="#34C759"
+					label="Force Sync All Data"
+					sublabel={syncing ? "Syncing..." : "Import all history from Apple Health"}
+					isLast={false}
+					onPress={syncing ? undefined : handleSyncAllData}
+					rightContent={syncing ? <ActivityIndicator size="small" color={colors.primary} /> : undefined}
+				/>
+				<SettingRow
+					icon="trash"
+					iconBg="#FF3B30"
+					label="Delete All Local Data"
+					sublabel="Clear all imported health and history data"
+					isLast={true}
+					destructive={true}
+					onPress={handleDeleteAllData}
 				/>
 			</SettingSection>
 
