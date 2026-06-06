@@ -14,12 +14,15 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { useTraining } from "@/context/TrainingContext";
 import { useHealth } from "@/context/HealthContext";
-import { BarChart } from "@/components/BarChart";
+import { MicroBar } from "@/components/MicroBar";
+import { LineChart } from "@/components/LineChart";
 import { DailyHealthSample } from "@/context/HealthStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type RangeKey = "1W" | "1M" | "3M" | "6M" | "1Y";
+/** Which chart style a TrendCard renders */
+type ChartType = "bar" | "line";
 
 const RANGES: { key: RangeKey; label: string; days: number }[] = [
 	{ key: "1W", label: "1W", days: 7 },
@@ -37,10 +40,6 @@ function startOfDay(d: Date) {
 	return c;
 }
 
-/**
- * Divide [rangeStart, now] into `buckets` equally-sized buckets and
- * return a label per bucket.
- */
 function buildBuckets(
 	days: number,
 	buckets: number,
@@ -55,7 +54,6 @@ function buildBuckets(
 		const start = new Date(rangeStart.getTime() + i * msPerBucket);
 		const end = new Date(rangeStart.getTime() + (i + 1) * msPerBucket);
 
-		// Label: last bucket always shows "Now", others show shortest useful date
 		let label: string;
 		if (i === buckets - 1) {
 			label = "Now";
@@ -75,18 +73,6 @@ function buildBuckets(
 	});
 }
 
-/** Arrow + colour for the trend delta chip */
-function trendMeta(delta: number | null): {
-	icon: "arrow-up" | "arrow-down" | "remove";
-	color: string;
-	good: boolean;
-} {
-	if (delta === null || delta === 0)
-		return { icon: "remove", color: "#94A3B8", good: true };
-	if (delta > 0) return { icon: "arrow-up", color: "#10B981", good: true };
-	return { icon: "arrow-down", color: "#EF4444", good: false };
-}
-
 function fmt(n: number, decimals = 0) {
 	return n.toLocaleString("en-US", {
 		minimumFractionDigits: decimals,
@@ -94,7 +80,6 @@ function fmt(n: number, decimals = 0) {
 	});
 }
 
-/** Return % delta between first and second halves of `values`. Null if no data. */
 function halfDelta(values: number[]): number | null {
 	if (!values.length) return null;
 	const half = Math.floor(values.length / 2);
@@ -106,71 +91,28 @@ function halfDelta(values: number[]): number | null {
 	return ((avgSecond - avgFirst) / avgFirst) * 100;
 }
 
-// ─── Mini MicroBar (inline sparkline without labels) ─────────────────────────
-
-function MicroBar({
-	data,
-	accentColor,
-}: {
-	data: { label: string; value: number }[];
-	accentColor: string;
-}) {
-	const colors = useColors();
-	const maxValue = Math.max(...data.map((d) => d.value), 1);
-	const H = 48;
-
-	return (
-		<View
-			style={{
-				flexDirection: "row",
-				alignItems: "flex-end",
-				gap: 3,
-				height: H,
-			}}
-		>
-			{data.map((item, i) => {
-				const barH =
-					maxValue > 0
-						? Math.max((item.value / maxValue) * H, item.value > 0 ? 3 : 0)
-						: 0;
-				const isTop = item.value === maxValue && item.value > 0;
-				return (
-					<View
-						key={i}
-						style={{
-							flex: 1,
-							height: H,
-							justifyContent: "flex-end",
-						}}
-					>
-						<View
-							style={{
-								height: Math.max(barH, 2),
-								borderRadius: 4,
-								backgroundColor: isTop ? accentColor : `${accentColor}44`,
-							}}
-						/>
-					</View>
-				);
-			})}
-		</View>
-	);
-}
-
-// ─── Trend Card ──────────────────────────────────────────────────────────────
-
+// ─── TrendCard ───────────────────────────────────────────────────────────────
 interface TrendCardProps {
 	icon: React.ReactNode;
 	title: string;
-	subtitle: string;
+	subtitle?: string;
 	value: string;
 	unit: string;
 	delta: number | null;
 	positiveIsGood: boolean;
 	chartData: { label: string; value: number }[];
 	accentColor: string;
-	/** optional note below the chart */
 	note?: string;
+	/** "bar" | "line" */
+	chartType?: ChartType;
+	/** Passed through to LineChart: reference line value */
+	referenceValue?: number;
+	/** Passed through to LineChart: reference line label */
+	referenceLabel?: string;
+	/** Passed through to LineChart: format y-axis labels */
+	formatY?: (v: number) => string;
+	/** Passed through to LineChart: show y-axis value labels */
+	showYLabels?: boolean;
 }
 
 function TrendCard({
@@ -184,12 +126,16 @@ function TrendCard({
 	chartData,
 	accentColor,
 	note,
+	chartType = "bar",
+	referenceValue,
+	referenceLabel,
+	formatY,
+	showYLabels,
 }: TrendCardProps) {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const hasData = chartData.some((d) => d.value > 0);
 
-	// Flip good/bad logic for metrics where down = bad (e.g. sleep)
 	const { icon: deltaIcon, color: deltaColor } = useMemo(() => {
 		if (delta === null || delta === 0)
 			return { icon: "remove" as const, color: "#94A3B8" };
@@ -213,7 +159,7 @@ function TrendCard({
 				},
 			]}
 		>
-			{/* Header row */}
+			{/* Header */}
 			<View style={styles.cardHeader}>
 				<View
 					style={[styles.cardIconWrap, { backgroundColor: `${accentColor}18` }]}
@@ -227,10 +173,19 @@ function TrendCard({
 					<Text
 						style={[styles.cardSubtitle, { color: colors.mutedForeground }]}
 					>
-						{subtitle}
+						{!!subtitle
+							? subtitle
+							: delta !== null &&
+								hasData && (
+									<>
+										<Ionicons name={deltaIcon} size={10} color={deltaColor} />
+										<Text style={[styles.deltaText, { color: deltaColor }]}>
+											{Math.abs(delta).toFixed(0)}%
+										</Text>
+									</>
+								)}
 					</Text>
 				</View>
-				{/* Value + delta */}
 				<View style={styles.cardValueBlock}>
 					<Text style={[styles.cardValue, { color: colors.foreground }]}>
 						{hasData ? value : "—"}
@@ -238,25 +193,45 @@ function TrendCard({
 					<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>
 						{unit}
 					</Text>
-					{delta !== null && hasData && (
-						<View
-							style={[
-								styles.deltaBadge,
-								{ backgroundColor: `${deltaColor}18` },
-							]}
-						>
-							<Ionicons name={deltaIcon} size={10} color={deltaColor} />
-							<Text style={[styles.deltaText, { color: deltaColor }]}>
-								{Math.abs(delta).toFixed(0)}%
-							</Text>
-						</View>
-					)}
 				</View>
 			</View>
 
-			{/* Mini bar chart */}
+			{/* Chart area */}
 			{hasData ? (
-				<MicroBar data={chartData} accentColor={accentColor} />
+				chartType === "line" ? (
+					<LineChart
+						data={chartData}
+						height={80}
+						accentColor={accentColor}
+						labelColor={colors.mutedForeground}
+						guideCount={2}
+						showYLabels={showYLabels}
+						referenceValue={referenceValue}
+						referenceLabel={referenceLabel}
+						formatY={formatY}
+						strokeWidth={2}
+						animationDuration={700}
+					/>
+				) : (
+					<>
+						<MicroBar data={chartData} accentColor={accentColor} />
+						{/* X-axis labels for bar chart */}
+						<View style={styles.axisRow}>
+							{chartData.map((d, i) => (
+								<Text
+									key={i}
+									style={[
+										styles.axisLabel,
+										{ color: colors.mutedForeground, flex: 1 },
+									]}
+									numberOfLines={1}
+								>
+									{i === 0 || i === chartData.length - 1 ? d.label : ""}
+								</Text>
+							))}
+						</View>
+					</>
+				)
 			) : (
 				<View style={styles.noDataRow}>
 					<Ionicons
@@ -267,24 +242,6 @@ function TrendCard({
 					<Text style={[styles.noDataText, { color: colors.mutedForeground }]}>
 						No data for this period
 					</Text>
-				</View>
-			)}
-
-			{/* X-axis labels */}
-			{hasData && (
-				<View style={styles.axisRow}>
-					{chartData.map((d, i) => (
-						<Text
-							key={i}
-							style={[
-								styles.axisLabel,
-								{ color: colors.mutedForeground, flex: 1 },
-							]}
-							numberOfLines={1}
-						>
-							{i === 0 || i === chartData.length - 1 ? d.label : ""}
-						</Text>
-					))}
 				</View>
 			)}
 
@@ -340,14 +297,8 @@ function RangeSelector({
 	);
 }
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
+// ─── Health sample bucketing ──────────────────────────────────────────────────
 
-// ─── Health Trend Helpers ─────────────────────────────────────────────────────
-
-/**
- * Convert a DailyHealthSample[] into bucketed chart data aligned to the
- * same time buckets used by the training cards.
- */
 function bucketHealthSamples(
 	samples: DailyHealthSample[],
 	buckets: { start: Date; end: Date; label: string }[],
@@ -371,6 +322,8 @@ function bucketHealthSamples(
 	});
 }
 
+// ─── Main Screen ─────────────────────────────────────────────────────────────
+
 export default function TrendsScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
@@ -384,7 +337,6 @@ export default function TrendsScreen() {
 	const topPad = Platform.OS === "web" ? 20 : insets.top;
 	const botPad = insets.bottom + (Platform.OS === "web" ? 34 : 0);
 
-	// Bucket count: keep bars readable
 	const bucketCount = useMemo(() => {
 		if (rangeDays <= 7) return 7;
 		if (rangeDays <= 30) return 8;
@@ -398,7 +350,7 @@ export default function TrendsScreen() {
 		[rangeDays, bucketCount],
 	);
 
-	// ── Training Volume per bucket ───────────────────────────────────────────
+	// ── Training Volume ──────────────────────────────────────────────────────
 	const volumeData = useMemo(() => {
 		return buckets.map((b) => {
 			const vol = sessions
@@ -419,7 +371,7 @@ export default function TrendsScreen() {
 		});
 	}, [buckets, sessions]);
 
-	// ── Workout frequency (session count) per bucket ─────────────────────────
+	// ── Workout frequency ────────────────────────────────────────────────────
 	const workoutsData = useMemo(() => {
 		return buckets.map((b) => {
 			const count = sessions.filter((s) => {
@@ -430,7 +382,7 @@ export default function TrendsScreen() {
 		});
 	}, [buckets, sessions]);
 
-	// ── Avg session duration per bucket ─────────────────────────────────────
+	// ── Avg session duration ─────────────────────────────────────────────────
 	const durationData = useMemo(() => {
 		return buckets.map((b) => {
 			const inBucket = sessions.filter((s) => {
@@ -447,7 +399,7 @@ export default function TrendsScreen() {
 		});
 	}, [buckets, sessions]);
 
-	// ── Aggregate summaries ──────────────────────────────────────────────────
+	// ── Summaries ────────────────────────────────────────────────────────────
 	const totalVolume = volumeData.reduce((a, b) => a + b.value, 0);
 	const totalWorkouts = workoutsData.reduce((a, b) => a + b.value, 0);
 	const avgDurationMin =
@@ -458,12 +410,11 @@ export default function TrendsScreen() {
 				)
 			: 0;
 
-	// Deltas (compare first half vs second half of period)
 	const volumeDelta = halfDelta(volumeData.map((d) => d.value));
 	const workoutsDelta = halfDelta(workoutsData.map((d) => d.value));
 	const durationDelta = halfDelta(durationData.map((d) => d.value));
 
-	// ── Personal bests count in window ──────────────────────────────────────
+	// ── PBs ─────────────────────────────────────────────────────────────────
 	const pbInWindow = useMemo(() => {
 		const cutoff = new Date();
 		cutoff.setDate(cutoff.getDate() - rangeDays);
@@ -473,7 +424,7 @@ export default function TrendsScreen() {
 			.filter((e) => e.personalBest).length;
 	}, [sessions, rangeDays]);
 
-	// ── Health time-series bucketed data ────────────────────────────────────
+	// ── Health time-series ───────────────────────────────────────────────────
 	const hrvData = useMemo(
 		() => bucketHealthSamples(timeSeries.hrv, buckets, "avg"),
 		[timeSeries.hrv, buckets],
@@ -506,12 +457,14 @@ export default function TrendsScreen() {
 		() => bucketHealthSamples(timeSeries.readiness, buckets, "avg"),
 		[timeSeries.readiness, buckets],
 	);
+
+	// ── Steps — now shown as a line chart ────────────────────────────────────
 	const stepsHistData = useMemo(
 		() => bucketHealthSamples(timeSeries.steps_history, buckets, "sum"),
 		[timeSeries.steps_history, buckets],
 	);
 
-	// Latest values for display
+	// ── Latest scalar values for display ─────────────────────────────────────
 	const latestHrv =
 		timeSeries.hrv.length > 0
 			? timeSeries.hrv[timeSeries.hrv.length - 1].value
@@ -535,11 +488,21 @@ export default function TrendsScreen() {
 				sleepData.filter((d) => d.value > 0).length
 			: 0;
 
+	const avgStepsInRange =
+		stepsHistData.filter((d) => d.value > 0).length > 0
+			? Math.round(
+					stepsHistData.reduce((a, b) => a + b.value, 0) /
+						stepsHistData.filter((d) => d.value > 0).length,
+				)
+			: 0;
+
+	// ── Deltas ───────────────────────────────────────────────────────────────
 	const hrvDelta = halfDelta(hrvData.map((d) => d.value));
 	const rhrDelta = halfDelta(rhrData.map((d) => d.value));
 	const sleepDelta = halfDelta(sleepData.map((d) => d.value));
 	const weightDelta = halfDelta(weightData.map((d) => d.value));
 	const readinessDelta = halfDelta(readinessHistData.map((d) => d.value));
+	const stepsDelta = halfDelta(stepsHistData.map((d) => d.value));
 
 	const rangeLabel = RANGES.find((r) => r.key === range)!.label;
 
@@ -561,8 +524,8 @@ export default function TrendsScreen() {
 			{/* ── Range Selector ── */}
 			<RangeSelector selected={range} onChange={setRange} />
 
-			{/* ════════════════════════════════════════════════════════════════
-			    ── Health Section ──────────────────────────────────────────── */}
+			{/* ═══════════════════════════════════════════════════════════════
+			    ── Health Section ─────────────────────────────────────────── */}
 			{isConnected && (
 				<>
 					<Text
@@ -652,6 +615,7 @@ export default function TrendsScreen() {
 									)}
 								</View>
 							</View>
+
 							{/* Pillar breakdown */}
 							{readiness.hasData && (
 								<View
@@ -669,7 +633,7 @@ export default function TrendsScreen() {
 										},
 										{ label: "HR", value: readiness.rhr, color: "#FF3B30" },
 										{ label: "Load", value: readiness.load, color: "#00B4D8" },
-									].map((p, i) => (
+									].map((p) => (
 										<View key={p.label} style={styles.pillarItem}>
 											<Text style={[styles.pillarValue, { color: p.color }]}>
 												{p.value}
@@ -686,9 +650,17 @@ export default function TrendsScreen() {
 									))}
 								</View>
 							)}
-							{/* Trend chart */}
+
+							{/* Readiness history — line chart */}
 							{readinessHistData.some((d) => d.value > 0) ? (
-								<MicroBar data={readinessHistData} accentColor="#10B981" />
+								<LineChart
+									data={readinessHistData}
+									height={64}
+									accentColor="#10B981"
+									labelColor={colors.mutedForeground}
+									guideCount={0}
+									animationDuration={600}
+								/>
 							) : (
 								<View style={styles.noDataRow}>
 									<Text
@@ -709,14 +681,16 @@ export default function TrendsScreen() {
 						icon={
 							<MaterialCommunityIcons name="pulse" size={18} color="#10B981" />
 						}
-						title="Heart Rate Variability"
-						subtitle="HRV SDNN — recovery signal"
+						title="HRV"
 						value={latestHrv !== null ? fmt(latestHrv, 1) : "—"}
 						unit="ms"
 						delta={hrvDelta}
 						positiveIsGood
 						chartData={hrvData}
 						accentColor="#10B981"
+						chartType="line"
+						showYLabels
+						formatY={(v) => `${Math.round(v)}ms`}
 						note={
 							latestHrv !== null
 								? `Latest: ${latestHrv.toFixed(1)} ms`
@@ -728,27 +702,33 @@ export default function TrendsScreen() {
 					<TrendCard
 						icon={<Ionicons name="heart" size={18} color="#FF3B30" />}
 						title="Resting Heart Rate"
-						subtitle="Cardiovascular fitness trend"
 						value={latestRhr !== null ? fmt(latestRhr) : "—"}
 						unit="bpm"
 						delta={rhrDelta}
-						positiveIsGood={false} /* lower RHR = better */
+						positiveIsGood={false}
 						chartData={rhrData}
 						accentColor="#FF3B30"
+						chartType="line"
+						showYLabels
+						formatY={(v) => `${Math.round(v)}`}
 						note="Falling trend = improving cardiovascular fitness"
 					/>
 
-					{/* ── Sleep Quality ── */}
+					{/* ── Sleep Duration — LINE CHART with 8h reference ── */}
 					<TrendCard
 						icon={<Ionicons name="moon" size={18} color="#5856D6" />}
 						title="Sleep Duration"
-						subtitle="Average hours per night"
 						value={avgSleepInRange > 0 ? fmt(avgSleepInRange, 1) : "—"}
 						unit="h / night"
 						delta={sleepDelta}
 						positiveIsGood
 						chartData={sleepData}
 						accentColor="#5856D6"
+						chartType="line"
+						referenceValue={8}
+						referenceLabel="8h target"
+						showYLabels
+						formatY={(v) => `${v.toFixed(1)}h`}
 						note={
 							avgSleepInRange > 0
 								? `7–9h optimal · averaging ${fmt(avgSleepInRange, 1)}h`
@@ -767,13 +747,15 @@ export default function TrendsScreen() {
 								/>
 							}
 							title="Body Weight"
-							subtitle="From Apple Health measurements"
 							value={latestWeight !== null ? fmt(latestWeight, 1) : "—"}
 							unit="kg"
 							delta={weightDelta}
-							positiveIsGood={false} /* context-neutral; shown without colour */
+							positiveIsGood={false}
 							chartData={weightData}
 							accentColor="#FF9F0A"
+							chartType="line"
+							showYLabels
+							formatY={(v) => `${v.toFixed(1)}`}
 						/>
 					)}
 
@@ -782,13 +764,13 @@ export default function TrendsScreen() {
 						<TrendCard
 							icon={<Ionicons name="cellular" size={18} color="#30D158" />}
 							title="VO2 Max"
-							subtitle="Apple cardiorespiratory fitness estimate"
 							value={latestVo2 !== null ? fmt(latestVo2, 1) : "—"}
 							unit="mL/kg/min"
 							delta={null}
 							positiveIsGood
 							chartData={vo2Data}
 							accentColor="#30D158"
+							chartType="line"
 							note="Updated by Apple Health after outdoor workouts"
 						/>
 					)}
@@ -853,7 +835,14 @@ export default function TrendsScreen() {
 										>
 											SpO2
 										</Text>
-										<MicroBar data={spo2Data} accentColor="#007AFF" />
+										<LineChart
+											data={spo2Data}
+											height={48}
+											accentColor="#007AFF"
+											labelColor={colors.mutedForeground}
+											guideCount={0}
+											animationDuration={500}
+										/>
 									</View>
 								)}
 								{spo2Data.some((d) => d.value > 0) &&
@@ -885,14 +874,21 @@ export default function TrendsScreen() {
 										>
 											Resp Rate
 										</Text>
-										<MicroBar data={respData} accentColor="#5AC8FA" />
+										<LineChart
+											data={respData}
+											height={48}
+											accentColor="#5AC8FA"
+											labelColor={colors.mutedForeground}
+											guideCount={0}
+											animationDuration={500}
+										/>
 									</View>
 								)}
 							</View>
 						</GlassView>
 					)}
 
-					{/* ── Daily Steps History ── */}
+					{/* ── Daily Steps — now always rendered as a LINE chart ── */}
 					<TrendCard
 						icon={
 							<MaterialCommunityIcons
@@ -902,24 +898,25 @@ export default function TrendsScreen() {
 							/>
 						}
 						title="Daily Steps"
-						subtitle="Walking activity trend"
-						value={
-							stepsHistData.some((d) => d.value > 0)
-								? fmt(
-										stepsHistData.reduce((a, b) => a + b.value, 0) /
-											stepsHistData.filter((d) => d.value > 0).length,
-									)
-								: "—"
-						}
-						unit="avg/day"
-						delta={halfDelta(stepsHistData.map((d) => d.value))}
+						value={avgStepsInRange > 0 ? fmt(avgStepsInRange) : "—"}
+						unit="avg / day"
+						delta={stepsDelta}
 						positiveIsGood
 						chartData={stepsHistData}
 						accentColor="#34C759"
+						chartType="line"
+						referenceValue={10000}
+						referenceLabel="10k goal"
+						showYLabels
+						formatY={(v) =>
+							v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${Math.round(v)}`
+						}
 					/>
 				</>
 			)}
 
+			{/* ═══════════════════════════════════════════════════════════════
+			    ── Training Section ───────────────────────────────────────── */}
 			{totalWorkouts !== 0 ? (
 				<>
 					<Text style={[styles.sectionHeading, { color: colors.foreground }]}>
@@ -929,7 +926,6 @@ export default function TrendsScreen() {
 					<TrendCard
 						icon={<Ionicons name="barbell" size={18} color="#5856D6" />}
 						title="Workouts"
-						subtitle="Sessions logged"
 						value={fmt(totalWorkouts)}
 						unit="sessions"
 						delta={workoutsDelta}
@@ -942,6 +938,7 @@ export default function TrendsScreen() {
 								: undefined
 						}
 					/>
+
 					<TrendCard
 						icon={
 							<MaterialCommunityIcons
@@ -964,11 +961,9 @@ export default function TrendsScreen() {
 						accentColor="#00B4D8"
 					/>
 
-					{/* Avg Session Duration */}
 					<TrendCard
 						icon={<Ionicons name="time-outline" size={18} color="#10B981" />}
 						title="Avg Duration"
-						subtitle="Per session"
 						value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
 						unit="min"
 						delta={durationDelta}
@@ -1050,7 +1045,6 @@ const styles = StyleSheet.create({
 		marginBottom: 4,
 	},
 
-	// Range selector
 	rangeRow: {
 		flexDirection: "row",
 		borderRadius: 14,
@@ -1077,39 +1071,6 @@ const styles = StyleSheet.create({
 		marginBottom: -2,
 	},
 
-	// Health tiles row
-	healthRow: {
-		flexDirection: "row",
-		gap: 10,
-	},
-	healthTile: {
-		flex: 1,
-		borderRadius: 16,
-		alignItems: "center",
-		paddingVertical: 14,
-		paddingHorizontal: 6,
-		gap: 6,
-	},
-	tileIcon: {
-		width: 32,
-		height: 32,
-		borderRadius: 16,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	tileValue: {
-		fontSize: 14,
-		fontWeight: "700",
-		letterSpacing: -0.3,
-		textAlign: "center",
-	},
-	tileLabel: {
-		fontSize: 10,
-		letterSpacing: 0.3,
-		textTransform: "uppercase",
-	},
-
-	// Trend card
 	card: {
 		padding: 16,
 		gap: 12,
@@ -1185,7 +1146,6 @@ const styles = StyleSheet.create({
 		marginTop: -4,
 	},
 
-	// Personal bests card
 	pbCard: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -1208,7 +1168,6 @@ const styles = StyleSheet.create({
 		marginTop: 2,
 	},
 
-	// Empty
 	emptyCard: {
 		padding: 32,
 		alignItems: "center",
@@ -1223,7 +1182,7 @@ const styles = StyleSheet.create({
 		textAlign: "center",
 		lineHeight: 20,
 	},
-	// Readiness summary card
+
 	readinessSummaryCard: {
 		padding: 16,
 		gap: 12,
@@ -1260,7 +1219,7 @@ const styles = StyleSheet.create({
 		fontSize: 11,
 		letterSpacing: 0.3,
 	},
-	// Recovery Vitals card
+
 	vitalsRow: {
 		flexDirection: "row",
 		gap: 12,
