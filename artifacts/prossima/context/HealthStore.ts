@@ -23,6 +23,14 @@ export interface DailyHealthSample {
   source: string;
 }
 
+export interface HealthWorkout {
+  id?: string;
+  activityName: string;
+  durationMinutes: number;
+  calories: number;
+  startDate: string;
+}
+
 export type HealthMetricKey =
   | 'hrv'
   | 'resting_hr'
@@ -146,6 +154,7 @@ export async function clearAllHealthData(): Promise<void> {
     'readiness',
   ];
   await Promise.all(metrics.map(clearMetric));
+  await AsyncStorage.removeItem('@prossima_health_workouts');
   await AsyncStorage.removeItem(INITIAL_SYNC_KEY);
 }
 
@@ -222,4 +231,40 @@ export async function loadAllMetrics(): Promise<
     map[k] = results[i];
   });
   return map;
+}
+
+export async function readWorkouts(): Promise<HealthWorkout[]> {
+  try {
+    const raw = await AsyncStorage.getItem('@prossima_health_workouts');
+    if (!raw) return [];
+    return JSON.parse(raw) as HealthWorkout[];
+  } catch {
+    return [];
+  }
+}
+
+export async function writeWorkouts(newWorkouts: HealthWorkout[]): Promise<HealthWorkout[]> {
+  try {
+    const existing = await readWorkouts();
+    const map = new Map<string, HealthWorkout>();
+    for (const w of existing) map.set(w.id || w.startDate, w);
+    for (const w of newWorkouts) map.set(w.id || w.startDate, w);
+
+    // Sort ascending by startDate
+    const merged = Array.from(map.values())
+      .sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+    // Enforce 90-day rolling window
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - ROLLING_WINDOW_DAYS);
+    const cutoffStr = cutoff.toISOString();
+
+    const filtered = merged.filter((w) => w.startDate >= cutoffStr);
+
+    await AsyncStorage.setItem('@prossima_health_workouts', JSON.stringify(filtered));
+    return filtered;
+  } catch (e) {
+    console.warn('[HealthStore] Failed to write workouts:', e);
+    return [];
+  }
 }

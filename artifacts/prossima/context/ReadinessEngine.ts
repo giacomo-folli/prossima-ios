@@ -7,8 +7,7 @@
  * All functions are deterministic given the same inputs. No React, no I/O.
  */
 
-import { DailyHealthSample } from './HealthStore';
-import { Session } from '@/types';
+import { DailyHealthSample, HealthWorkout } from './HealthStore';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,8 +28,8 @@ export interface ReadinessInputs {
   restingHrSamples: DailyHealthSample[];
   /** Today's resting HR in bpm (null = no data yet) */
   todayRestingHr: number | null;
-  /** All logged training sessions (used to compute ACWR) */
-  sessions: Session[];
+  /** All imported workouts (used to compute ACWR) */
+  workouts: HealthWorkout[];
 }
 
 export interface ReadinessBreakdown {
@@ -160,27 +159,19 @@ export function computeRestingHrScore(
  * ACWR <0.5    → detraining  (scaled down to 40)
  * No sessions  → 80 pts (rest day, slightly positive)
  */
-export function computeTrainingLoadScore(sessions: Session[]): number {
+export function computeTrainingLoadScore(workouts: HealthWorkout[]): number {
   const now = Date.now();
 
-  const volumeAt = (daysAgo: number): number => {
+  const durationAt = (days: number): number => {
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - daysAgo);
-    return sessions
-      .filter((s) => new Date(s.date).getTime() >= cutoff.getTime())
-      .reduce(
-        (total, s) =>
-          total +
-          s.entries.reduce(
-            (v, e) => (e.weightKg && e.reps ? v + e.weightKg * e.reps : v),
-            0
-          ),
-        0
-      );
+    cutoff.setDate(cutoff.getDate() - days);
+    return workouts
+      .filter((w) => new Date(w.startDate).getTime() >= cutoff.getTime())
+      .reduce((total, w) => total + w.durationMinutes, 0);
   };
 
-  const acute7Total = volumeAt(7);
-  const chronic28Total = volumeAt(28);
+  const acute7Total = durationAt(7);
+  const chronic28Total = durationAt(28);
 
   const acuteAvg = acute7Total / 7;
   const chronicAvg = chronic28Total / 28;
@@ -228,7 +219,7 @@ export function computeReadinessScore(
     inputs.restingHrSamples,
     inputs.todayRestingHr
   );
-  const load = computeTrainingLoadScore(inputs.sessions);
+  const load = computeTrainingLoadScore(inputs.workouts);
 
   // Composite with weights
   const rawScore = hrv * 0.35 + sleep * 0.25 + rhr * 0.2 + load * 0.2;
@@ -239,7 +230,7 @@ export function computeReadinessScore(
     inputs.todayHrv !== null ||
     inputs.lastNightSleep !== null ||
     inputs.todayRestingHr !== null ||
-    inputs.sessions.length > 0;
+    inputs.workouts.length > 0;
 
   return {
     score,

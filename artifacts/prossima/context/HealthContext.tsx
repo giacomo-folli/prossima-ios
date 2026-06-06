@@ -20,7 +20,12 @@ import {
 	writeMetric,
 	writeSample,
 	loadAllMetrics,
+	HealthWorkout,
+	readWorkouts,
+	writeWorkouts,
 } from "./HealthStore";
+
+export { HealthWorkout };
 
 import {
 	computeReadinessScore,
@@ -39,14 +44,7 @@ const getNativeHealthKit = () => {
 
 const HEALTH_CONNECTED_KEY = "@prossima_health_connected";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface HealthWorkout {
-	activityName: string;
-	durationMinutes: number;
-	calories: number;
-	startDate: string;
-}
 
 /** Today's live stats */
 export interface HealthStats {
@@ -82,6 +80,7 @@ interface HealthContextType {
 	isConnected: boolean;
 	stats: HealthStats;
 	timeSeries: HealthTimeSeries;
+	workouts: HealthWorkout[];
 	readiness: ReadinessBreakdown | null;
 	loading: boolean;
 	syncing: boolean;
@@ -346,11 +345,11 @@ async function fetchHistoricalDataForRange(
 
 	// Reads `unit` field from each sample to normalise correctly
 	const weightHistPromise = nativeCall(
-		(cb) => nk.getWeightSamples(range, cb),
+		(cb) => nk.getWeightSamples({ ...range, unit: "gram" }, cb),
 		(r: any[]): DailyHealthSample[] =>
 			r.map((s) => ({
 				date: (s.startDate ?? "").slice(0, 10),
-				value: normaliseWeightToKg(s.value ?? 0, s.unit),
+				value: normaliseWeightToKg(s.value ?? 0, s.unit || "gram"),
 				unit: "kg",
 				source: "Apple Health",
 			})),
@@ -411,6 +410,30 @@ async function fetchHistoricalDataForRange(
 		[],
 	);
 
+	const workoutsPromise = nativeCall(
+		(cb) =>
+			nk.getAnchoredWorkouts(
+				{
+					startDate,
+					endDate,
+					limit: 500,
+				},
+				cb,
+			),
+		(results: any): HealthWorkout[] => {
+			const wData = results?.data;
+			if (!Array.isArray(wData)) return [];
+			return wData.map((w: any) => ({
+				id: w.id ?? String(Math.random()),
+				activityName: w.activityName ?? "Workout",
+				durationMinutes: Math.round((w.duration ?? 0) / 60),
+				calories: Math.round(w.calories ?? 0),
+				startDate: w.start ?? new Date().toISOString(),
+			}));
+		},
+		[],
+	);
+
 	const [
 		hrv,
 		rhr,
@@ -424,6 +447,7 @@ async function fetchHistoricalDataForRange(
 		resp,
 		bmr,
 		dist,
+		workouts,
 	] = await Promise.all([
 		hrvPromise,
 		rhrPromise,
@@ -437,6 +461,7 @@ async function fetchHistoricalDataForRange(
 		respPromise,
 		bmrPromise,
 		distPromise,
+		workoutsPromise,
 	]);
 
 	return {
@@ -452,6 +477,7 @@ async function fetchHistoricalDataForRange(
 		resp,
 		bmr,
 		dist,
+		workouts,
 	};
 }
 
@@ -461,7 +487,7 @@ async function fetchHistoricalDataForRange(
  */
 async function persistHistoricalData(
 	data: Awaited<ReturnType<typeof fetchHistoricalDataForRange>>,
-): Promise<HealthTimeSeries> {
+): Promise<{ timeSeries: HealthTimeSeries; workouts: HealthWorkout[] }> {
 	await Promise.all([
 		writeMetric("hrv", data.hrv),
 		writeMetric("resting_hr", data.rhr),
@@ -475,8 +501,13 @@ async function persistHistoricalData(
 		writeMetric("respiratory", data.resp),
 		writeMetric("bmr", data.bmr),
 		writeMetric("distance", data.dist),
+		writeWorkouts(data.workouts),
 	]);
-	return loadAllMetrics();
+	const [timeSeries, workouts] = await Promise.all([
+		loadAllMetrics(),
+		readWorkouts(),
+	]);
+	return { timeSeries, workouts };
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -485,11 +516,8 @@ const HealthContext = createContext<HealthContextType | null>(null);
 
 export function HealthProvider({
 	children,
-	sessions = [],
 }: {
 	children: React.ReactNode;
-	/** Pass training sessions for training load computation in readiness score */
-	sessions?: import("@/types").Session[];
 }) {
 	const [isConnected, setIsConnected] = useState(false);
 	const [loading, setLoading] = useState(true);
@@ -499,14 +527,8 @@ export function HealthProvider({
 	const [stats, setStats] = useState<HealthStats>(makeDefaultStats);
 	const [timeSeries, setTimeSeries] =
 		useState<HealthTimeSeries>(makeEmptyTimeSeries);
+	const [workouts, setWorkouts] = useState<HealthWorkout[]>([]);
 	const [readiness, setReadiness] = useState<ReadinessBreakdown | null>(null);
-
-	// Keep sessions in a ref so syncData/fullHistoricalSync closures always
-	// see the latest value without re-creating the callbacks.
-	const sessionsRef = useRef(sessions);
-	useEffect(() => {
-		sessionsRef.current = sessions;
-	}, [sessions]);
 
 	// ── Load persisted connection state ────────────────────────────────────────
 
@@ -515,9 +537,10 @@ export function HealthProvider({
 			const stored = await AsyncStorage.getItem(HEALTH_CONNECTED_KEY);
 			if (stored === "true") {
 				setIsConnected(true);
-				// Eagerly hydrate time-series from local store
-				const ts = await loadAllMetrics();
+				// Eagerly hydrate time-series and workouts from local store
+				const [ts, w] = await Promise.all([loadAllMetrics(), readWorkouts()]);
 				setTimeSeries(ts);
+				setWorkouts(w);
 			}
 		} catch (e) {
 			console.error("Failed to check health connection", e);
@@ -572,7 +595,7 @@ export function HealthProvider({
 			lastNightSleep,
 			restingHrSamples: timeSeries.resting_hr,
 			todayRestingHr: readinessInputs.todayRestingHr,
-			sessions: sessionsRef.current,
+			workouts,
 		});
 
 		setReadiness(breakdown);
@@ -585,7 +608,7 @@ export function HealthProvider({
 			unit: "score",
 			source: "Prossima",
 		}).catch(() => {});
-	}, [isConnected, readinessInputs, timeSeries.hrv, timeSeries.resting_hr]);
+	}, [isConnected, readinessInputs, timeSeries.hrv, timeSeries.resting_hr, workouts]);
 
 	// ── Background 30-day backfill ─────────────────────────────────────────────
 	// Extracted to useCallback so it has a stable reference and doesn't
@@ -603,10 +626,9 @@ export function HealthProvider({
 				daysAgo(30).toISOString(),
 				startOfToday().toISOString(),
 			);
-			// persistHistoricalData combines write + loadAllMetrics in one
-			// call, avoiding redundant store reads.
-			const ts = await persistHistoricalData(data);
+			const { timeSeries: ts, workouts: w } = await persistHistoricalData(data);
 			setTimeSeries(ts);
+			setWorkouts(w);
 		} catch (e) {
 			console.error("Error backfilling missing health data", e);
 		} finally {
@@ -620,6 +642,12 @@ export function HealthProvider({
 		const nk = getNativeHealthKit();
 		if (!nk?.initHealthKit) {
 			if (__DEV__) {
+				const mockRecentWorkout = {
+					activityName: "Running",
+					durationMinutes: 45,
+					calories: 450,
+					startDate: new Date().toISOString(),
+				};
 				setStats({
 					steps: 8432,
 					calories: 450,
@@ -627,12 +655,7 @@ export function HealthProvider({
 					sleepHours: 7.2,
 					sleepDeepRatio: 0.2,
 					sleepRemRatio: 0.25,
-					recentWorkout: {
-						activityName: "Running",
-						durationMinutes: 45,
-						calories: 450,
-						startDate: new Date().toISOString(),
-					},
+					recentWorkout: mockRecentWorkout,
 					todayHrv: 65,
 					todayRestingHr: 55,
 					bodyWeightKg: 75.5,
@@ -641,8 +664,10 @@ export function HealthProvider({
 					distanceMeters: 6200,
 					basalCalories: 1800,
 				});
+				setWorkouts([mockRecentWorkout]);
 			} else {
 				setStats(makeDefaultStats());
+				setWorkouts([]);
 			}
 			return;
 		}
@@ -743,24 +768,22 @@ export function HealthProvider({
 						{
 							startDate: daysAgo(7).toISOString(),
 							endDate: new Date().toISOString(),
-							limit: 10,
+							limit: 20,
 						},
 						cb,
 					),
-				(results: any): HealthWorkout | null => {
-					const workouts = results?.data;
-					if (!Array.isArray(workouts) || workouts.length === 0) return null;
-					// Sort descending by start time to get the most recent
-					workouts.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
-					const latest = workouts[0];
-					return {
-						activityName: latest.activityName ?? "Workout",
-						durationMinutes: Math.round((latest.duration ?? 0) / 60),
-						calories: Math.round(latest.calories ?? 0),
-						startDate: latest.start ?? new Date().toISOString(),
-					};
+				(results: any): HealthWorkout[] => {
+					const wData = results?.data;
+					if (!Array.isArray(wData)) return [];
+					return wData.map((w: any) => ({
+						id: w.id ?? String(Math.random()),
+						activityName: w.activityName ?? "Workout",
+						durationMinutes: Math.round((w.duration ?? 0) / 60),
+						calories: Math.round(w.calories ?? 0),
+						startDate: w.start ?? new Date().toISOString(),
+					}));
 				},
-				null,
+				[],
 			);
 
 			// ── HRV ───────────────────────────────────────────────────────────────
@@ -815,13 +838,14 @@ export function HealthProvider({
 							endDate: new Date().toISOString(),
 							limit: 1,
 							ascending: false,
+							unit: "gram",
 						},
 						cb,
 					),
 				(results: any[]): number | null => {
 					if (!Array.isArray(results) || results.length === 0) return null;
 					const sample = results[0];
-					return normaliseWeightToKg(sample.value ?? 0, sample.unit);
+					return normaliseWeightToKg(sample.value ?? 0, sample.unit || "gram");
 				},
 				null,
 			);
@@ -885,7 +909,7 @@ export function HealthProvider({
 				calories,
 				activityTime,
 				sleep,
-				recentWorkout,
+				fetchedWorkouts,
 				todayHrv,
 				todayRestingHr,
 				bodyWeightKg,
@@ -907,6 +931,13 @@ export function HealthProvider({
 				distanceP,
 				bmrP,
 			]);
+
+			const updatedWorkouts = await writeWorkouts(fetchedWorkouts);
+			setWorkouts(updatedWorkouts);
+
+			const recentWorkout = updatedWorkouts.length > 0
+				? updatedWorkouts[updatedWorkouts.length - 1]
+				: null;
 
 			const newStats: HealthStats = {
 				steps: Math.round(steps),
@@ -1123,10 +1154,10 @@ export function HealthProvider({
 				daysAgo(90).toISOString(),
 				new Date().toISOString(),
 			);
-			// FIX #10: shared helper combines write + loadAllMetrics in one place
-			const ts = await persistHistoricalData(data);
+			const { timeSeries: ts, workouts: w } = await persistHistoricalData(data);
 			await markInitialSyncComplete();
 			setTimeSeries(ts);
+			setWorkouts(w);
 		} catch (e) {
 			console.error("Error during full historical sync", e);
 		} finally {
@@ -1217,6 +1248,7 @@ export function HealthProvider({
 			await clearAllHealthData();
 			setStats(makeDefaultStats());
 			setTimeSeries(makeEmptyTimeSeries());
+			setWorkouts([]);
 			setReadiness(null);
 		} catch (e) {
 			console.error("Error clearing local data", e);
@@ -1239,6 +1271,7 @@ export function HealthProvider({
 				isConnected,
 				stats,
 				timeSeries,
+				workouts,
 				readiness,
 				loading,
 				syncing,

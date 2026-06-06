@@ -12,7 +12,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
-import { useTraining } from "@/context/TrainingContext";
 import { useHealth } from "@/context/HealthContext";
 import { MicroBar } from "@/components/MicroBar";
 import { LineChart } from "@/components/LineChart";
@@ -164,8 +163,7 @@ export default function TrendsScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
-	const { sessions } = useTraining();
-	const { isConnected, stats, timeSeries, readiness } = useHealth();
+	const { isConnected, stats, timeSeries, workouts, readiness } = useHealth();
 
 	const [range, setRange] = useState<RangeKey>("1W");
 	const rangeDays = RANGES.find((r) => r.key === range)!.days;
@@ -186,57 +184,48 @@ export default function TrendsScreen() {
 		[rangeDays, bucketCount],
 	);
 
-	// ── Training Volume ──────────────────────────────────────────────────────
-	const volumeData = useMemo(() => {
+	// ── Workout Calories (Active Energy) ──────────────────────────────────────
+	const caloriesData = useMemo(() => {
 		return buckets.map((b) => {
-			const vol = sessions
-				.filter((s) => {
-					const d = new Date(s.date);
+			const cal = workouts
+				.filter((w) => {
+					const d = new Date(w.startDate);
 					return d >= b.start && d < b.end;
 				})
-				.reduce(
-					(acc, s) =>
-						acc +
-						s.entries.reduce(
-							(a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a),
-							0,
-						),
-					0,
-				);
-			return { label: b.label, value: Math.round(vol) };
+				.reduce((acc, w) => acc + w.calories, 0);
+			return { label: b.label, value: Math.round(cal) };
 		});
-	}, [buckets, sessions]);
+	}, [buckets, workouts]);
 
 	// ── Workout frequency ────────────────────────────────────────────────────
 	const workoutsData = useMemo(() => {
 		return buckets.map((b) => {
-			const count = sessions.filter((s) => {
-				const d = new Date(s.date);
+			const count = workouts.filter((w) => {
+				const d = new Date(w.startDate);
 				return d >= b.start && d < b.end;
 			}).length;
 			return { label: b.label, value: count };
 		});
-	}, [buckets, sessions]);
+	}, [buckets, workouts]);
 
 	// ── Avg session duration ─────────────────────────────────────────────────
 	const durationData = useMemo(() => {
 		return buckets.map((b) => {
-			const inBucket = sessions.filter((s) => {
-				const d = new Date(s.date);
+			const inBucket = workouts.filter((w) => {
+				const d = new Date(w.startDate);
 				return d >= b.start && d < b.end;
 			});
 			const avg =
 				inBucket.length > 0
-					? inBucket.reduce((a, s) => a + s.durationSeconds, 0) /
-						inBucket.length /
-						60
+					? inBucket.reduce((a, w) => a + w.durationMinutes, 0) /
+						inBucket.length
 					: 0;
 			return { label: b.label, value: Math.round(avg) };
 		});
-	}, [buckets, sessions]);
+	}, [buckets, workouts]);
 
 	// ── Summaries ────────────────────────────────────────────────────────────
-	const totalVolume = volumeData.reduce((a, b) => a + b.value, 0);
+	const totalCalories = caloriesData.reduce((a, b) => a + b.value, 0);
 	const totalWorkouts = workoutsData.reduce((a, b) => a + b.value, 0);
 	const avgDurationMin =
 		durationData.filter((d) => d.value > 0).length > 0
@@ -246,19 +235,9 @@ export default function TrendsScreen() {
 				)
 			: 0;
 
-	const volumeDelta = halfDelta(volumeData.map((d) => d.value));
+	const caloriesDelta = halfDelta(caloriesData.map((d) => d.value));
 	const workoutsDelta = halfDelta(workoutsData.map((d) => d.value));
 	const durationDelta = halfDelta(durationData.map((d) => d.value));
-
-	// ── PBs ─────────────────────────────────────────────────────────────────
-	const pbInWindow = useMemo(() => {
-		const cutoff = new Date();
-		cutoff.setDate(cutoff.getDate() - rangeDays);
-		return sessions
-			.filter((s) => new Date(s.date) >= cutoff)
-			.flatMap((s) => s.entries)
-			.filter((e) => e.personalBest).length;
-	}, [sessions, rangeDays]);
 
 	// ── Health time-series ───────────────────────────────────────────────────
 	const hrvData = useMemo(
@@ -759,11 +738,11 @@ export default function TrendsScreen() {
 			{totalWorkouts !== 0 ? (
 				<>
 					<Text style={[styles.sectionHeading, { color: colors.foreground }]}>
-						Training · {rangeLabel}
+						Workouts · {rangeLabel}
 					</Text>
 
 					<TrendCard
-						icon={<Ionicons name="barbell" size={18} color="#5856D6" />}
+						icon={<Ionicons name="heart" size={18} color="#5856D6" />}
 						title="Workouts"
 						value={fmt(totalWorkouts)}
 						unit="sessions"
@@ -781,66 +760,31 @@ export default function TrendsScreen() {
 					<TrendCard
 						icon={
 							<MaterialCommunityIcons
-								name="dumbbell"
+								name="fire"
 								size={18}
-								color="#00B4D8"
+								color="#FF9F0A"
 							/>
 						}
-						title="Volume"
-						subtitle="Total weight lifted"
-						value={
-							totalVolume >= 1000
-								? fmt(totalVolume / 1000, 1)
-								: fmt(totalVolume)
-						}
-						unit={totalVolume >= 1000 ? "tonnes" : "kg"}
-						delta={volumeDelta}
+						title="Active Energy"
+						subtitle="Energy burned in workouts"
+						value={fmt(totalCalories)}
+						unit="kcal"
+						delta={caloriesDelta}
 						positiveIsGood
-						chartData={volumeData}
-						accentColor="#00B4D8"
+						chartData={caloriesData}
+						accentColor="#FF9F0A"
 					/>
 
 					<TrendCard
-						icon={<Ionicons name="time-outline" size={18} color="#10B981" />}
+						icon={<Ionicons name="time-outline" size={18} color="#30D158" />}
 						title="Avg Duration"
 						value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
 						unit="min"
 						delta={durationDelta}
 						positiveIsGood
 						chartData={durationData}
-						accentColor="#10B981"
+						accentColor="#30D158"
 					/>
-
-					{pbInWindow > 0 && (
-						<GlassView
-							colorScheme={resolvedScheme}
-							style={[
-								styles.pbCard,
-								{
-									backgroundColor: colors.card,
-									borderRadius: 20,
-									borderColor: colors.border,
-								},
-							]}
-						>
-							<View
-								style={[
-									styles.pbIconWrap,
-									{ backgroundColor: "rgba(255,215,0,0.12)" },
-								]}
-							>
-								<Ionicons name="star" size={20} color="#FFD700" />
-							</View>
-							<View style={{ flex: 1 }}>
-								<Text style={[styles.pbTitle, { color: colors.foreground }]}>
-									{pbInWindow} Personal Best{pbInWindow > 1 ? "s" : ""}
-								</Text>
-								<Text style={[styles.pbSub, { color: colors.mutedForeground }]}>
-									Achieved in the last {rangeLabel}
-								</Text>
-							</View>
-						</GlassView>
-					)}
 				</>
 			) : (
 				<GlassView
@@ -860,10 +804,10 @@ export default function TrendsScreen() {
 						color={colors.mutedForeground}
 					/>
 					<Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-						No training data
+						No workout data
 					</Text>
 					<Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-						Complete sessions to see your trends here.
+						Sync workouts from Apple Health to see your trends here.
 					</Text>
 				</GlassView>
 			)}
