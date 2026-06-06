@@ -11,10 +11,21 @@ const getNativeHealthKit = () => {
 
 const HEALTH_CONNECTED_KEY = '@prossima_health_connected';
 
-interface HealthStats {
+export interface HealthWorkout {
+  activityName: string;
+  durationMinutes: number;
+  calories: number;
+  startDate: string;
+}
+
+export interface HealthStats {
   steps: number;
   calories: number;
   activityTime: number;
+  /** Total sleep hours for the most recent night (6 pm yesterday → now) */
+  sleepHours: number;
+  /** Most recent workout recorded in Apple Health (last 7 days) */
+  recentWorkout: HealthWorkout | null;
 }
 
 interface HealthContextType {
@@ -35,6 +46,8 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
     steps: 0,
     calories: 0,
     activityTime: 0,
+    sleepHours: 0,
+    recentWorkout: null,
   });
 
   const checkConnection = useCallback(async () => {
@@ -64,6 +77,8 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
         steps: 0,
         calories: 0,
         activityTime: 0,
+        sleepHours: 0,
+        recentWorkout: null,
       });
       return;
     }
@@ -72,43 +87,118 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
       const startOfDay = new Date();
       startOfDay.setHours(0, 0, 0, 0);
 
-      const options: HealthInputOptions = {
+      const dayOptions: HealthInputOptions = {
         date: startOfDay.toISOString(),
       };
 
+      // ── Steps ──────────────────────────────────────────────────────────────
       const stepsP = new Promise<number>((resolve) => {
-        nativeHealthKit.getStepCount(options, (err: any, results: any) => {
+        nativeHealthKit.getStepCount(dayOptions, (err: any, results: any) => {
           if (err || !results) resolve(0);
-          else resolve(results.value);
+          else resolve(results.value ?? 0);
         });
       });
 
+      // ── Active Energy ──────────────────────────────────────────────────────
       const calP = new Promise<number>((resolve) => {
         nativeHealthKit.getActiveEnergyBurned(
-          options,
+          dayOptions,
           (err: any, results: any) => {
             if (err || !results) resolve(0);
-            else resolve(results.reduce((acc: number, curr: any) => acc + curr.value, 0));
+            else resolve(results.reduce((acc: number, curr: any) => acc + (curr.value ?? 0), 0));
           }
         );
       });
 
+      // ── Exercise Time ──────────────────────────────────────────────────────
       const timeP = new Promise<number>((resolve) => {
         nativeHealthKit.getAppleExerciseTime(
-          options,
+          dayOptions,
           (err: any, results: any) => {
             if (err || !results) resolve(0);
-            else resolve(results.value);
+            else resolve(results.value ?? 0);
           }
         );
       });
 
-      const [steps, calories, activityTime] = await Promise.all([stepsP, calP, timeP]);
+      // ── Sleep (6 pm yesterday → now, sum ASLEEP/CORE/DEEP/REM stages) ─────
+      const sleepP = new Promise<number>((resolve) => {
+        try {
+          const sleepWindowStart = new Date();
+          sleepWindowStart.setDate(sleepWindowStart.getDate() - 1);
+          sleepWindowStart.setHours(18, 0, 0, 0);
+
+          nativeHealthKit.getSleepSamples(
+            {
+              startDate: sleepWindowStart.toISOString(),
+              endDate: new Date().toISOString(),
+              limit: 100,
+              ascending: true,
+            },
+            (err: any, results: any) => {
+              if (err || !Array.isArray(results)) { resolve(0); return; }
+
+              // Sum only "asleep" stages; ignore INBED and AWAKE
+              const asleepValues = new Set(['ASLEEP', 'CORE', 'DEEP', 'REM', 'SLEEPING']);
+              const totalMs = results
+                .filter((s: any) => asleepValues.has(String(s.value).toUpperCase()))
+                .reduce((acc: number, s: any) => {
+                  const start = new Date(s.startDate).getTime();
+                  const end = new Date(s.endDate).getTime();
+                  return acc + Math.max(0, end - start);
+                }, 0);
+
+              resolve(totalMs / (1000 * 60 * 60)); // → hours
+            }
+          );
+        } catch {
+          resolve(0);
+        }
+      });
+
+      // ── Recent Workout (last 7 days, most recent first) ───────────────────
+      const workoutP = new Promise<HealthWorkout | null>((resolve) => {
+        try {
+          const sevenDaysAgo = new Date();
+          sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+          nativeHealthKit.getWorkoutSessions(
+            {
+              startDate: sevenDaysAgo.toISOString(),
+              endDate: new Date().toISOString(),
+              limit: 10,
+              ascending: false,
+            },
+            (err: any, results: any) => {
+              if (err || !Array.isArray(results) || results.length === 0) {
+                resolve(null);
+                return;
+              }
+
+              // Already sorted descending; pick first entry
+              const latest = results[0];
+              resolve({
+                activityName: latest.activityName ?? 'Workout',
+                durationMinutes: Math.round((latest.duration ?? 0) / 60),
+                calories: Math.round(latest.totalEnergyBurned ?? 0),
+                startDate: latest.startDate ?? new Date().toISOString(),
+              });
+            }
+          );
+        } catch {
+          resolve(null);
+        }
+      });
+
+      const [steps, calories, activityTime, sleepHours, recentWorkout] =
+        await Promise.all([stepsP, calP, timeP, sleepP, workoutP]);
 
       setStats({
         steps: Math.round(steps),
         calories: Math.round(calories),
         activityTime: Math.round(activityTime),
+        sleepHours: Math.round(sleepHours * 10) / 10, // one decimal place
+        recentWorkout,
       });
     } catch (e) {
       console.error('Error syncing health data', e);
@@ -151,6 +241,8 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
           AppleHealthKitLibrary.Constants.Permissions.StepCount,
           AppleHealthKitLibrary.Constants.Permissions.ActiveEnergyBurned,
           AppleHealthKitLibrary.Constants.Permissions.AppleExerciseTime,
+          AppleHealthKitLibrary.Constants.Permissions.SleepAnalysis,
+          AppleHealthKitLibrary.Constants.Permissions.Workout,
         ],
         write: [],
       },
@@ -188,6 +280,8 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
         steps: 0,
         calories: 0,
         activityTime: 0,
+        sleepHours: 0,
+        recentWorkout: null,
       });
     } catch (e) {
       console.error('Error disconnecting health', e);
