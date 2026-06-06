@@ -9,13 +9,22 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ThemeProvider } from '@/context/ThemeContext';
-import { TrainingProvider } from '@/context/TrainingContext';
+import { TrainingProvider, useTraining } from '@/context/TrainingContext';
 import { HealthProvider } from '@/context/HealthContext';
 import { ProfileProvider } from '@/context/ProfileContext';
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient();
+
+/**
+ * Inner wrapper that reads sessions from TrainingContext and passes them
+ * to HealthProvider so the readiness engine can compute training load.
+ */
+function HealthWithSessions({ children }: { children: React.ReactNode }) {
+  const { sessions } = useTraining();
+  return <HealthProvider sessions={sessions}>{children}</HealthProvider>;
+}
 
 function RootLayoutNav() {
   return (
@@ -44,9 +53,9 @@ export default function RootLayout() {
               <ThemeProvider>
                 <ProfileProvider>
                   <TrainingProvider>
-                    <HealthProvider>
+                    <HealthWithSessions>
                       <RootLayoutNav />
-                    </HealthProvider>
+                    </HealthWithSessions>
                   </TrainingProvider>
                 </ProfileProvider>
               </ThemeProvider>

@@ -15,6 +15,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useTraining } from "@/context/TrainingContext";
 import { useHealth } from "@/context/HealthContext";
 import { BarChart } from "@/components/BarChart";
+import { DailyHealthSample } from "@/context/HealthStore";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -300,12 +301,41 @@ function RangeSelector({
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 
+// ─── Health Trend Helpers ─────────────────────────────────────────────────────
+
+/**
+ * Convert a DailyHealthSample[] into bucketed chart data aligned to the
+ * same time buckets used by the training cards.
+ */
+function bucketHealthSamples(
+	samples: DailyHealthSample[],
+	buckets: { start: Date; end: Date; label: string }[],
+	mode: 'avg' | 'sum' | 'last' = 'avg'
+): { label: string; value: number }[] {
+	return buckets.map((b) => {
+		const inRange = samples.filter((s) => {
+			const d = new Date(s.date);
+			return d >= b.start && d < b.end;
+		});
+		if (inRange.length === 0) return { label: b.label, value: 0 };
+		let value: number;
+		if (mode === 'sum') {
+			value = inRange.reduce((a, s) => a + s.value, 0);
+		} else if (mode === 'last') {
+			value = inRange[inRange.length - 1].value;
+		} else {
+			value = inRange.reduce((a, s) => a + s.value, 0) / inRange.length;
+		}
+		return { label: b.label, value: Math.round(value * 10) / 10 };
+	});
+}
+
 export default function TrendsScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { sessions } = useTraining();
-	const { isConnected, stats } = useHealth();
+	const { isConnected, stats, timeSeries, readiness } = useHealth();
 
 	const [range, setRange] = useState<RangeKey>("1W");
 	const rangeDays = RANGES.find((r) => r.key === range)!.days;
@@ -402,11 +432,68 @@ export default function TrendsScreen() {
 			.filter((e) => e.personalBest).length;
 	}, [sessions, rangeDays]);
 
-	// ── Health data (today only — HealthKit does not give historical per-day) ─
-	// We show today's live values as single-point "snapshot" tiles when connected.
-	// For the bar charts of health metrics, we can only show what's in sessions.
-	// Apple HealthKit historical queries are out of scope here (would require
-	// storing time-series ourselves), so we show a "Live Today" card.
+	// ── Health time-series bucketed data ────────────────────────────────────
+	const hrvData = useMemo(
+		() => bucketHealthSamples(timeSeries.hrv, buckets, 'avg'),
+		[timeSeries.hrv, buckets]
+	);
+	const rhrData = useMemo(
+		() => bucketHealthSamples(timeSeries.resting_hr, buckets, 'avg'),
+		[timeSeries.resting_hr, buckets]
+	);
+	const sleepData = useMemo(
+		() => bucketHealthSamples(timeSeries.sleep_history, buckets, 'avg'),
+		[timeSeries.sleep_history, buckets]
+	);
+	const weightData = useMemo(
+		() => bucketHealthSamples(timeSeries.body_weight, buckets, 'last'),
+		[timeSeries.body_weight, buckets]
+	);
+	const vo2Data = useMemo(
+		() => bucketHealthSamples(timeSeries.vo2max, buckets, 'last'),
+		[timeSeries.vo2max, buckets]
+	);
+	const spo2Data = useMemo(
+		() => bucketHealthSamples(timeSeries.spo2, buckets, 'avg'),
+		[timeSeries.spo2, buckets]
+	);
+	const respData = useMemo(
+		() => bucketHealthSamples(timeSeries.respiratory, buckets, 'avg'),
+		[timeSeries.respiratory, buckets]
+	);
+	const readinessHistData = useMemo(
+		() => bucketHealthSamples(timeSeries.readiness, buckets, 'avg'),
+		[timeSeries.readiness, buckets]
+	);
+	const stepsHistData = useMemo(
+		() => bucketHealthSamples(timeSeries.steps_history, buckets, 'sum'),
+		[timeSeries.steps_history, buckets]
+	);
+
+	// Latest values for display
+	const latestHrv = timeSeries.hrv.length > 0
+		? timeSeries.hrv[timeSeries.hrv.length - 1].value
+		: stats.todayHrv;
+	const latestRhr = timeSeries.resting_hr.length > 0
+		? timeSeries.resting_hr[timeSeries.resting_hr.length - 1].value
+		: stats.todayRestingHr;
+	const latestWeight = timeSeries.body_weight.length > 0
+		? timeSeries.body_weight[timeSeries.body_weight.length - 1].value
+		: stats.bodyWeightKg;
+	const latestVo2 = timeSeries.vo2max.length > 0
+		? timeSeries.vo2max[timeSeries.vo2max.length - 1].value
+		: stats.vo2Max;
+
+	const avgSleepInRange = sleepData.filter((d) => d.value > 0).length > 0
+		? sleepData.reduce((a, b) => a + b.value, 0) /
+		  sleepData.filter((d) => d.value > 0).length
+		: 0;
+
+	const hrvDelta = halfDelta(hrvData.map((d) => d.value));
+	const rhrDelta = halfDelta(rhrData.map((d) => d.value));
+	const sleepDelta = halfDelta(sleepData.map((d) => d.value));
+	const weightDelta = halfDelta(weightData.map((d) => d.value));
+	const readinessDelta = halfDelta(readinessHistData.map((d) => d.value));
 
 	const rangeLabel = RANGES.find((r) => r.key === range)!.label;
 
@@ -617,6 +704,217 @@ export default function TrendsScreen() {
 					</Text>
 				</GlassView>
 			)}
+
+			{/* ════════════════════════════════════════════════════════════════
+			    ── Health Section ──────────────────────────────────────────── */}
+			{isConnected && (
+				<>
+					<Text style={[styles.sectionHeading, { color: colors.foreground, marginTop: 8 }]}>
+						Health · {rangeLabel}
+					</Text>
+
+					{/* ── Readiness Score History ── */}
+					{readiness !== null && (
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[
+								styles.readinessSummaryCard,
+								{
+									backgroundColor: colors.card,
+									borderRadius: 20,
+									borderColor: colors.border,
+								},
+							]}
+						>
+							<View style={styles.readinessCardHeader}>
+								<View style={[styles.readinessIconWrap, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
+									<Ionicons name="flash" size={18} color="#10B981" />
+								</View>
+								<View style={{ flex: 1 }}>
+									<Text style={[styles.cardTitle, { color: colors.foreground }]}>Readiness Score</Text>
+									<Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>Today's composite</Text>
+								</View>
+								<View style={styles.cardValueBlock}>
+									<Text style={[styles.cardValue, { color: colors.foreground }]}>
+										{readiness.hasData ? readiness.score : '—'}
+									</Text>
+									<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>/ 100</Text>
+									{readinessDelta !== null && readiness.hasData && (
+										<View style={[styles.deltaBadge, { backgroundColor: (readinessDelta >= 0 ? '#10B981' : '#EF4444') + '18' }]}>
+											<Ionicons
+												name={readinessDelta >= 0 ? 'arrow-up' : 'arrow-down'}
+												size={10}
+												color={readinessDelta >= 0 ? '#10B981' : '#EF4444'}
+											/>
+											<Text style={[styles.deltaText, { color: readinessDelta >= 0 ? '#10B981' : '#EF4444' }]}>
+												{Math.abs(readinessDelta).toFixed(0)}%
+											</Text>
+										</View>
+									)}
+								</View>
+							</View>
+							{/* Pillar breakdown */}
+							{readiness.hasData && (
+								<View style={[styles.pillarRow, { borderTopColor: colors.separator }]}>
+									{[
+										{ label: 'HRV', value: readiness.hrv, color: '#10B981' },
+										{ label: 'Sleep', value: readiness.sleep, color: '#5856D6' },
+										{ label: 'HR', value: readiness.rhr, color: '#FF3B30' },
+										{ label: 'Load', value: readiness.load, color: '#00B4D8' },
+									].map((p, i) => (
+										<View key={p.label} style={styles.pillarItem}>
+											<Text style={[styles.pillarValue, { color: p.color }]}>{p.value}</Text>
+											<Text style={[styles.pillarLabel, { color: colors.mutedForeground }]}>{p.label}</Text>
+										</View>
+									))}
+								</View>
+							)}
+							{/* Trend chart */}
+							{readinessHistData.some((d) => d.value > 0) ? (
+								<MicroBar data={readinessHistData} accentColor="#10B981" />
+							) : (
+								<View style={styles.noDataRow}>
+									<Text style={[styles.noDataText, { color: colors.mutedForeground }]}>Score history will appear here over time</Text>
+								</View>
+							)}
+						</GlassView>
+					)}
+
+					{/* ── HRV Trend ── */}
+					<TrendCard
+						icon={<MaterialCommunityIcons name="pulse" size={18} color="#10B981" />}
+						title="Heart Rate Variability"
+						subtitle="HRV SDNN — recovery signal"
+						value={latestHrv !== null ? fmt(latestHrv, 1) : '—'}
+						unit="ms"
+						delta={hrvDelta}
+						positiveIsGood
+						chartData={hrvData}
+						accentColor="#10B981"
+						note={latestHrv !== null ? `Latest: ${latestHrv.toFixed(1)} ms` : undefined}
+					/>
+
+					{/* ── Resting HR Trend ── */}
+					<TrendCard
+						icon={<Ionicons name="heart" size={18} color="#FF3B30" />}
+						title="Resting Heart Rate"
+						subtitle="Cardiovascular fitness trend"
+						value={latestRhr !== null ? fmt(latestRhr) : '—'}
+						unit="bpm"
+						delta={rhrDelta}
+						positiveIsGood={false}  /* lower RHR = better */
+						chartData={rhrData}
+						accentColor="#FF3B30"
+						note="Falling trend = improving cardiovascular fitness"
+					/>
+
+					{/* ── Sleep Quality ── */}
+					<TrendCard
+						icon={<Ionicons name="moon" size={18} color="#5856D6" />}
+						title="Sleep Duration"
+						subtitle="Average hours per night"
+						value={avgSleepInRange > 0 ? fmt(avgSleepInRange, 1) : '—'}
+						unit="h / night"
+						delta={sleepDelta}
+						positiveIsGood
+						chartData={sleepData}
+						accentColor="#5856D6"
+						note={avgSleepInRange > 0 ? `7–9h optimal · averaging ${fmt(avgSleepInRange, 1)}h` : undefined}
+					/>
+
+					{/* ── Body Weight ── */}
+					{(weightData.some((d) => d.value > 0) || latestWeight !== null) && (
+						<TrendCard
+							icon={<MaterialCommunityIcons name="scale-bathroom" size={18} color="#FF9F0A" />}
+							title="Body Weight"
+							subtitle="From Apple Health measurements"
+							value={latestWeight !== null ? fmt(latestWeight, 1) : '—'}
+							unit="kg"
+							delta={weightDelta}
+							positiveIsGood={false}  /* context-neutral; shown without colour */
+							chartData={weightData}
+							accentColor="#FF9F0A"
+						/>
+					)}
+
+					{/* ── VO2 Max ── */}
+					{(vo2Data.some((d) => d.value > 0) || latestVo2 !== null) && (
+						<TrendCard
+							icon={<Ionicons name="cellular" size={18} color="#30D158" />}
+							title="VO2 Max"
+							subtitle="Apple cardiorespiratory fitness estimate"
+							value={latestVo2 !== null ? fmt(latestVo2, 1) : '—'}
+							unit="mL/kg/min"
+							delta={null}
+							positiveIsGood
+							chartData={vo2Data}
+							accentColor="#30D158"
+							note="Updated by Apple Health after outdoor workouts"
+						/>
+					)}
+
+					{/* ── Recovery Vitals (SpO2 + Respiratory) ── */}
+					{(spo2Data.some((d) => d.value > 0) || respData.some((d) => d.value > 0)) && (
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[
+								styles.card,
+								{
+									backgroundColor: colors.card,
+									borderRadius: 20,
+									borderColor: colors.border,
+								},
+							]}
+						>
+							<View style={styles.cardHeader}>
+								<View style={[styles.cardIconWrap, { backgroundColor: 'rgba(0,122,255,0.12)' }]}>
+									<Ionicons name="water" size={18} color="#007AFF" />
+								</View>
+								<View style={{ flex: 1 }}>
+									<Text style={[styles.cardTitle, { color: colors.foreground }]}>Recovery Vitals</Text>
+									<Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>Blood oxygen · Respiratory rate</Text>
+								</View>
+							</View>
+							<View style={styles.vitalsRow}>
+								{spo2Data.some((d) => d.value > 0) && (
+									<View style={styles.vitalItem}>
+										<Text style={[styles.vitalValue, { color: colors.foreground }]}>
+											{fmt(spo2Data.filter(d=>d.value>0).slice(-1)[0]?.value ?? 0, 1)}%
+										</Text>
+										<Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>SpO2</Text>
+										<MicroBar data={spo2Data} accentColor="#007AFF" />
+									</View>
+								)}
+								{spo2Data.some((d) => d.value > 0) && respData.some((d) => d.value > 0) && (
+									<View style={[styles.vitalDivider, { backgroundColor: colors.separator }]} />
+								)}
+								{respData.some((d) => d.value > 0) && (
+									<View style={styles.vitalItem}>
+										<Text style={[styles.vitalValue, { color: colors.foreground }]}>
+											{fmt(respData.filter(d=>d.value>0).slice(-1)[0]?.value ?? 0, 1)} bpm
+										</Text>
+										<Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>Resp Rate</Text>
+										<MicroBar data={respData} accentColor="#5AC8FA" />
+									</View>
+								)}
+							</View>
+						</GlassView>
+					)}
+
+					{/* ── Daily Steps History ── */}
+					<TrendCard
+						icon={<MaterialCommunityIcons name="shoe-print" size={18} color="#34C759" />}
+						title="Daily Steps"
+						subtitle="Walking activity trend"
+						value={stepsHistData.some(d=>d.value>0) ? fmt(stepsHistData.reduce((a,b)=>a+b.value,0)/stepsHistData.filter(d=>d.value>0).length) : '—'}
+						unit="avg/day"
+						delta={halfDelta(stepsHistData.map(d=>d.value))}
+						positiveIsGood
+						chartData={stepsHistData}
+						accentColor="#34C759"
+					/>
+				</>
+			)}
 		</ScrollView>
 	);
 }
@@ -811,5 +1109,69 @@ const styles = StyleSheet.create({
 		fontSize: 14,
 		textAlign: "center",
 		lineHeight: 20,
+	},
+	// Readiness summary card
+	readinessSummaryCard: {
+		padding: 16,
+		gap: 12,
+		borderWidth: StyleSheet.hairlineWidth,
+	},
+	readinessCardHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 12,
+	},
+	readinessIconWrap: {
+		width: 36,
+		height: 36,
+		borderRadius: 18,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	pillarRow: {
+		flexDirection: 'row',
+		borderTopWidth: StyleSheet.hairlineWidth,
+		paddingTop: 12,
+		gap: 4,
+	},
+	pillarItem: {
+		flex: 1,
+		alignItems: 'center',
+		gap: 3,
+	},
+	pillarValue: {
+		fontSize: 18,
+		fontWeight: '700',
+		letterSpacing: -0.5,
+	},
+	pillarLabel: {
+		fontSize: 11,
+		letterSpacing: 0.3,
+	},
+	// Recovery Vitals card
+	vitalsRow: {
+		flexDirection: 'row',
+		gap: 12,
+		alignItems: 'flex-start',
+	},
+	vitalItem: {
+		flex: 1,
+		gap: 4,
+	},
+	vitalValue: {
+		fontSize: 20,
+		fontWeight: '700',
+		letterSpacing: -0.5,
+	},
+	vitalLabel: {
+		fontSize: 11,
+		letterSpacing: 0.3,
+		textTransform: 'uppercase',
+		marginBottom: 4,
+	},
+	vitalDivider: {
+		width: StyleSheet.hairlineWidth,
+		alignSelf: 'stretch',
+		marginVertical: 4,
 	},
 });

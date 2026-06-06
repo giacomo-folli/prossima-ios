@@ -318,8 +318,8 @@ export default function SettingsScreen() {
 				label="APPLE HEALTH"
 				footer={
 					isConnected
-						? "Syncing steps, calories, sleep, and workouts."
-						: "Connect to start tracking your health data."
+						? "Syncing steps, calories, sleep, HRV, resting HR, body weight, VO2 Max, SpO2, respiratory rate & workouts."
+						: "Connect to unlock your Readiness Score and full health trend analysis."
 				}
 			>
 				<SettingRow
@@ -328,8 +328,8 @@ export default function SettingsScreen() {
 					label="Apple Health"
 					sublabel={
 						isConnected
-							? "Connected · syncing your data"
-							: "Sync calories, steps, sleep & workouts"
+							? "Connected · syncing HRV, sleep, HR & more"
+							: "Unlock Readiness Score & 10 health metrics"
 					}
 					isLast={true}
 					rightContent={

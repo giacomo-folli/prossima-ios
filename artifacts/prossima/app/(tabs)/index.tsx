@@ -17,6 +17,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useHealth, HealthWorkout } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
+import { ReadinessWidget } from "@/components/ReadinessWidget";
 import { Image } from "expo-image";
 
 function fmtDate(iso: string) {
@@ -35,11 +36,24 @@ function formatSleep(hours: number): string {
 	return `${h}h ${m}m`;
 }
 
+function formatDistance(meters: number): string {
+	if (meters <= 0) return "—";
+	if (meters >= 1000) return `${(meters / 1000).toFixed(1)} km`;
+	return `${meters} m`;
+}
+
 export default function HomeScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
-	const { isConnected, stats, loading: healthLoading, requestPermissions, syncData } = useHealth();
+	const {
+		isConnected,
+		stats,
+		readiness,
+		loading: healthLoading,
+		requestPermissions,
+		syncData,
+	} = useHealth();
 	const { name, imageUri } = useProfile();
 	const [refreshing, setRefreshing] = React.useState(false);
 
@@ -109,98 +123,185 @@ export default function HomeScreen() {
 				</View>
 			</View>
 
-			{/* Apple Health Connection Alert */}
-			{!isConnected && !healthLoading && (
-				<Pressable onPress={requestPermissions} style={styles.healthAlertCard}>
-					<GlassView colorScheme={resolvedScheme} style={[styles.healthAlertGlass, { borderColor: colors.border }]}>
-						<Ionicons name="heart" size={20} color="#FF2D55" style={{ marginRight: 12 }} />
-						<View style={{ flex: 1 }}>
-							<Text style={[styles.healthAlertTitle, { color: colors.foreground }]}>Connect Apple Health</Text>
-							<Text style={[styles.healthAlertDesc, { color: colors.mutedForeground }]}>Tap to sync calories, steps, sleep & activity</Text>
-						</View>
-						<Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
-					</GlassView>
-				</Pressable>
-			)}
+			{/* ── Readiness Score Hero ── */}
+			<ReadinessWidget
+				readiness={readiness}
+				isConnected={isConnected}
+				onConnectPress={requestPermissions}
+			/>
 
-			{/* ── Activity Rings ── */}
-			<View style={styles.chartWrapper}>
-				<ConcentricRingChart
-					stepsProgress={stats.steps / 15000}
-					calProgress={stats.calories / 550}
-					activeProgress={stats.activityTime / 60}
-					stepsValue={stats.steps.toLocaleString()}
-					stepsGoal="15,000"
-					calValue={stats.calories.toString()}
-					calGoal="550"
-					activeValue={`${stats.activityTime}m`}
-					activeGoal="60m"
-					size={240}
-				/>
-			</View>
+			{/* ── Quick Stats Capsules ── */}
+			{isConnected && (
+				<View style={styles.capsulesRow}>
+					{/* Sleep capsule */}
+					<GlassView
+						colorScheme={resolvedScheme}
+						style={[
+							styles.capsule,
+							{
+								backgroundColor: colors.card,
+								borderRadius: 22,
+								borderColor: colors.border,
+								flex: 1,
+							},
+						]}
+					>
+						<Ionicons
+							name="moon"
+							size={14}
+							color="#5856D6"
+							style={{ marginRight: 6 }}
+						/>
+						<Text style={[styles.capsuleText, { color: colors.mutedForeground }]}>
+							Sleep{" "}
+							<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
+								{formatSleep(stats.sleepHours)}
+							</Text>
+						</Text>
+					</GlassView>
+
+					{/* HRV capsule */}
+					<GlassView
+						colorScheme={resolvedScheme}
+						style={[
+							styles.capsule,
+							{
+								backgroundColor: colors.card,
+								borderRadius: 22,
+								borderColor: colors.border,
+								flex: 1,
+							},
+						]}
+					>
+						<MaterialCommunityIcons
+							name="pulse"
+							size={14}
+							color="#10B981"
+							style={{ marginRight: 6 }}
+						/>
+						<Text style={[styles.capsuleText, { color: colors.mutedForeground }]} numberOfLines={1}>
+							HRV{" "}
+							<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
+								{stats.todayHrv !== null ? `${Math.round(stats.todayHrv)} ms` : "—"}
+							</Text>
+						</Text>
+					</GlassView>
+				</View>
+			)}
 
 			<View
 				style={[styles.cardDivider, { backgroundColor: colors.separator }]}
 			/>
 
-			{/* ── Health Quick Stats Capsules ── */}
-			<View style={styles.capsulesRow}>
-				{/* Sleep capsule */}
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.capsule,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 22,
-							borderColor: colors.border,
-							flex: 1,
-						},
-					]}
-				>
-					<Ionicons
-						name="moon"
-						size={14}
-						color="#5856D6"
-						style={{ marginRight: 6 }}
-					/>
-					<Text style={[styles.capsuleText, { color: colors.mutedForeground }]}>
-						Sleep{" "}
-						<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
-							{isConnected ? formatSleep(stats.sleepHours) : "—"}
+			{/* ── Activity Rings ── */}
+			{isConnected && (
+				<>
+					<View style={styles.sectionHeader}>
+						<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+							Today's Activity
 						</Text>
-					</Text>
-				</GlassView>
+					</View>
+					<View style={styles.chartWrapper}>
+						<ConcentricRingChart
+							stepsProgress={stats.steps / 15000}
+							calProgress={stats.calories / 550}
+							activeProgress={stats.activityTime / 60}
+							stepsValue={stats.steps.toLocaleString()}
+							stepsGoal="15,000"
+							calValue={stats.calories.toString()}
+							calGoal="550"
+							activeValue={`${stats.activityTime}m`}
+							activeGoal="60m"
+							size={220}
+						/>
+					</View>
+				</>
+			)}
 
-				{/* Last HealthKit workout capsule */}
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.capsule,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 22,
-							borderColor: colors.border,
-							flex: 1,
-						},
-					]}
-				>
-					<Ionicons
-						name="flame"
-						size={14}
-						color="#FF3B30"
-						style={{ marginRight: 6 }}
-					/>
-					<Text style={[styles.capsuleText, { color: colors.mutedForeground }]} numberOfLines={1}>
-						Last workout{" "}
-						<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
-							{isConnected && healthWorkout
-								? `${healthWorkout.durationMinutes}m`
-								: "—"}
-						</Text>
-					</Text>
-				</GlassView>
-			</View>
+			{/* ── Today's Health Stats ── */}
+			{isConnected && (
+				<>
+					<GlassView
+						colorScheme={resolvedScheme}
+						style={[
+							styles.todayStatsCard,
+							{
+								backgroundColor: colors.card,
+								borderRadius: 20,
+								borderColor: colors.border,
+							},
+						]}
+					>
+						{/* Steps */}
+						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(52, 199, 89, 0.1)" }]}>
+								<MaterialCommunityIcons name="shoe-print" size={18} color="#34C759" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Steps</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{stats.steps.toLocaleString()}
+								</Text>
+							</View>
+							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 15,000</Text>
+						</View>
+
+						{/* Active Calories */}
+						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(255, 107, 0, 0.1)" }]}>
+								<MaterialCommunityIcons name="fire" size={18} color="#FF6B00" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Active Calories</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{stats.calories} kcal
+								</Text>
+							</View>
+							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 550</Text>
+						</View>
+
+						{/* Activity Time */}
+						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(0, 180, 216, 0.1)" }]}>
+								<Ionicons name="timer-outline" size={18} color="#00B4D8" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Activity Time</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{stats.activityTime} min
+								</Text>
+							</View>
+							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 60m</Text>
+						</View>
+
+						{/* Distance */}
+						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(88, 86, 214, 0.1)" }]}>
+								<MaterialCommunityIcons name="map-marker-path" size={18} color="#5856D6" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Distance</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{formatDistance(stats.distanceMeters)}
+								</Text>
+							</View>
+						</View>
+
+						{/* Resting HR */}
+						<View style={styles.statRow}>
+							<View style={[styles.statIconWrap, { backgroundColor: "rgba(255, 45, 85, 0.1)" }]}>
+								<Ionicons name="heart" size={18} color="#FF2D55" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Resting HR</Text>
+								<Text style={[styles.statValue, { color: colors.foreground }]}>
+									{stats.todayRestingHr !== null ? `${stats.todayRestingHr} bpm` : "—"}
+								</Text>
+							</View>
+						</View>
+					</GlassView>
+				</>
+			)}
 
 			{/* ── Recent Workout from Apple Health ── */}
 			{isConnected && healthWorkout && (
@@ -269,97 +370,83 @@ export default function HomeScreen() {
 				</>
 			)}
 
-			{/* ── Today's Health Stats ── */}
-			{isConnected && (
+			{/* Body composition snapshot */}
+			{isConnected && (stats.bodyWeightKg !== null || stats.vo2Max !== null) && (
 				<>
 					<View style={styles.sectionHeader}>
 						<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-							Today
+							Body & Fitness
 						</Text>
 					</View>
-
-					<GlassView
-						colorScheme={resolvedScheme}
-						style={[
-							styles.todayStatsCard,
-							{
-								backgroundColor: colors.card,
-								borderRadius: 20,
-								borderColor: colors.border,
-							},
-						]}
-					>
-						{/* Steps */}
-						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(52, 199, 89, 0.1)" }]}>
-								<MaterialCommunityIcons name="shoe-print" size={18} color="#34C759" />
-							</View>
-							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Steps</Text>
-								<Text style={[styles.statValue, { color: colors.foreground }]}>
-									{stats.steps.toLocaleString()}
+					<View style={styles.capsulesRow}>
+						{stats.bodyWeightKg !== null && (
+							<GlassView
+								colorScheme={resolvedScheme}
+								style={[
+									styles.capsuleTall,
+									{
+										backgroundColor: colors.card,
+										borderRadius: 16,
+										borderColor: colors.border,
+										flex: 1,
+									},
+								]}
+							>
+								<MaterialCommunityIcons name="scale-bathroom" size={18} color="#FF9F0A" />
+								<Text style={[styles.capsuleTallValue, { color: colors.foreground }]}>
+									{stats.bodyWeightKg} kg
 								</Text>
-							</View>
-							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 15,000</Text>
-						</View>
-
-						{/* Calories */}
-						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(255, 107, 0, 0.1)" }]}>
-								<MaterialCommunityIcons name="fire" size={18} color="#FF6B00" />
-							</View>
-							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Active Calories</Text>
-								<Text style={[styles.statValue, { color: colors.foreground }]}>
-									{stats.calories} kcal
+								<Text style={[styles.capsuleLabel, { color: colors.mutedForeground }]}>
+									Weight
 								</Text>
-							</View>
-							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 550</Text>
-						</View>
-
-						{/* Activity time */}
-						<View style={styles.statRow}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(0, 180, 216, 0.1)" }]}>
-								<Ionicons name="timer-outline" size={18} color="#00B4D8" />
-							</View>
-							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Activity Time</Text>
-								<Text style={[styles.statValue, { color: colors.foreground }]}>
-									{stats.activityTime} min
+							</GlassView>
+						)}
+						{stats.vo2Max !== null && (
+							<GlassView
+								colorScheme={resolvedScheme}
+								style={[
+									styles.capsuleTall,
+									{
+										backgroundColor: colors.card,
+										borderRadius: 16,
+										borderColor: colors.border,
+										flex: 1,
+									},
+								]}
+							>
+								<Ionicons name="cellular" size={18} color="#30D158" />
+								<Text style={[styles.capsuleTallValue, { color: colors.foreground }]}>
+									{stats.vo2Max.toFixed(1)}
 								</Text>
-							</View>
-							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 60m</Text>
-						</View>
-					</GlassView>
+								<Text style={[styles.capsuleLabel, { color: colors.mutedForeground }]}>
+									VO2 Max
+								</Text>
+							</GlassView>
+						)}
+						{stats.basalCalories > 0 && (
+							<GlassView
+								colorScheme={resolvedScheme}
+								style={[
+									styles.capsuleTall,
+									{
+										backgroundColor: colors.card,
+										borderRadius: 16,
+										borderColor: colors.border,
+										flex: 1,
+									},
+								]}
+							>
+								<MaterialCommunityIcons name="lightning-bolt" size={18} color="#FF6B00" />
+								<Text style={[styles.capsuleTallValue, { color: colors.foreground }]}>
+									{stats.basalCalories}
+								</Text>
+								<Text style={[styles.capsuleLabel, { color: colors.mutedForeground }]}>
+									BMR kcal
+								</Text>
+							</GlassView>
+						)}
+					</View>
 				</>
-			)}
-
-			{/* Empty state when not connected */}
-			{!isConnected && (
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.emptyCard,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 20,
-							borderColor: colors.border,
-						},
-					]}
-				>
-					<Ionicons name="heart-outline" size={32} color={colors.mutedForeground} />
-					<Text style={[styles.emptyCardText, { color: colors.mutedForeground }]}>
-						Connect Apple Health{"\n"}to start seeing your data here.
-					</Text>
-					<Pressable
-						onPress={requestPermissions}
-						style={[styles.connectButton, { backgroundColor: colors.primary }]}
-					>
-						<Text style={[styles.connectButtonText, { color: colors.primaryForeground }]}>
-							Connect Now
-						</Text>
-					</Pressable>
-				</GlassView>
 			)}
 		</ScrollView>
 	);
@@ -374,23 +461,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "space-between",
 		marginBottom: 8,
-	},
-	healthAlertCard: {
-		marginBottom: 4,
-	},
-	healthAlertGlass: {
-		flexDirection: "row",
-		alignItems: "center",
-		padding: 14,
-		borderRadius: 14,
-	},
-	healthAlertTitle: {
-		fontSize: 15,
-		fontWeight: "600",
-	},
-	healthAlertDesc: {
-		fontSize: 13,
-		marginTop: 2,
 	},
 	greeting: {
 		fontSize: 32,
@@ -420,18 +490,17 @@ const styles = StyleSheet.create({
 	chartWrapper: {
 		alignItems: "center",
 		justifyContent: "center",
-		paddingVertical: 8,
+		paddingVertical: 4,
 	},
 	cardDivider: {
 		height: StyleSheet.hairlineWidth,
 		width: "100%",
-		marginVertical: 4,
+		marginVertical: 2,
 	},
 
 	capsulesRow: {
 		flexDirection: "row",
-		gap: 12,
-		marginTop: 2,
+		gap: 10,
 	},
 	capsule: {
 		flexDirection: "row",
@@ -439,6 +508,7 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		paddingHorizontal: 12,
+		borderWidth: StyleSheet.hairlineWidth,
 	},
 	capsuleText: {
 		fontSize: 13,
@@ -446,9 +516,26 @@ const styles = StyleSheet.create({
 	capsuleBold: {
 		fontWeight: "700",
 	},
+	capsuleTall: {
+		alignItems: "center",
+		justifyContent: "center",
+		paddingVertical: 14,
+		gap: 4,
+		borderWidth: StyleSheet.hairlineWidth,
+	},
+	capsuleTallValue: {
+		fontSize: 18,
+		fontWeight: "700",
+		letterSpacing: -0.5,
+	},
+	capsuleLabel: {
+		fontSize: 10,
+		letterSpacing: 0.3,
+		textTransform: "uppercase",
+	},
 
 	sectionHeader: {
-		marginTop: 8,
+		marginTop: 4,
 	},
 	sectionTitle: {
 		fontSize: 20,
@@ -469,6 +556,7 @@ const styles = StyleSheet.create({
 	healthWorkoutCard: {
 		padding: 14,
 		gap: 14,
+		borderWidth: StyleSheet.hairlineWidth,
 	},
 	healthWorkoutHeader: {
 		flexDirection: "row",
@@ -505,6 +593,7 @@ const styles = StyleSheet.create({
 	// Today's stats card
 	todayStatsCard: {
 		overflow: "hidden",
+		borderWidth: StyleSheet.hairlineWidth,
 	},
 	statRow: {
 		flexDirection: "row",
@@ -531,27 +620,5 @@ const styles = StyleSheet.create({
 	},
 	statGoal: {
 		fontSize: 13,
-	},
-
-	// Empty state
-	emptyCard: {
-		padding: 32,
-		alignItems: "center",
-		gap: 12,
-	},
-	emptyCardText: {
-		fontSize: 14,
-		textAlign: "center",
-		lineHeight: 20,
-	},
-	connectButton: {
-		paddingHorizontal: 24,
-		paddingVertical: 12,
-		borderRadius: 24,
-		marginTop: 4,
-	},
-	connectButtonText: {
-		fontSize: 15,
-		fontWeight: "600",
 	},
 });
