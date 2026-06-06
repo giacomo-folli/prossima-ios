@@ -852,7 +852,7 @@ export function HealthProvider({
     }
   }, [isConnected]);
 
-  // ── Missing data backfill (background, up to 30 days) ─────────────────────
+  // ── Missing data backfill (background, 30-day rolling window) ───────────────
 
   const backfillMissingData = async () => {
     if (!isConnected) return;
@@ -860,48 +860,34 @@ export function HealthProvider({
     if (!nk?.initHealthKit) return;
 
     try {
-      const storedLastDate = await AsyncStorage.getItem(HEALTH_LAST_BACKFILL_DATE);
+      // Always fetch the last 30 days to catch any retroactively imported data
+      const startD = daysAgo(30);
       const today = startOfToday();
       
-      let startD = storedLastDate ? new Date(storedLastDate) : daysAgo(30);
+      const startDate = startD.toISOString();
+      const endDate = today.toISOString();
       
-      // Ensure we don't go further back than 30 days
-      const maxPast = daysAgo(30);
-      if (startD < maxPast) startD = maxPast;
-
-      // Ensure we don't sync today via this method (handled by syncData)
-      const endD = daysAgo(1);
-
-      if (startD <= endD) {
-        const startDate = startD.toISOString();
-        // Since getDaily... ranges are end-exclusive or day-aligned, set end to today's start
-        const endDate = today.toISOString();
-        
-        const data = await fetchHistoricalDataForRange(nk, startDate, endDate);
-        
-        // Write all to store
-        await Promise.all([
-          writeMetric('hrv', data.hrv),
-          writeMetric('resting_hr', data.rhr),
-          writeMetric('steps_history', data.stepsHist),
-          writeMetric('active_cal_history', data.calHist),
-          writeMetric('sleep_history', data.sleepHist),
-          writeMetric('body_weight', data.weightHist),
-          writeMetric('body_fat', data.fatHist),
-          writeMetric('vo2max', data.vo2),
-          writeMetric('spo2', data.spo2),
-          writeMetric('respiratory', data.resp),
-          writeMetric('bmr', data.bmr),
-          writeMetric('distance', data.dist),
-        ]);
-        
-        // Reload into state so UI updates
-        const ts = await loadAllMetrics();
-        setTimeSeries(ts);
-      }
-
-      // Update the backfill marker to yesterday
-      await AsyncStorage.setItem(HEALTH_LAST_BACKFILL_DATE, toDateStr(endD));
+      const data = await fetchHistoricalDataForRange(nk, startDate, endDate);
+      
+      // Write all to store
+      await Promise.all([
+        writeMetric('hrv', data.hrv),
+        writeMetric('resting_hr', data.rhr),
+        writeMetric('steps_history', data.stepsHist),
+        writeMetric('active_cal_history', data.calHist),
+        writeMetric('sleep_history', data.sleepHist),
+        writeMetric('body_weight', data.weightHist),
+        writeMetric('body_fat', data.fatHist),
+        writeMetric('vo2max', data.vo2),
+        writeMetric('spo2', data.spo2),
+        writeMetric('respiratory', data.resp),
+        writeMetric('bmr', data.bmr),
+        writeMetric('distance', data.dist),
+      ]);
+      
+      // Reload into state so UI updates
+      const ts = await loadAllMetrics();
+      setTimeSeries(ts);
     } catch (e) {
       console.error('Error backfilling missing health data', e);
     }
