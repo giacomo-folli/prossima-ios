@@ -1,179 +1,262 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '@/hooks/useColors';
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
+import Svg, { Circle } from "react-native-svg";
+import { Ionicons } from "@expo/vector-icons";
+import { useColors } from "@/hooks/useColors";
 
 interface ConcentricRingChartProps {
-  stepsProgress: number; // 0 to 1
-  calProgress: number;   // 0 to 1
-  activeProgress: number;// 0 to 1
-  stepsValue: string;
-  stepsGoal: string;
-  calValue: string;
-  calGoal: string;
-  activeValue: string;
-  activeGoal: string;
-  size?: number;
+	readinessProgress?: number; // 0 to 1
+	readinessColor?: string;
+	readinessValue?: string;
+	stepsProgress: number; // 0 to 1
+	calProgress: number; // 0 to 1
+	activeProgress: number; // 0 to 1
+	stepsValue: string;
+	stepsGoal: string;
+	calValue: string;
+	calGoal: string;
+	activeValue: string;
+	activeGoal: string;
+	size?: number;
 }
 
 export function ConcentricRingChart({
-  stepsProgress,
-  calProgress,
-  activeProgress,
-  stepsValue,
-  stepsGoal,
-  calValue,
-  calGoal,
-  activeValue,
-  activeGoal,
-  size = 240,
+	readinessProgress,
+	readinessColor = "#10B981",
+	readinessValue,
+	stepsProgress,
+	calProgress,
+	activeProgress,
+	stepsValue,
+	stepsGoal,
+	calValue,
+	calGoal,
+	activeValue,
+	activeGoal,
+	size = 240,
 }: ConcentricRingChartProps) {
-  const colors = useColors();
+	const colors = useColors();
 
-  // Color schemes for rings
-  const ringTeal = '#00B4D8';
-  const ringOrange = '#FF6B00';
-  const ringGreen = '#10B981';
+	// Color schemes for rings
+	const ringTeal = "#00B4D8";
+	const ringOrange = "#FF6B00";
+	const ringGreen = "#10B981";
 
-  const trackTeal = 'rgba(0, 180, 216, 0.12)';
-  const trackOrange = 'rgba(255, 107, 0, 0.12)';
-  const trackGreen = 'rgba(16, 185, 129, 0.12)';
+	const trackReadiness = "rgba(148, 163, 184, 0.12)";
+	const trackTeal = "rgba(0, 180, 216, 0.12)";
+	const trackOrange = "rgba(255, 107, 0, 0.12)";
+	const trackGreen = "rgba(16, 185, 129, 0.12)";
 
-  const strokeWidth = 12;
-  const spacing = 5;
-  const center = size / 2;
+	const strokeWidth = 12;
+	const spacing = 4;
+	const center = size / 2;
 
-  // Calculate radiuses
-  const rTeal = (size - strokeWidth) / 2 - 2; // outermost
-  const rOrange = rTeal - strokeWidth - spacing; // middle
-  const rGreen = rOrange - strokeWidth - spacing; // innermost
+	const hasReadiness = readinessProgress !== undefined;
 
-  // Circumferences
-  const cTeal = 2 * Math.PI * rTeal;
-  const cOrange = 2 * Math.PI * rOrange;
-  const cGreen = 2 * Math.PI * rGreen;
+	// Calculate radiuses
+	const rReadiness = (size - strokeWidth) / 2 - 2; // outermost
+	const rTeal = hasReadiness
+		? rReadiness - strokeWidth - spacing
+		: (size - strokeWidth) / 2 - 2;
+	const rOrange = rTeal - strokeWidth - spacing; // middle
+	const rGreen = rOrange - strokeWidth - spacing; // innermost
 
-  // Dash Offsets
-  const offsetTeal = cTeal * (1 - Math.min(Math.max(stepsProgress, 0), 1));
-  const offsetOrange = cOrange * (1 - Math.min(Math.max(calProgress, 0), 1));
-  const offsetGreen = cGreen * (1 - Math.min(Math.max(activeProgress, 0), 1));
+	// Circumferences
+	const cReadiness = 2 * Math.PI * rReadiness;
+	const cTeal = 2 * Math.PI * rTeal;
+	const cOrange = 2 * Math.PI * rOrange;
+	const cGreen = 2 * Math.PI * rGreen;
 
-  return (
-    <View style={[styles.container, { width: size, height: size }]}>
-      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
-        {/* Teal Ring Track and Progress */}
-        <Circle cx={center} cy={center} r={rTeal} stroke={trackTeal} strokeWidth={strokeWidth} fill="none" />
-        <Circle
-          cx={center}
-          cy={center}
-          r={rTeal}
-          stroke={ringTeal}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={`${cTeal} ${cTeal}`}
-          strokeDashoffset={offsetTeal}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${center}, ${center}`}
-        />
+	// Dash Offsets
+	const offsetReadiness =
+		cReadiness * (1 - Math.min(Math.max(readinessProgress || 0, 0), 1));
+	const offsetTeal = cTeal * (1 - Math.min(Math.max(stepsProgress, 0), 1));
+	const offsetOrange = cOrange * (1 - Math.min(Math.max(calProgress, 0), 1));
+	const offsetGreen = cGreen * (1 - Math.min(Math.max(activeProgress, 0), 1));
 
-        {/* Orange Ring Track and Progress */}
-        <Circle cx={center} cy={center} r={rOrange} stroke={trackOrange} strokeWidth={strokeWidth} fill="none" />
-        <Circle
-          cx={center}
-          cy={center}
-          r={rOrange}
-          stroke={ringOrange}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={`${cOrange} ${cOrange}`}
-          strokeDashoffset={offsetOrange}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${center}, ${center}`}
-        />
+	return (
+		<View style={[styles.container, { width: size, height: size }]}>
+			<Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+				{/* Readiness Ring Track and Progress */}
+				{hasReadiness && (
+					<>
+						<Circle
+							cx={center}
+							cy={center}
+							r={rReadiness}
+							stroke={trackReadiness}
+							strokeWidth={strokeWidth}
+							fill="none"
+						/>
+						<Circle
+							cx={center}
+							cy={center}
+							r={rReadiness}
+							stroke={readinessColor}
+							strokeWidth={strokeWidth}
+							fill="none"
+							strokeDasharray={`${cReadiness} ${cReadiness}`}
+							strokeDashoffset={offsetReadiness}
+							strokeLinecap="round"
+							rotation="-90"
+							origin={`${center}, ${center}`}
+						/>
+					</>
+				)}
 
-        {/* Green Ring Track and Progress */}
-        <Circle cx={center} cy={center} r={rGreen} stroke={trackGreen} strokeWidth={strokeWidth} fill="none" />
-        <Circle
-          cx={center}
-          cy={center}
-          r={rGreen}
-          stroke={ringGreen}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={`${cGreen} ${cGreen}`}
-          strokeDashoffset={offsetGreen}
-          strokeLinecap="round"
-          rotation="-90"
-          origin={`${center}, ${center}`}
-        />
-      </Svg>
+				{/* Teal Ring Track and Progress */}
+				<Circle
+					cx={center}
+					cy={center}
+					r={rTeal}
+					stroke={trackTeal}
+					strokeWidth={strokeWidth}
+					fill="none"
+				/>
+				<Circle
+					cx={center}
+					cy={center}
+					r={rTeal}
+					stroke={ringTeal}
+					strokeWidth={strokeWidth}
+					fill="none"
+					strokeDasharray={`${cTeal} ${cTeal}`}
+					strokeDashoffset={offsetTeal}
+					strokeLinecap="round"
+					rotation="-90"
+					origin={`${center}, ${center}`}
+				/>
 
-      {/* Central Labels */}
-      <View style={[StyleSheet.absoluteFill, styles.centerArea]}>
-        <Text style={[styles.stepsTitle, { color: '#0084A3' }]}>Steps:</Text>
-        <View style={styles.stepsRow}>
-          <Text style={[styles.stepsValueText, { color: colors.foreground }]}>{stepsValue}</Text>
-          <Text style={[styles.stepsGoalText, { color: colors.mutedForeground }]}>/{stepsGoal}</Text>
-        </View>
+				{/* Orange Ring Track and Progress */}
+				<Circle
+					cx={center}
+					cy={center}
+					r={rOrange}
+					stroke={trackOrange}
+					strokeWidth={strokeWidth}
+					fill="none"
+				/>
+				<Circle
+					cx={center}
+					cy={center}
+					r={rOrange}
+					stroke={ringOrange}
+					strokeWidth={strokeWidth}
+					fill="none"
+					strokeDasharray={`${cOrange} ${cOrange}`}
+					strokeDashoffset={offsetOrange}
+					strokeLinecap="round"
+					rotation="-90"
+					origin={`${center}, ${center}`}
+				/>
 
-        <Text style={[styles.calText, { color: colors.foreground }]}>
-          <Ionicons name="flame" size={13} color={ringOrange} />
-          {' '}Cal: <Text style={styles.boldVal}>{calValue}</Text>
-          <Text style={{ color: colors.mutedForeground }}>/{calGoal}</Text>
-        </Text>
+				{/* Green Ring Track and Progress */}
+				<Circle
+					cx={center}
+					cy={center}
+					r={rGreen}
+					stroke={trackGreen}
+					strokeWidth={strokeWidth}
+					fill="none"
+				/>
+				<Circle
+					cx={center}
+					cy={center}
+					r={rGreen}
+					stroke={ringGreen}
+					strokeWidth={strokeWidth}
+					fill="none"
+					strokeDasharray={`${cGreen} ${cGreen}`}
+					strokeDashoffset={offsetGreen}
+					strokeLinecap="round"
+					rotation="-90"
+					origin={`${center}, ${center}`}
+				/>
+			</Svg>
 
-        <Text style={[styles.activeText, { color: colors.foreground }]}>
-          <Ionicons name="time" size={13} color={ringGreen} />
-          {' '}Active: <Text style={styles.boldVal}>{activeValue}</Text>
-          <Text style={{ color: colors.mutedForeground }}>/{activeGoal}</Text>
-        </Text>
-      </View>
-    </View>
-  );
+			{/* Central Labels */}
+			<View style={[StyleSheet.absoluteFill, styles.centerArea]}>
+				{hasReadiness && readinessValue !== undefined && (
+					<>
+						<Text style={[styles.readinessTitle, { color: readinessColor }]}>
+							Readiness
+						</Text>
+						<View style={styles.readinessRow}>
+							<Text
+								style={[
+									styles.readinessValueText,
+									{ color: colors.foreground },
+								]}
+							>
+								{readinessValue}
+							</Text>
+						</View>
+					</>
+				)}
+				{!hasReadiness && (
+					<Text style={[styles.stepsTitle, { color: "#0084A3" }]}>Steps:</Text>
+				)}
+			</View>
+		</View>
+	);
 }
 
 const styles = StyleSheet.create({
-  container: {
-    alignSelf: 'center',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  centerArea: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 8,
-    gap: 2,
-  },
-  stepsTitle: {
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  stepsRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    marginBottom: 4,
-  },
-  stepsValueText: {
-    fontSize: 22,
-    letterSpacing: -0.5,
-  },
-  stepsGoalText: {
-    fontSize: 12,
-  },
-  calText: {
-    fontSize: 12.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  activeText: {
-    fontSize: 12.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  boldVal: {
-  },
+	container: {
+		alignSelf: "center",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	centerArea: {
+		justifyContent: "center",
+		alignItems: "center",
+		padding: 8,
+		gap: 2,
+	},
+	readinessTitle: {
+		fontSize: 11,
+		textTransform: "uppercase",
+		letterSpacing: 0.8,
+		fontWeight: "600",
+	},
+	readinessRow: {
+		flexDirection: "row",
+		alignItems: "baseline",
+		marginBottom: 4,
+	},
+	readinessValueText: {
+		fontSize: 24,
+		fontWeight: "700",
+		letterSpacing: -0.5,
+	},
+	stepsTitle: {
+		fontSize: 11,
+		textTransform: "uppercase",
+		letterSpacing: 0.8,
+	},
+	stepsRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginBottom: 4,
+	},
+	stepsValueText: {
+		fontSize: 22,
+		letterSpacing: -0.5,
+	},
+	stepsGoalText: {
+		fontSize: 12,
+	},
+	calText: {
+		fontSize: 11,
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	activeText: {
+		fontSize: 11,
+		flexDirection: "row",
+		alignItems: "center",
+	},
+	boldVal: {
+		fontWeight: "600",
+	},
 });

@@ -293,7 +293,31 @@ export function HealthProvider({
 
     const nk = getNativeHealthKit();
     if (!nk?.initHealthKit) {
-      setStats(DEFAULT_STATS);
+      if (__DEV__) {
+        setStats({
+          steps: 8432,
+          calories: 450,
+          activityTime: 45,
+          sleepHours: 7.2,
+          sleepDeepRatio: 0.2,
+          sleepRemRatio: 0.25,
+          recentWorkout: {
+            activityName: 'Running',
+            durationMinutes: 45,
+            calories: 450,
+            startDate: new Date().toISOString(),
+          },
+          todayHrv: 65,
+          todayRestingHr: 55,
+          bodyWeightKg: 75.5,
+          bodyFatPercent: 15.2,
+          vo2Max: 45.1,
+          distanceMeters: 6200,
+          basalCalories: 1800,
+        });
+      } else {
+        setStats(DEFAULT_STATS);
+      }
       return;
     }
 
@@ -637,7 +661,33 @@ export function HealthProvider({
     if (!isConnected) return;
 
     const nk = getNativeHealthKit();
-    if (!nk?.initHealthKit) return;
+    if (!nk?.initHealthKit) {
+      if (__DEV__) {
+        setSyncing(true);
+        try {
+          const mockTs: HealthTimeSeries = {
+            hrv: Array.from({ length: 30 }).map((_, i) => ({ date: daysAgo(i).toISOString().slice(0, 10), value: 60 + Math.random() * 10, unit: 'ms', source: 'Mock' })),
+            resting_hr: Array.from({ length: 30 }).map((_, i) => ({ date: daysAgo(i).toISOString().slice(0, 10), value: 55 + Math.random() * 5, unit: 'bpm', source: 'Mock' })),
+            steps_history: Array.from({ length: 30 }).map((_, i) => ({ date: daysAgo(i).toISOString().slice(0, 10), value: 5000 + Math.random() * 5000, unit: 'steps', source: 'Mock' })),
+            active_cal_history: Array.from({ length: 30 }).map((_, i) => ({ date: daysAgo(i).toISOString().slice(0, 10), value: 300 + Math.random() * 300, unit: 'kcal', source: 'Mock' })),
+            sleep_history: Array.from({ length: 30 }).map((_, i) => ({ date: daysAgo(i).toISOString().slice(0, 10), value: 6 + Math.random() * 2, unit: 'hours', source: 'Mock' })),
+            vo2max: Array.from({ length: 30 }).map((_, i) => ({ date: daysAgo(i).toISOString().slice(0, 10), value: 45, unit: 'mL/kg/min', source: 'Mock' })),
+            spo2: [],
+            respiratory: [],
+            bmr: [],
+            distance: [],
+            body_weight: [],
+            body_fat: [],
+            readiness: [],
+          };
+          setTimeSeries(mockTs);
+          await markInitialSyncComplete();
+        } finally {
+          setSyncing(false);
+        }
+      }
+      return;
+    }
 
     setSyncing(true);
     try {
@@ -886,6 +936,11 @@ export function HealthProvider({
   const requestPermissions = useCallback(async () => {
     const nk = getNativeHealthKit();
     if (!nk?.initHealthKit) {
+      if (__DEV__) {
+        await AsyncStorage.setItem(HEALTH_CONNECTED_KEY, 'true');
+        setIsConnected(true);
+        return;
+      }
       Alert.alert(
         'Connection Failed',
         'Apple Health is only available on iOS devices.'

@@ -43,7 +43,7 @@ function startOfDay(d: Date) {
  */
 function buildBuckets(
 	days: number,
-	buckets: number
+	buckets: number,
 ): { start: Date; end: Date; label: string }[] {
 	const now = new Date();
 	const rangeStart = startOfDay(new Date());
@@ -60,9 +60,13 @@ function buildBuckets(
 		if (i === buckets - 1) {
 			label = "Now";
 		} else if (days <= 7) {
-			label = start.toLocaleDateString("en-US", { weekday: "short" }).slice(0, 2);
+			label = start
+				.toLocaleDateString("en-US", { weekday: "short" })
+				.slice(0, 2);
 		} else if (days <= 90) {
-			label = start.toLocaleDateString("en-US", { month: "short", day: "numeric" }).replace(" ", "\n");
+			label = start
+				.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+				.replace(" ", "\n");
 		} else {
 			label = start.toLocaleDateString("en-US", { month: "short" });
 		}
@@ -116,9 +120,19 @@ function MicroBar({
 	const H = 48;
 
 	return (
-		<View style={{ flexDirection: "row", alignItems: "flex-end", gap: 3, height: H }}>
+		<View
+			style={{
+				flexDirection: "row",
+				alignItems: "flex-end",
+				gap: 3,
+				height: H,
+			}}
+		>
 			{data.map((item, i) => {
-				const barH = maxValue > 0 ? Math.max((item.value / maxValue) * H, item.value > 0 ? 3 : 0) : 0;
+				const barH =
+					maxValue > 0
+						? Math.max((item.value / maxValue) * H, item.value > 0 ? 3 : 0)
+						: 0;
 				const isTop = item.value === maxValue && item.value > 0;
 				return (
 					<View
@@ -133,9 +147,7 @@ function MicroBar({
 							style={{
 								height: Math.max(barH, 2),
 								borderRadius: 4,
-								backgroundColor: isTop
-									? accentColor
-									: `${accentColor}44`,
+								backgroundColor: isTop ? accentColor : `${accentColor}44`,
 							}}
 						/>
 					</View>
@@ -203,21 +215,36 @@ function TrendCard({
 		>
 			{/* Header row */}
 			<View style={styles.cardHeader}>
-				<View style={[styles.cardIconWrap, { backgroundColor: `${accentColor}18` }]}>
+				<View
+					style={[styles.cardIconWrap, { backgroundColor: `${accentColor}18` }]}
+				>
 					{icon}
 				</View>
 				<View style={{ flex: 1 }}>
-					<Text style={[styles.cardTitle, { color: colors.foreground }]}>{title}</Text>
-					<Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>{subtitle}</Text>
+					<Text style={[styles.cardTitle, { color: colors.foreground }]}>
+						{title}
+					</Text>
+					<Text
+						style={[styles.cardSubtitle, { color: colors.mutedForeground }]}
+					>
+						{subtitle}
+					</Text>
 				</View>
 				{/* Value + delta */}
 				<View style={styles.cardValueBlock}>
 					<Text style={[styles.cardValue, { color: colors.foreground }]}>
 						{hasData ? value : "—"}
 					</Text>
-					<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>{unit}</Text>
+					<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>
+						{unit}
+					</Text>
 					{delta !== null && hasData && (
-						<View style={[styles.deltaBadge, { backgroundColor: `${deltaColor}18` }]}>
+						<View
+							style={[
+								styles.deltaBadge,
+								{ backgroundColor: `${deltaColor}18` },
+							]}
+						>
 							<Ionicons name={deltaIcon} size={10} color={deltaColor} />
 							<Text style={[styles.deltaText, { color: deltaColor }]}>
 								{Math.abs(delta).toFixed(0)}%
@@ -232,7 +259,11 @@ function TrendCard({
 				<MicroBar data={chartData} accentColor={accentColor} />
 			) : (
 				<View style={styles.noDataRow}>
-					<Ionicons name="analytics-outline" size={18} color={colors.mutedForeground} />
+					<Ionicons
+						name="analytics-outline"
+						size={18}
+						color={colors.mutedForeground}
+					/>
 					<Text style={[styles.noDataText, { color: colors.mutedForeground }]}>
 						No data for this period
 					</Text>
@@ -245,7 +276,10 @@ function TrendCard({
 					{chartData.map((d, i) => (
 						<Text
 							key={i}
-							style={[styles.axisLabel, { color: colors.mutedForeground, flex: 1 }]}
+							style={[
+								styles.axisLabel,
+								{ color: colors.mutedForeground, flex: 1 },
+							]}
 							numberOfLines={1}
 						>
 							{i === 0 || i === chartData.length - 1 ? d.label : ""}
@@ -255,7 +289,9 @@ function TrendCard({
 			)}
 
 			{note ? (
-				<Text style={[styles.cardNote, { color: colors.mutedForeground }]}>{note}</Text>
+				<Text style={[styles.cardNote, { color: colors.mutedForeground }]}>
+					{note}
+				</Text>
 			) : null}
 		</GlassView>
 	);
@@ -272,7 +308,12 @@ function RangeSelector({
 }) {
 	const colors = useColors();
 	return (
-		<View style={[styles.rangeRow, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+		<View
+			style={[
+				styles.rangeRow,
+				{ backgroundColor: colors.muted, borderColor: colors.border },
+			]}
+		>
 			{RANGES.map((r) => {
 				const active = r.key === selected;
 				return (
@@ -310,7 +351,7 @@ function RangeSelector({
 function bucketHealthSamples(
 	samples: DailyHealthSample[],
 	buckets: { start: Date; end: Date; label: string }[],
-	mode: 'avg' | 'sum' | 'last' = 'avg'
+	mode: "avg" | "sum" | "last" = "avg",
 ): { label: string; value: number }[] {
 	return buckets.map((b) => {
 		const inRange = samples.filter((s) => {
@@ -319,9 +360,9 @@ function bucketHealthSamples(
 		});
 		if (inRange.length === 0) return { label: b.label, value: 0 };
 		let value: number;
-		if (mode === 'sum') {
+		if (mode === "sum") {
 			value = inRange.reduce((a, s) => a + s.value, 0);
-		} else if (mode === 'last') {
+		} else if (mode === "last") {
 			value = inRange[inRange.length - 1].value;
 		} else {
 			value = inRange.reduce((a, s) => a + s.value, 0) / inRange.length;
@@ -354,7 +395,7 @@ export default function TrendsScreen() {
 
 	const buckets = useMemo(
 		() => buildBuckets(rangeDays, bucketCount),
-		[rangeDays, bucketCount]
+		[rangeDays, bucketCount],
 	);
 
 	// ── Training Volume per bucket ───────────────────────────────────────────
@@ -370,9 +411,9 @@ export default function TrendsScreen() {
 						acc +
 						s.entries.reduce(
 							(a, e) => (e.weightKg && e.reps ? a + e.weightKg * e.reps : a),
-							0
+							0,
 						),
-					0
+					0,
 				);
 			return { label: b.label, value: Math.round(vol) };
 		});
@@ -399,8 +440,8 @@ export default function TrendsScreen() {
 			const avg =
 				inBucket.length > 0
 					? inBucket.reduce((a, s) => a + s.durationSeconds, 0) /
-					  inBucket.length /
-					  60
+						inBucket.length /
+						60
 					: 0;
 			return { label: b.label, value: Math.round(avg) };
 		});
@@ -413,8 +454,8 @@ export default function TrendsScreen() {
 		durationData.filter((d) => d.value > 0).length > 0
 			? Math.round(
 					durationData.reduce((a, b) => a + b.value, 0) /
-						durationData.filter((d) => d.value > 0).length
-			  )
+						durationData.filter((d) => d.value > 0).length,
+				)
 			: 0;
 
 	// Deltas (compare first half vs second half of period)
@@ -434,60 +475,65 @@ export default function TrendsScreen() {
 
 	// ── Health time-series bucketed data ────────────────────────────────────
 	const hrvData = useMemo(
-		() => bucketHealthSamples(timeSeries.hrv, buckets, 'avg'),
-		[timeSeries.hrv, buckets]
+		() => bucketHealthSamples(timeSeries.hrv, buckets, "avg"),
+		[timeSeries.hrv, buckets],
 	);
 	const rhrData = useMemo(
-		() => bucketHealthSamples(timeSeries.resting_hr, buckets, 'avg'),
-		[timeSeries.resting_hr, buckets]
+		() => bucketHealthSamples(timeSeries.resting_hr, buckets, "avg"),
+		[timeSeries.resting_hr, buckets],
 	);
 	const sleepData = useMemo(
-		() => bucketHealthSamples(timeSeries.sleep_history, buckets, 'avg'),
-		[timeSeries.sleep_history, buckets]
+		() => bucketHealthSamples(timeSeries.sleep_history, buckets, "avg"),
+		[timeSeries.sleep_history, buckets],
 	);
 	const weightData = useMemo(
-		() => bucketHealthSamples(timeSeries.body_weight, buckets, 'last'),
-		[timeSeries.body_weight, buckets]
+		() => bucketHealthSamples(timeSeries.body_weight, buckets, "last"),
+		[timeSeries.body_weight, buckets],
 	);
 	const vo2Data = useMemo(
-		() => bucketHealthSamples(timeSeries.vo2max, buckets, 'last'),
-		[timeSeries.vo2max, buckets]
+		() => bucketHealthSamples(timeSeries.vo2max, buckets, "last"),
+		[timeSeries.vo2max, buckets],
 	);
 	const spo2Data = useMemo(
-		() => bucketHealthSamples(timeSeries.spo2, buckets, 'avg'),
-		[timeSeries.spo2, buckets]
+		() => bucketHealthSamples(timeSeries.spo2, buckets, "avg"),
+		[timeSeries.spo2, buckets],
 	);
 	const respData = useMemo(
-		() => bucketHealthSamples(timeSeries.respiratory, buckets, 'avg'),
-		[timeSeries.respiratory, buckets]
+		() => bucketHealthSamples(timeSeries.respiratory, buckets, "avg"),
+		[timeSeries.respiratory, buckets],
 	);
 	const readinessHistData = useMemo(
-		() => bucketHealthSamples(timeSeries.readiness, buckets, 'avg'),
-		[timeSeries.readiness, buckets]
+		() => bucketHealthSamples(timeSeries.readiness, buckets, "avg"),
+		[timeSeries.readiness, buckets],
 	);
 	const stepsHistData = useMemo(
-		() => bucketHealthSamples(timeSeries.steps_history, buckets, 'sum'),
-		[timeSeries.steps_history, buckets]
+		() => bucketHealthSamples(timeSeries.steps_history, buckets, "sum"),
+		[timeSeries.steps_history, buckets],
 	);
 
 	// Latest values for display
-	const latestHrv = timeSeries.hrv.length > 0
-		? timeSeries.hrv[timeSeries.hrv.length - 1].value
-		: stats.todayHrv;
-	const latestRhr = timeSeries.resting_hr.length > 0
-		? timeSeries.resting_hr[timeSeries.resting_hr.length - 1].value
-		: stats.todayRestingHr;
-	const latestWeight = timeSeries.body_weight.length > 0
-		? timeSeries.body_weight[timeSeries.body_weight.length - 1].value
-		: stats.bodyWeightKg;
-	const latestVo2 = timeSeries.vo2max.length > 0
-		? timeSeries.vo2max[timeSeries.vo2max.length - 1].value
-		: stats.vo2Max;
+	const latestHrv =
+		timeSeries.hrv.length > 0
+			? timeSeries.hrv[timeSeries.hrv.length - 1].value
+			: stats.todayHrv;
+	const latestRhr =
+		timeSeries.resting_hr.length > 0
+			? timeSeries.resting_hr[timeSeries.resting_hr.length - 1].value
+			: stats.todayRestingHr;
+	const latestWeight =
+		timeSeries.body_weight.length > 0
+			? timeSeries.body_weight[timeSeries.body_weight.length - 1].value
+			: stats.bodyWeightKg;
+	const latestVo2 =
+		timeSeries.vo2max.length > 0
+			? timeSeries.vo2max[timeSeries.vo2max.length - 1].value
+			: stats.vo2Max;
 
-	const avgSleepInRange = sleepData.filter((d) => d.value > 0).length > 0
-		? sleepData.reduce((a, b) => a + b.value, 0) /
-		  sleepData.filter((d) => d.value > 0).length
-		: 0;
+	const avgSleepInRange =
+		sleepData.filter((d) => d.value > 0).length > 0
+			? sleepData.reduce((a, b) => a + b.value, 0) /
+				sleepData.filter((d) => d.value > 0).length
+			: 0;
 
 	const hrvDelta = halfDelta(hrvData.map((d) => d.value));
 	const rhrDelta = halfDelta(rhrData.map((d) => d.value));
@@ -508,7 +554,9 @@ export default function TrendsScreen() {
 			contentInsetAdjustmentBehavior="never"
 		>
 			{/* ── Header ── */}
-			<Text style={[styles.screenTitle, { color: colors.foreground }]}>Trends</Text>
+			<Text style={[styles.screenTitle, { color: colors.foreground }]}>
+				Trends
+			</Text>
 
 			{/* ── Range Selector ── */}
 			<RangeSelector selected={range} onChange={setRange} />
@@ -529,7 +577,12 @@ export default function TrendsScreen() {
 								{ backgroundColor: colors.card, borderColor: colors.border },
 							]}
 						>
-							<View style={[styles.tileIcon, { backgroundColor: "rgba(88,86,214,0.12)" }]}>
+							<View
+								style={[
+									styles.tileIcon,
+									{ backgroundColor: "rgba(88,86,214,0.12)" },
+								]}
+							>
 								<Ionicons name="moon" size={16} color="#5856D6" />
 							</View>
 							<Text style={[styles.tileValue, { color: colors.foreground }]}>
@@ -537,7 +590,9 @@ export default function TrendsScreen() {
 									? `${Math.floor(stats.sleepHours)}h ${Math.round((stats.sleepHours % 1) * 60)}m`
 									: "—"}
 							</Text>
-							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+							<Text
+								style={[styles.tileLabel, { color: colors.mutedForeground }]}
+							>
 								Sleep
 							</Text>
 						</GlassView>
@@ -550,13 +605,24 @@ export default function TrendsScreen() {
 								{ backgroundColor: colors.card, borderColor: colors.border },
 							]}
 						>
-							<View style={[styles.tileIcon, { backgroundColor: "rgba(0,180,216,0.12)" }]}>
-								<MaterialCommunityIcons name="shoe-print" size={16} color="#00B4D8" />
+							<View
+								style={[
+									styles.tileIcon,
+									{ backgroundColor: "rgba(0,180,216,0.12)" },
+								]}
+							>
+								<MaterialCommunityIcons
+									name="shoe-print"
+									size={16}
+									color="#00B4D8"
+								/>
 							</View>
 							<Text style={[styles.tileValue, { color: colors.foreground }]}>
 								{stats.steps > 0 ? fmt(stats.steps) : "—"}
 							</Text>
-							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+							<Text
+								style={[styles.tileLabel, { color: colors.mutedForeground }]}
+							>
 								Steps
 							</Text>
 						</GlassView>
@@ -569,13 +635,20 @@ export default function TrendsScreen() {
 								{ backgroundColor: colors.card, borderColor: colors.border },
 							]}
 						>
-							<View style={[styles.tileIcon, { backgroundColor: "rgba(255,107,0,0.12)" }]}>
+							<View
+								style={[
+									styles.tileIcon,
+									{ backgroundColor: "rgba(255,107,0,0.12)" },
+								]}
+							>
 								<MaterialCommunityIcons name="fire" size={16} color="#FF6B00" />
 							</View>
 							<Text style={[styles.tileValue, { color: colors.foreground }]}>
 								{stats.calories > 0 ? fmt(stats.calories) : "—"}
 							</Text>
-							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+							<Text
+								style={[styles.tileLabel, { color: colors.mutedForeground }]}
+							>
 								Cal
 							</Text>
 						</GlassView>
@@ -588,13 +661,20 @@ export default function TrendsScreen() {
 								{ backgroundColor: colors.card, borderColor: colors.border },
 							]}
 						>
-							<View style={[styles.tileIcon, { backgroundColor: "rgba(16,185,129,0.12)" }]}>
+							<View
+								style={[
+									styles.tileIcon,
+									{ backgroundColor: "rgba(16,185,129,0.12)" },
+								]}
+							>
 								<Ionicons name="timer-outline" size={16} color="#10B981" />
 							</View>
 							<Text style={[styles.tileValue, { color: colors.foreground }]}>
 								{stats.activityTime > 0 ? `${stats.activityTime}m` : "—"}
 							</Text>
-							<Text style={[styles.tileLabel, { color: colors.mutedForeground }]}>
+							<Text
+								style={[styles.tileLabel, { color: colors.mutedForeground }]}
+							>
 								Active
 							</Text>
 						</GlassView>
@@ -627,13 +707,13 @@ export default function TrendsScreen() {
 
 			{/* Training Volume */}
 			<TrendCard
-				icon={<MaterialCommunityIcons name="dumbbell" size={18} color="#00B4D8" />}
+				icon={
+					<MaterialCommunityIcons name="dumbbell" size={18} color="#00B4D8" />
+				}
 				title="Volume"
 				subtitle="Total weight lifted"
 				value={
-					totalVolume >= 1000
-						? fmt(totalVolume / 1000, 1)
-						: fmt(totalVolume)
+					totalVolume >= 1000 ? fmt(totalVolume / 1000, 1) : fmt(totalVolume)
 				}
 				unit={totalVolume >= 1000 ? "tonnes" : "kg"}
 				delta={volumeDelta}
@@ -668,7 +748,12 @@ export default function TrendsScreen() {
 						},
 					]}
 				>
-					<View style={[styles.pbIconWrap, { backgroundColor: "rgba(255,215,0,0.12)" }]}>
+					<View
+						style={[
+							styles.pbIconWrap,
+							{ backgroundColor: "rgba(255,215,0,0.12)" },
+						]}
+					>
 						<Ionicons name="star" size={20} color="#FFD700" />
 					</View>
 					<View style={{ flex: 1 }}>
@@ -695,7 +780,11 @@ export default function TrendsScreen() {
 						},
 					]}
 				>
-					<Ionicons name="leaf-outline" size={32} color={colors.mutedForeground} />
+					<Ionicons
+						name="leaf-outline"
+						size={32}
+						color={colors.mutedForeground}
+					/>
 					<Text style={[styles.emptyTitle, { color: colors.foreground }]}>
 						No training data
 					</Text>
@@ -709,7 +798,12 @@ export default function TrendsScreen() {
 			    ── Health Section ──────────────────────────────────────────── */}
 			{isConnected && (
 				<>
-					<Text style={[styles.sectionHeading, { color: colors.foreground, marginTop: 8 }]}>
+					<Text
+						style={[
+							styles.sectionHeading,
+							{ color: colors.foreground, marginTop: 8 },
+						]}
+					>
 						Health · {rangeLabel}
 					</Text>
 
@@ -727,26 +821,64 @@ export default function TrendsScreen() {
 							]}
 						>
 							<View style={styles.readinessCardHeader}>
-								<View style={[styles.readinessIconWrap, { backgroundColor: 'rgba(16,185,129,0.12)' }]}>
+								<View
+									style={[
+										styles.readinessIconWrap,
+										{ backgroundColor: "rgba(16,185,129,0.12)" },
+									]}
+								>
 									<Ionicons name="flash" size={18} color="#10B981" />
 								</View>
 								<View style={{ flex: 1 }}>
-									<Text style={[styles.cardTitle, { color: colors.foreground }]}>Readiness Score</Text>
-									<Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>Today's composite</Text>
+									<Text
+										style={[styles.cardTitle, { color: colors.foreground }]}
+									>
+										Readiness Score
+									</Text>
+									<Text
+										style={[
+											styles.cardSubtitle,
+											{ color: colors.mutedForeground },
+										]}
+									>
+										Today's composite
+									</Text>
 								</View>
 								<View style={styles.cardValueBlock}>
-									<Text style={[styles.cardValue, { color: colors.foreground }]}>
-										{readiness.hasData ? readiness.score : '—'}
+									<Text
+										style={[styles.cardValue, { color: colors.foreground }]}
+									>
+										{readiness.hasData ? readiness.score : "—"}
 									</Text>
-									<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>/ 100</Text>
+									<Text
+										style={[styles.cardUnit, { color: colors.mutedForeground }]}
+									>
+										/ 100
+									</Text>
 									{readinessDelta !== null && readiness.hasData && (
-										<View style={[styles.deltaBadge, { backgroundColor: (readinessDelta >= 0 ? '#10B981' : '#EF4444') + '18' }]}>
+										<View
+											style={[
+												styles.deltaBadge,
+												{
+													backgroundColor:
+														(readinessDelta >= 0 ? "#10B981" : "#EF4444") +
+														"18",
+												},
+											]}
+										>
 											<Ionicons
-												name={readinessDelta >= 0 ? 'arrow-up' : 'arrow-down'}
+												name={readinessDelta >= 0 ? "arrow-up" : "arrow-down"}
 												size={10}
-												color={readinessDelta >= 0 ? '#10B981' : '#EF4444'}
+												color={readinessDelta >= 0 ? "#10B981" : "#EF4444"}
 											/>
-											<Text style={[styles.deltaText, { color: readinessDelta >= 0 ? '#10B981' : '#EF4444' }]}>
+											<Text
+												style={[
+													styles.deltaText,
+													{
+														color: readinessDelta >= 0 ? "#10B981" : "#EF4444",
+													},
+												]}
+											>
 												{Math.abs(readinessDelta).toFixed(0)}%
 											</Text>
 										</View>
@@ -755,16 +887,34 @@ export default function TrendsScreen() {
 							</View>
 							{/* Pillar breakdown */}
 							{readiness.hasData && (
-								<View style={[styles.pillarRow, { borderTopColor: colors.separator }]}>
+								<View
+									style={[
+										styles.pillarRow,
+										{ borderTopColor: colors.separator },
+									]}
+								>
 									{[
-										{ label: 'HRV', value: readiness.hrv, color: '#10B981' },
-										{ label: 'Sleep', value: readiness.sleep, color: '#5856D6' },
-										{ label: 'HR', value: readiness.rhr, color: '#FF3B30' },
-										{ label: 'Load', value: readiness.load, color: '#00B4D8' },
+										{ label: "HRV", value: readiness.hrv, color: "#10B981" },
+										{
+											label: "Sleep",
+											value: readiness.sleep,
+											color: "#5856D6",
+										},
+										{ label: "HR", value: readiness.rhr, color: "#FF3B30" },
+										{ label: "Load", value: readiness.load, color: "#00B4D8" },
 									].map((p, i) => (
 										<View key={p.label} style={styles.pillarItem}>
-											<Text style={[styles.pillarValue, { color: p.color }]}>{p.value}</Text>
-											<Text style={[styles.pillarLabel, { color: colors.mutedForeground }]}>{p.label}</Text>
+											<Text style={[styles.pillarValue, { color: p.color }]}>
+												{p.value}
+											</Text>
+											<Text
+												style={[
+													styles.pillarLabel,
+													{ color: colors.mutedForeground },
+												]}
+											>
+												{p.label}
+											</Text>
 										</View>
 									))}
 								</View>
@@ -774,7 +924,14 @@ export default function TrendsScreen() {
 								<MicroBar data={readinessHistData} accentColor="#10B981" />
 							) : (
 								<View style={styles.noDataRow}>
-									<Text style={[styles.noDataText, { color: colors.mutedForeground }]}>Score history will appear here over time</Text>
+									<Text
+										style={[
+											styles.noDataText,
+											{ color: colors.mutedForeground },
+										]}
+									>
+										Score history will appear here over time
+									</Text>
 								</View>
 							)}
 						</GlassView>
@@ -782,16 +939,22 @@ export default function TrendsScreen() {
 
 					{/* ── HRV Trend ── */}
 					<TrendCard
-						icon={<MaterialCommunityIcons name="pulse" size={18} color="#10B981" />}
+						icon={
+							<MaterialCommunityIcons name="pulse" size={18} color="#10B981" />
+						}
 						title="Heart Rate Variability"
 						subtitle="HRV SDNN — recovery signal"
-						value={latestHrv !== null ? fmt(latestHrv, 1) : '—'}
+						value={latestHrv !== null ? fmt(latestHrv, 1) : "—"}
 						unit="ms"
 						delta={hrvDelta}
 						positiveIsGood
 						chartData={hrvData}
 						accentColor="#10B981"
-						note={latestHrv !== null ? `Latest: ${latestHrv.toFixed(1)} ms` : undefined}
+						note={
+							latestHrv !== null
+								? `Latest: ${latestHrv.toFixed(1)} ms`
+								: undefined
+						}
 					/>
 
 					{/* ── Resting HR Trend ── */}
@@ -799,10 +962,10 @@ export default function TrendsScreen() {
 						icon={<Ionicons name="heart" size={18} color="#FF3B30" />}
 						title="Resting Heart Rate"
 						subtitle="Cardiovascular fitness trend"
-						value={latestRhr !== null ? fmt(latestRhr) : '—'}
+						value={latestRhr !== null ? fmt(latestRhr) : "—"}
 						unit="bpm"
 						delta={rhrDelta}
-						positiveIsGood={false}  /* lower RHR = better */
+						positiveIsGood={false} /* lower RHR = better */
 						chartData={rhrData}
 						accentColor="#FF3B30"
 						note="Falling trend = improving cardiovascular fitness"
@@ -813,25 +976,35 @@ export default function TrendsScreen() {
 						icon={<Ionicons name="moon" size={18} color="#5856D6" />}
 						title="Sleep Duration"
 						subtitle="Average hours per night"
-						value={avgSleepInRange > 0 ? fmt(avgSleepInRange, 1) : '—'}
+						value={avgSleepInRange > 0 ? fmt(avgSleepInRange, 1) : "—"}
 						unit="h / night"
 						delta={sleepDelta}
 						positiveIsGood
 						chartData={sleepData}
 						accentColor="#5856D6"
-						note={avgSleepInRange > 0 ? `7–9h optimal · averaging ${fmt(avgSleepInRange, 1)}h` : undefined}
+						note={
+							avgSleepInRange > 0
+								? `7–9h optimal · averaging ${fmt(avgSleepInRange, 1)}h`
+								: undefined
+						}
 					/>
 
 					{/* ── Body Weight ── */}
 					{(weightData.some((d) => d.value > 0) || latestWeight !== null) && (
 						<TrendCard
-							icon={<MaterialCommunityIcons name="scale-bathroom" size={18} color="#FF9F0A" />}
+							icon={
+								<MaterialCommunityIcons
+									name="scale-bathroom"
+									size={18}
+									color="#FF9F0A"
+								/>
+							}
 							title="Body Weight"
 							subtitle="From Apple Health measurements"
-							value={latestWeight !== null ? fmt(latestWeight, 1) : '—'}
+							value={latestWeight !== null ? fmt(latestWeight, 1) : "—"}
 							unit="kg"
 							delta={weightDelta}
-							positiveIsGood={false}  /* context-neutral; shown without colour */
+							positiveIsGood={false} /* context-neutral; shown without colour */
 							chartData={weightData}
 							accentColor="#FF9F0A"
 						/>
@@ -843,7 +1016,7 @@ export default function TrendsScreen() {
 							icon={<Ionicons name="cellular" size={18} color="#30D158" />}
 							title="VO2 Max"
 							subtitle="Apple cardiorespiratory fitness estimate"
-							value={latestVo2 !== null ? fmt(latestVo2, 1) : '—'}
+							value={latestVo2 !== null ? fmt(latestVo2, 1) : "—"}
 							unit="mL/kg/min"
 							delta={null}
 							positiveIsGood
@@ -854,7 +1027,8 @@ export default function TrendsScreen() {
 					)}
 
 					{/* ── Recovery Vitals (SpO2 + Respiratory) ── */}
-					{(spo2Data.some((d) => d.value > 0) || respData.some((d) => d.value > 0)) && (
+					{(spo2Data.some((d) => d.value > 0) ||
+						respData.some((d) => d.value > 0)) && (
 						<GlassView
 							colorScheme={resolvedScheme}
 							style={[
@@ -867,33 +1041,83 @@ export default function TrendsScreen() {
 							]}
 						>
 							<View style={styles.cardHeader}>
-								<View style={[styles.cardIconWrap, { backgroundColor: 'rgba(0,122,255,0.12)' }]}>
+								<View
+									style={[
+										styles.cardIconWrap,
+										{ backgroundColor: "rgba(0,122,255,0.12)" },
+									]}
+								>
 									<Ionicons name="water" size={18} color="#007AFF" />
 								</View>
 								<View style={{ flex: 1 }}>
-									<Text style={[styles.cardTitle, { color: colors.foreground }]}>Recovery Vitals</Text>
-									<Text style={[styles.cardSubtitle, { color: colors.mutedForeground }]}>Blood oxygen · Respiratory rate</Text>
+									<Text
+										style={[styles.cardTitle, { color: colors.foreground }]}
+									>
+										Recovery Vitals
+									</Text>
+									<Text
+										style={[
+											styles.cardSubtitle,
+											{ color: colors.mutedForeground },
+										]}
+									>
+										Blood oxygen · Respiratory rate
+									</Text>
 								</View>
 							</View>
 							<View style={styles.vitalsRow}>
 								{spo2Data.some((d) => d.value > 0) && (
 									<View style={styles.vitalItem}>
-										<Text style={[styles.vitalValue, { color: colors.foreground }]}>
-											{fmt(spo2Data.filter(d=>d.value>0).slice(-1)[0]?.value ?? 0, 1)}%
+										<Text
+											style={[styles.vitalValue, { color: colors.foreground }]}
+										>
+											{fmt(
+												spo2Data.filter((d) => d.value > 0).slice(-1)[0]
+													?.value ?? 0,
+												1,
+											)}
+											%
 										</Text>
-										<Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>SpO2</Text>
+										<Text
+											style={[
+												styles.vitalLabel,
+												{ color: colors.mutedForeground },
+											]}
+										>
+											SpO2
+										</Text>
 										<MicroBar data={spo2Data} accentColor="#007AFF" />
 									</View>
 								)}
-								{spo2Data.some((d) => d.value > 0) && respData.some((d) => d.value > 0) && (
-									<View style={[styles.vitalDivider, { backgroundColor: colors.separator }]} />
-								)}
+								{spo2Data.some((d) => d.value > 0) &&
+									respData.some((d) => d.value > 0) && (
+										<View
+											style={[
+												styles.vitalDivider,
+												{ backgroundColor: colors.separator },
+											]}
+										/>
+									)}
 								{respData.some((d) => d.value > 0) && (
 									<View style={styles.vitalItem}>
-										<Text style={[styles.vitalValue, { color: colors.foreground }]}>
-											{fmt(respData.filter(d=>d.value>0).slice(-1)[0]?.value ?? 0, 1)} bpm
+										<Text
+											style={[styles.vitalValue, { color: colors.foreground }]}
+										>
+											{fmt(
+												respData.filter((d) => d.value > 0).slice(-1)[0]
+													?.value ?? 0,
+												1,
+											)}{" "}
+											bpm
 										</Text>
-										<Text style={[styles.vitalLabel, { color: colors.mutedForeground }]}>Resp Rate</Text>
+										<Text
+											style={[
+												styles.vitalLabel,
+												{ color: colors.mutedForeground },
+											]}
+										>
+											Resp Rate
+										</Text>
 										<MicroBar data={respData} accentColor="#5AC8FA" />
 									</View>
 								)}
@@ -903,12 +1127,25 @@ export default function TrendsScreen() {
 
 					{/* ── Daily Steps History ── */}
 					<TrendCard
-						icon={<MaterialCommunityIcons name="shoe-print" size={18} color="#34C759" />}
+						icon={
+							<MaterialCommunityIcons
+								name="shoe-print"
+								size={18}
+								color="#34C759"
+							/>
+						}
 						title="Daily Steps"
 						subtitle="Walking activity trend"
-						value={stepsHistData.some(d=>d.value>0) ? fmt(stepsHistData.reduce((a,b)=>a+b.value,0)/stepsHistData.filter(d=>d.value>0).length) : '—'}
+						value={
+							stepsHistData.some((d) => d.value > 0)
+								? fmt(
+										stepsHistData.reduce((a, b) => a + b.value, 0) /
+											stepsHistData.filter((d) => d.value > 0).length,
+									)
+								: "—"
+						}
 						unit="avg/day"
-						delta={halfDelta(stepsHistData.map(d=>d.value))}
+						delta={halfDelta(stepsHistData.map((d) => d.value))}
 						positiveIsGood
 						chartData={stepsHistData}
 						accentColor="#34C759"
@@ -938,7 +1175,6 @@ const styles = StyleSheet.create({
 		borderRadius: 14,
 		padding: 4,
 		gap: 2,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	rangeBtn: {
 		flex: 1,
@@ -968,7 +1204,6 @@ const styles = StyleSheet.create({
 	healthTile: {
 		flex: 1,
 		borderRadius: 16,
-		borderWidth: StyleSheet.hairlineWidth,
 		alignItems: "center",
 		paddingVertical: 14,
 		paddingHorizontal: 6,
@@ -997,7 +1232,6 @@ const styles = StyleSheet.create({
 	card: {
 		padding: 16,
 		gap: 12,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	cardHeader: {
 		flexDirection: "row",
@@ -1076,7 +1310,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		padding: 16,
 		gap: 14,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	pbIconWrap: {
 		width: 40,
@@ -1099,7 +1332,6 @@ const styles = StyleSheet.create({
 		padding: 32,
 		alignItems: "center",
 		gap: 10,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	emptyTitle: {
 		fontSize: 18,
@@ -1114,34 +1346,33 @@ const styles = StyleSheet.create({
 	readinessSummaryCard: {
 		padding: 16,
 		gap: 12,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	readinessCardHeader: {
-		flexDirection: 'row',
-		alignItems: 'center',
+		flexDirection: "row",
+		alignItems: "center",
 		gap: 12,
 	},
 	readinessIconWrap: {
 		width: 36,
 		height: 36,
 		borderRadius: 18,
-		alignItems: 'center',
-		justifyContent: 'center',
+		alignItems: "center",
+		justifyContent: "center",
 	},
 	pillarRow: {
-		flexDirection: 'row',
+		flexDirection: "row",
 		borderTopWidth: StyleSheet.hairlineWidth,
 		paddingTop: 12,
 		gap: 4,
 	},
 	pillarItem: {
 		flex: 1,
-		alignItems: 'center',
+		alignItems: "center",
 		gap: 3,
 	},
 	pillarValue: {
 		fontSize: 18,
-		fontWeight: '700',
+		fontWeight: "700",
 		letterSpacing: -0.5,
 	},
 	pillarLabel: {
@@ -1150,9 +1381,9 @@ const styles = StyleSheet.create({
 	},
 	// Recovery Vitals card
 	vitalsRow: {
-		flexDirection: 'row',
+		flexDirection: "row",
 		gap: 12,
-		alignItems: 'flex-start',
+		alignItems: "flex-start",
 	},
 	vitalItem: {
 		flex: 1,
@@ -1160,18 +1391,18 @@ const styles = StyleSheet.create({
 	},
 	vitalValue: {
 		fontSize: 20,
-		fontWeight: '700',
+		fontWeight: "700",
 		letterSpacing: -0.5,
 	},
 	vitalLabel: {
 		fontSize: 11,
 		letterSpacing: 0.3,
-		textTransform: 'uppercase',
+		textTransform: "uppercase",
 		marginBottom: 4,
 	},
 	vitalDivider: {
 		width: StyleSheet.hairlineWidth,
-		alignSelf: 'stretch',
+		alignSelf: "stretch",
 		marginVertical: 4,
 	},
 });

@@ -17,7 +17,6 @@ import { useTheme } from "@/context/ThemeContext";
 import { useHealth, HealthWorkout } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
-import { ReadinessWidget } from "@/components/ReadinessWidget";
 import { Image } from "expo-image";
 
 function fmtDate(iso: string) {
@@ -25,6 +24,19 @@ function fmtDate(iso: string) {
 		month: "short",
 		day: "numeric",
 	});
+}
+
+function getReadinessColor(level: number) {
+	switch (level) {
+		case 3:
+			return "#10B981";
+		case 2:
+			return "#F59E0B";
+		case 1:
+			return "#EF4444";
+		default:
+			return "#64748B";
+	}
 }
 
 /** Format sleep hours as "7h 24m" */
@@ -95,14 +107,10 @@ export default function HomeScreen() {
 			{/* ── Header ── */}
 			<View style={styles.headerSection}>
 				<View style={{ flex: 1 }}>
-					<Text
-						style={[
-							styles.greeting,
-							{ color: colors.foreground, fontSize: 18, letterSpacing: 0.8 },
-						]}
-					>
-						Welcome back
+					<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+						Today's Activity
 					</Text>
+
 					<Text
 						style={[
 							styles.greeting,
@@ -114,21 +122,59 @@ export default function HomeScreen() {
 				</View>
 				<View style={[styles.headerRightRow, { zIndex: 10 }]}>
 					{imageUri ? (
-						<Image source={{ uri: imageUri }} style={styles.avatarCircle} contentFit="cover" />
+						<Image
+							source={{ uri: imageUri }}
+							style={styles.avatarCircle}
+							contentFit="cover"
+						/>
 					) : (
 						<View style={[styles.avatarCircle, { backgroundColor: "#8E7355" }]}>
-							<Text style={styles.avatarLetter}>{name ? name.charAt(0).toUpperCase() : "M"}</Text>
+							<Text style={styles.avatarLetter}>
+								{name ? name.charAt(0).toUpperCase() : "M"}
+							</Text>
 						</View>
 					)}
 				</View>
 			</View>
 
-			{/* ── Readiness Score Hero ── */}
-			<ReadinessWidget
-				readiness={readiness}
-				isConnected={isConnected}
-				onConnectPress={requestPermissions}
-			/>
+			{/* <View
+				style={[styles.cardDivider, { backgroundColor: colors.separator }]}
+			/> */}
+
+			{/* ── Activity Rings ── */}
+			{isConnected && (
+				<>
+					{/* <GlassView
+						colorScheme={resolvedScheme}
+						style={[
+							styles.chartWrapper,
+							{
+								backgroundColor: colors.card,
+								borderRadius: 24,
+								paddingVertical: 24,
+							},
+						]}
+					> */}
+					<ConcentricRingChart
+						readinessProgress={readiness?.hasData ? readiness.score / 100 : 0}
+						readinessColor={getReadinessColor(readiness?.level ?? 0)}
+						readinessValue={
+							readiness?.hasData ? readiness.score.toString() : "—"
+						}
+						stepsProgress={stats.steps / 15000}
+						calProgress={stats.calories / 550}
+						activeProgress={stats.activityTime / 60}
+						stepsValue={stats.steps.toLocaleString()}
+						stepsGoal="15,000"
+						calValue={stats.calories.toString()}
+						calGoal="550"
+						activeValue={`${stats.activityTime}m`}
+						activeGoal="60m"
+						size={260}
+					/>
+					{/* </GlassView> */}
+				</>
+			)}
 
 			{/* ── Quick Stats Capsules ── */}
 			{isConnected && (
@@ -152,7 +198,9 @@ export default function HomeScreen() {
 							color="#5856D6"
 							style={{ marginRight: 6 }}
 						/>
-						<Text style={[styles.capsuleText, { color: colors.mutedForeground }]}>
+						<Text
+							style={[styles.capsuleText, { color: colors.mutedForeground }]}
+						>
 							Sleep{" "}
 							<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
 								{formatSleep(stats.sleepHours)}
@@ -179,43 +227,19 @@ export default function HomeScreen() {
 							color="#10B981"
 							style={{ marginRight: 6 }}
 						/>
-						<Text style={[styles.capsuleText, { color: colors.mutedForeground }]} numberOfLines={1}>
+						<Text
+							style={[styles.capsuleText, { color: colors.mutedForeground }]}
+							numberOfLines={1}
+						>
 							HRV{" "}
 							<Text style={[styles.capsuleBold, { color: colors.foreground }]}>
-								{stats.todayHrv !== null ? `${Math.round(stats.todayHrv)} ms` : "—"}
+								{stats.todayHrv !== null
+									? `${Math.round(stats.todayHrv)} ms`
+									: "—"}
 							</Text>
 						</Text>
 					</GlassView>
 				</View>
-			)}
-
-			<View
-				style={[styles.cardDivider, { backgroundColor: colors.separator }]}
-			/>
-
-			{/* ── Activity Rings ── */}
-			{isConnected && (
-				<>
-					<View style={styles.sectionHeader}>
-						<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-							Today's Activity
-						</Text>
-					</View>
-					<View style={styles.chartWrapper}>
-						<ConcentricRingChart
-							stepsProgress={stats.steps / 15000}
-							calProgress={stats.calories / 550}
-							activeProgress={stats.activityTime / 60}
-							stepsValue={stats.steps.toLocaleString()}
-							stepsGoal="15,000"
-							calValue={stats.calories.toString()}
-							calGoal="550"
-							activeValue={`${stats.activityTime}m`}
-							activeGoal="60m"
-							size={220}
-						/>
-					</View>
-				</>
 			)}
 
 			{/* ── Today's Health Stats ── */}
@@ -233,69 +257,134 @@ export default function HomeScreen() {
 						]}
 					>
 						{/* Steps */}
-						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(52, 199, 89, 0.1)" }]}>
-								<MaterialCommunityIcons name="shoe-print" size={18} color="#34C759" />
+						<View
+							style={[
+								styles.statRow,
+								{
+									borderBottomColor: colors.separator,
+									borderBottomWidth: StyleSheet.hairlineWidth,
+								},
+							]}
+						>
+							<View
+								style={[
+									styles.statIconWrap,
+									{ backgroundColor: "rgba(52, 199, 89, 0.1)" },
+								]}
+							>
+								<MaterialCommunityIcons
+									name="shoe-print"
+									size={18}
+									color="#34C759"
+								/>
 							</View>
 							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Steps</Text>
+								<Text
+									style={[styles.statLabel, { color: colors.mutedForeground }]}
+								>
+									Steps
+								</Text>
 								<Text style={[styles.statValue, { color: colors.foreground }]}>
 									{stats.steps.toLocaleString()}
 								</Text>
 							</View>
-							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 15,000</Text>
+							<Text
+								style={[styles.statGoal, { color: colors.mutedForeground }]}
+							>
+								/ 15,000
+							</Text>
 						</View>
 
 						{/* Active Calories */}
-						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(255, 107, 0, 0.1)" }]}>
+						<View
+							style={[
+								styles.statRow,
+								{
+									borderBottomColor: colors.separator,
+									borderBottomWidth: StyleSheet.hairlineWidth,
+								},
+							]}
+						>
+							<View
+								style={[
+									styles.statIconWrap,
+									{ backgroundColor: "rgba(255, 107, 0, 0.1)" },
+								]}
+							>
 								<MaterialCommunityIcons name="fire" size={18} color="#FF6B00" />
 							</View>
 							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Active Calories</Text>
+								<Text
+									style={[styles.statLabel, { color: colors.mutedForeground }]}
+								>
+									Active Calories
+								</Text>
 								<Text style={[styles.statValue, { color: colors.foreground }]}>
 									{stats.calories} kcal
 								</Text>
 							</View>
-							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 550</Text>
+							<Text
+								style={[styles.statGoal, { color: colors.mutedForeground }]}
+							>
+								/ 550
+							</Text>
 						</View>
 
 						{/* Activity Time */}
-						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(0, 180, 216, 0.1)" }]}>
+						<View
+							style={[
+								styles.statRow,
+								{
+									borderBottomColor: colors.separator,
+									borderBottomWidth: StyleSheet.hairlineWidth,
+								},
+							]}
+						>
+							<View
+								style={[
+									styles.statIconWrap,
+									{ backgroundColor: "rgba(0, 180, 216, 0.1)" },
+								]}
+							>
 								<Ionicons name="timer-outline" size={18} color="#00B4D8" />
 							</View>
 							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Activity Time</Text>
+								<Text
+									style={[styles.statLabel, { color: colors.mutedForeground }]}
+								>
+									Activity Time
+								</Text>
 								<Text style={[styles.statValue, { color: colors.foreground }]}>
 									{stats.activityTime} min
 								</Text>
 							</View>
-							<Text style={[styles.statGoal, { color: colors.mutedForeground }]}>/ 60m</Text>
-						</View>
-
-						{/* Distance */}
-						<View style={[styles.statRow, { borderBottomColor: colors.separator, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(88, 86, 214, 0.1)" }]}>
-								<MaterialCommunityIcons name="map-marker-path" size={18} color="#5856D6" />
-							</View>
-							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Distance</Text>
-								<Text style={[styles.statValue, { color: colors.foreground }]}>
-									{formatDistance(stats.distanceMeters)}
-								</Text>
-							</View>
+							<Text
+								style={[styles.statGoal, { color: colors.mutedForeground }]}
+							>
+								/ 60m
+							</Text>
 						</View>
 
 						{/* Resting HR */}
 						<View style={styles.statRow}>
-							<View style={[styles.statIconWrap, { backgroundColor: "rgba(255, 45, 85, 0.1)" }]}>
+							<View
+								style={[
+									styles.statIconWrap,
+									{ backgroundColor: "rgba(255, 45, 85, 0.1)" },
+								]}
+							>
 								<Ionicons name="heart" size={18} color="#FF2D55" />
 							</View>
 							<View style={{ flex: 1 }}>
-								<Text style={[styles.statLabel, { color: colors.mutedForeground }]}>Resting HR</Text>
+								<Text
+									style={[styles.statLabel, { color: colors.mutedForeground }]}
+								>
+									Resting HR
+								</Text>
 								<Text style={[styles.statValue, { color: colors.foreground }]}>
-									{stats.todayRestingHr !== null ? `${stats.todayRestingHr} bpm` : "—"}
+									{stats.todayRestingHr !== null
+										? `${stats.todayRestingHr} bpm`
+										: "—"}
 								</Text>
 							</View>
 						</View>
@@ -335,12 +424,20 @@ export default function HomeScreen() {
 							</View>
 							<View style={{ flex: 1 }}>
 								<Text
-									style={[styles.healthWorkoutName, { color: colors.foreground }]}
+									style={[
+										styles.healthWorkoutName,
+										{ color: colors.foreground },
+									]}
 									numberOfLines={1}
 								>
 									{healthWorkout.activityName}
 								</Text>
-								<Text style={[styles.healthWorkoutDate, { color: colors.mutedForeground }]}>
+								<Text
+									style={[
+										styles.healthWorkoutDate,
+										{ color: colors.mutedForeground },
+									]}
+								>
 									{fmtDate(healthWorkout.startDate)} · via Apple Health
 								</Text>
 							</View>
@@ -349,17 +446,36 @@ export default function HomeScreen() {
 						{/* Stats row */}
 						<View style={styles.healthWorkoutStats}>
 							<View style={styles.healthWorkoutStat}>
-								<MaterialCommunityIcons name="timer-outline" size={16} color={colors.mutedForeground} />
-								<Text style={[styles.healthWorkoutStatVal, { color: colors.foreground }]}>
+								<MaterialCommunityIcons
+									name="timer-outline"
+									size={16}
+									color={colors.mutedForeground}
+								/>
+								<Text
+									style={[
+										styles.healthWorkoutStatVal,
+										{ color: colors.foreground },
+									]}
+								>
 									{healthWorkout.durationMinutes > 0
 										? `${healthWorkout.durationMinutes} min`
 										: "—"}
 								</Text>
 							</View>
-							<View style={[styles.hwStatDivider, { backgroundColor: colors.separator }]} />
+							<View
+								style={[
+									styles.hwStatDivider,
+									{ backgroundColor: colors.separator },
+								]}
+							/>
 							<View style={styles.healthWorkoutStat}>
 								<MaterialCommunityIcons name="fire" size={16} color="#FF6B00" />
-								<Text style={[styles.healthWorkoutStatVal, { color: colors.foreground }]}>
+								<Text
+									style={[
+										styles.healthWorkoutStatVal,
+										{ color: colors.foreground },
+									]}
+								>
 									{healthWorkout.calories > 0
 										? `${healthWorkout.calories} cal`
 										: "—"}
@@ -367,85 +483,6 @@ export default function HomeScreen() {
 							</View>
 						</View>
 					</GlassView>
-				</>
-			)}
-
-			{/* Body composition snapshot */}
-			{isConnected && (stats.bodyWeightKg !== null || stats.vo2Max !== null) && (
-				<>
-					<View style={styles.sectionHeader}>
-						<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-							Body & Fitness
-						</Text>
-					</View>
-					<View style={styles.capsulesRow}>
-						{stats.bodyWeightKg !== null && (
-							<GlassView
-								colorScheme={resolvedScheme}
-								style={[
-									styles.capsuleTall,
-									{
-										backgroundColor: colors.card,
-										borderRadius: 16,
-										borderColor: colors.border,
-										flex: 1,
-									},
-								]}
-							>
-								<MaterialCommunityIcons name="scale-bathroom" size={18} color="#FF9F0A" />
-								<Text style={[styles.capsuleTallValue, { color: colors.foreground }]}>
-									{stats.bodyWeightKg} kg
-								</Text>
-								<Text style={[styles.capsuleLabel, { color: colors.mutedForeground }]}>
-									Weight
-								</Text>
-							</GlassView>
-						)}
-						{stats.vo2Max !== null && (
-							<GlassView
-								colorScheme={resolvedScheme}
-								style={[
-									styles.capsuleTall,
-									{
-										backgroundColor: colors.card,
-										borderRadius: 16,
-										borderColor: colors.border,
-										flex: 1,
-									},
-								]}
-							>
-								<Ionicons name="cellular" size={18} color="#30D158" />
-								<Text style={[styles.capsuleTallValue, { color: colors.foreground }]}>
-									{stats.vo2Max.toFixed(1)}
-								</Text>
-								<Text style={[styles.capsuleLabel, { color: colors.mutedForeground }]}>
-									VO2 Max
-								</Text>
-							</GlassView>
-						)}
-						{stats.basalCalories > 0 && (
-							<GlassView
-								colorScheme={resolvedScheme}
-								style={[
-									styles.capsuleTall,
-									{
-										backgroundColor: colors.card,
-										borderRadius: 16,
-										borderColor: colors.border,
-										flex: 1,
-									},
-								]}
-							>
-								<MaterialCommunityIcons name="lightning-bolt" size={18} color="#FF6B00" />
-								<Text style={[styles.capsuleTallValue, { color: colors.foreground }]}>
-									{stats.basalCalories}
-								</Text>
-								<Text style={[styles.capsuleLabel, { color: colors.mutedForeground }]}>
-									BMR kcal
-								</Text>
-							</GlassView>
-						)}
-					</View>
 				</>
 			)}
 		</ScrollView>
@@ -463,10 +500,9 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 	},
 	greeting: {
-		fontSize: 32,
+		fontSize: 30,
 		fontWeight: "700",
-		letterSpacing: -0.5,
-		lineHeight: 36,
+		lineHeight: 30,
 	},
 	headerRightRow: {
 		flexDirection: "row",
@@ -508,7 +544,6 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		paddingHorizontal: 12,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	capsuleText: {
 		fontSize: 13,
@@ -521,7 +556,6 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		paddingVertical: 14,
 		gap: 4,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	capsuleTallValue: {
 		fontSize: 18,
@@ -538,7 +572,7 @@ const styles = StyleSheet.create({
 		marginTop: 4,
 	},
 	sectionTitle: {
-		fontSize: 20,
+		fontSize: 15,
 		fontWeight: "600",
 		letterSpacing: -0.3,
 	},
@@ -556,7 +590,6 @@ const styles = StyleSheet.create({
 	healthWorkoutCard: {
 		padding: 14,
 		gap: 14,
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	healthWorkoutHeader: {
 		flexDirection: "row",
@@ -593,7 +626,6 @@ const styles = StyleSheet.create({
 	// Today's stats card
 	todayStatsCard: {
 		overflow: "hidden",
-		borderWidth: StyleSheet.hairlineWidth,
 	},
 	statRow: {
 		flexDirection: "row",
