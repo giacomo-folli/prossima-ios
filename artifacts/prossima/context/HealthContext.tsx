@@ -38,6 +38,7 @@ const getNativeHealthKit = () => {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 const HEALTH_CONNECTED_KEY = '@prossima_health_connected';
+const HEALTH_LAST_BACKFILL_DATE = '@prossima_health_last_backfill';
 
 export interface HealthWorkout {
   activityName: string;
@@ -197,6 +198,199 @@ function nativeCall<T>(
       resolve(fallback);
     }
   });
+}
+
+// ─── Reusable Historical Fetch ────────────────────────────────────────────────
+
+async function fetchHistoricalDataForRange(nk: any, startDate: string, endDate: string) {
+  const range = { startDate, endDate, limit: 500, ascending: true };
+
+  // Helper: bucket an array of {startDate/endDate, value} samples into daily sums/averages
+  const bucketDaily = (
+    results: any[],
+    unit: string,
+    mode: 'sum' | 'avg' | 'last' = 'avg'
+  ): DailyHealthSample[] => {
+    const map = new Map<string, number[]>();
+    for (const r of results) {
+      const date = (r.startDate ?? r.endDate ?? '').slice(0, 10);
+      if (!date) continue;
+      const val = r.value ?? 0;
+      if (!map.has(date)) map.set(date, []);
+      map.get(date)!.push(val);
+    }
+    return Array.from(map.entries()).map(([date, vals]) => ({
+      date,
+      value:
+        mode === 'sum'
+          ? vals.reduce((a, b) => a + b, 0)
+          : mode === 'last'
+          ? vals[vals.length - 1]
+          : vals.reduce((a, b) => a + b, 0) / vals.length,
+      unit,
+      source: 'Apple Health',
+    }));
+  };
+
+  // ── HRV history ────────────────────────────────────────────────────────
+  const hrvPromise = nativeCall(
+    (cb) => nk.getHeartRateVariabilitySamples(range, cb),
+    (r: any[]) => bucketDaily(r, 'ms', 'avg'),
+    []
+  );
+
+  // ── Resting HR history ─────────────────────────────────────────────────
+  const rhrPromise = nativeCall(
+    (cb) => nk.getRestingHeartRateSamples(range, cb),
+    (r: any[]) => bucketDaily(r, 'bpm', 'avg'),
+    []
+  );
+
+  // ── Steps history ──────────────────────────────────────────────────────
+  const stepsHistPromise = nativeCall(
+    (cb) => nk.getDailyStepCountSamples(range, cb),
+    (r: any[]) => bucketDaily(r, 'steps', 'sum'),
+    []
+  );
+
+  // ── Active calories history ────────────────────────────────────────────
+  const calHistPromise = nativeCall(
+    (cb) => nk.getDailyActiveEnergyBurned(range, cb),
+    (r: any[]) => bucketDaily(r, 'kcal', 'sum'),
+    []
+  );
+
+  // ── Sleep history ──────────────────────────────────────────────────────
+  const sleepHistPromise = nativeCall(
+    (cb) =>
+      nk.getSleepSamples(
+        { ...range, limit: 2000 },
+        cb
+      ),
+    (results: any[]): DailyHealthSample[] => {
+      const asleepValues = new Set(['ASLEEP', 'CORE', 'DEEP', 'REM', 'SLEEPING']);
+      const map = new Map<string, number>();
+      for (const s of results) {
+        const stage = String(s.value).toUpperCase();
+        if (!asleepValues.has(stage)) continue;
+        const date = (s.startDate ?? '').slice(0, 10);
+        if (!date) continue;
+        const start = new Date(s.startDate).getTime();
+        const end = new Date(s.endDate).getTime();
+        map.set(date, (map.get(date) ?? 0) + Math.max(0, end - start));
+      }
+      return Array.from(map.entries()).map(([date, ms]) => ({
+        date,
+        value: Math.round((ms / (1000 * 60 * 60)) * 10) / 10,
+        unit: 'hours',
+        source: 'Apple Health',
+      }));
+    },
+    []
+  );
+
+  // ── Body weight history ────────────────────────────────────────────────
+  const weightHistPromise = nativeCall(
+    (cb) => nk.getWeightSamples(range, cb),
+    (r: any[]): DailyHealthSample[] =>
+      r.map((s) => ({
+        date: (s.startDate ?? '').slice(0, 10),
+        value: Math.round((s.value / 2.20462) * 10) / 10, // lbs → kg
+        unit: 'kg',
+        source: 'Apple Health',
+      })),
+    []
+  );
+
+  // ── Body fat % history ─────────────────────────────────────────────────
+  const fatHistPromise = nativeCall(
+    (cb) => nk.getBodyFatPercentageSamples(range, cb),
+    (r: any[]): DailyHealthSample[] =>
+      r.map((s) => ({
+        date: (s.startDate ?? '').slice(0, 10),
+        value: s.value ?? 0,
+        unit: '%',
+        source: 'Apple Health',
+      })),
+    []
+  );
+
+  // ── VO2 Max history ────────────────────────────────────────────────────
+  const vo2Promise = nativeCall(
+    (cb) => nk.getVo2MaxSamples(range, cb),
+    (r: any[]): DailyHealthSample[] =>
+      r.map((s) => ({
+        date: (s.startDate ?? '').slice(0, 10),
+        value: s.value ?? 0,
+        unit: 'mL/kg/min',
+        source: 'Apple Health',
+      })),
+    []
+  );
+
+  // ── SpO2 history ───────────────────────────────────────────────────────
+  const spo2Promise = nativeCall(
+    (cb) => nk.getOxygenSaturationSamples(range, cb),
+    (r: any[]) => bucketDaily(r, '%', 'avg'),
+    []
+  );
+
+  // ── Respiratory rate history ───────────────────────────────────────────
+  const respPromise = nativeCall(
+    (cb) => nk.getRespiratoryRateSamples(range, cb),
+    (r: any[]) => bucketDaily(r, 'breaths/min', 'avg'),
+    []
+  );
+
+  // ── BMR history ───────────────────────────────────────────────────────
+  const bmrPromise = nativeCall(
+    (cb) => nk.getDailyBasalEnergyBurned(range, cb),
+    (r: any[]) => bucketDaily(r, 'kcal', 'sum'),
+    []
+  );
+
+  // ── Distance history ───────────────────────────────────────────────────
+  const distPromise = nativeCall(
+    (cb) => nk.getDailyDistanceWalkingRunning(range, cb),
+    (r: any[]): DailyHealthSample[] =>
+      r.map((s) => ({
+        date: (s.startDate ?? '').slice(0, 10),
+        value: Math.round((s.value ?? 0) * 1000), // km → m
+        unit: 'meters',
+        source: 'Apple Health',
+      })),
+    []
+  );
+
+  const [
+    hrv,
+    rhr,
+    stepsHist,
+    calHist,
+    sleepHist,
+    weightHist,
+    fatHist,
+    vo2,
+    spo2,
+    resp,
+    bmr,
+    dist,
+  ] = await Promise.all([
+    hrvPromise,
+    rhrPromise,
+    stepsHistPromise,
+    calHistPromise,
+    sleepHistPromise,
+    weightHistPromise,
+    fatHistPromise,
+    vo2Promise,
+    spo2Promise,
+    respPromise,
+    bmrPromise,
+    distPromise,
+  ]);
+
+  return { hrv, rhr, stepsHist, calHist, sleepHist, weightHist, fatHist, vo2, spo2, resp, bmr, dist };
 }
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -650,10 +844,68 @@ export function HealthProvider({
       // Reload full time-series from store so the UI updates
       const ts = await loadAllMetrics();
       setTimeSeries(ts);
+      
+      // Fire and forget backfill sync to catch up on any missed days in the background
+      backfillMissingData().catch((err) => console.error('Backfill failed', err));
     } catch (e) {
       console.error('Error syncing health data', e);
     }
   }, [isConnected]);
+
+  // ── Missing data backfill (background, up to 30 days) ─────────────────────
+
+  const backfillMissingData = async () => {
+    if (!isConnected) return;
+    const nk = getNativeHealthKit();
+    if (!nk?.initHealthKit) return;
+
+    try {
+      const storedLastDate = await AsyncStorage.getItem(HEALTH_LAST_BACKFILL_DATE);
+      const today = startOfToday();
+      
+      let startD = storedLastDate ? new Date(storedLastDate) : daysAgo(30);
+      
+      // Ensure we don't go further back than 30 days
+      const maxPast = daysAgo(30);
+      if (startD < maxPast) startD = maxPast;
+
+      // Ensure we don't sync today via this method (handled by syncData)
+      const endD = daysAgo(1);
+
+      if (startD <= endD) {
+        const startDate = startD.toISOString();
+        // Since getDaily... ranges are end-exclusive or day-aligned, set end to today's start
+        const endDate = today.toISOString();
+        
+        const data = await fetchHistoricalDataForRange(nk, startDate, endDate);
+        
+        // Write all to store
+        await Promise.all([
+          writeMetric('hrv', data.hrv),
+          writeMetric('resting_hr', data.rhr),
+          writeMetric('steps_history', data.stepsHist),
+          writeMetric('active_cal_history', data.calHist),
+          writeMetric('sleep_history', data.sleepHist),
+          writeMetric('body_weight', data.weightHist),
+          writeMetric('body_fat', data.fatHist),
+          writeMetric('vo2max', data.vo2),
+          writeMetric('spo2', data.spo2),
+          writeMetric('respiratory', data.resp),
+          writeMetric('bmr', data.bmr),
+          writeMetric('distance', data.dist),
+        ]);
+        
+        // Reload into state so UI updates
+        const ts = await loadAllMetrics();
+        setTimeSeries(ts);
+      }
+
+      // Update the backfill marker to yesterday
+      await AsyncStorage.setItem(HEALTH_LAST_BACKFILL_DATE, toDateStr(endD));
+    } catch (e) {
+      console.error('Error backfilling missing health data', e);
+    }
+  };
 
   // ── Full historical sync (90 days) ────────────────────────────────────────
 
@@ -693,207 +945,23 @@ export function HealthProvider({
     try {
       const startDate = daysAgo(90).toISOString();
       const endDate = new Date().toISOString();
-      const range = { startDate, endDate, limit: 500, ascending: true };
 
-      // Helper: bucket an array of {startDate/endDate, value} samples into daily sums/averages
-      const bucketDaily = (
-        results: any[],
-        unit: string,
-        mode: 'sum' | 'avg' | 'last' = 'avg'
-      ): DailyHealthSample[] => {
-        const map = new Map<string, number[]>();
-        for (const r of results) {
-          const date = (r.startDate ?? r.endDate ?? '').slice(0, 10);
-          if (!date) continue;
-          const val = r.value ?? 0;
-          if (!map.has(date)) map.set(date, []);
-          map.get(date)!.push(val);
-        }
-        return Array.from(map.entries()).map(([date, vals]) => ({
-          date,
-          value:
-            mode === 'sum'
-              ? vals.reduce((a, b) => a + b, 0)
-              : mode === 'last'
-              ? vals[vals.length - 1]
-              : vals.reduce((a, b) => a + b, 0) / vals.length,
-          unit,
-          source: 'Apple Health',
-        }));
-      };
-
-      // ── HRV history ────────────────────────────────────────────────────────
-      const hrvPromise = nativeCall(
-        (cb) => nk.getHeartRateVariabilitySamples(range, cb),
-        (r: any[]) => bucketDaily(r, 'ms', 'avg'),
-        []
-      );
-
-      // ── Resting HR history ─────────────────────────────────────────────────
-      const rhrPromise = nativeCall(
-        (cb) => nk.getRestingHeartRateSamples(range, cb),
-        (r: any[]) => bucketDaily(r, 'bpm', 'avg'),
-        []
-      );
-
-      // ── Steps history ──────────────────────────────────────────────────────
-      const stepsHistPromise = nativeCall(
-        (cb) => nk.getDailyStepCountSamples(range, cb),
-        (r: any[]) => bucketDaily(r, 'steps', 'sum'),
-        []
-      );
-
-      // ── Active calories history ────────────────────────────────────────────
-      const calHistPromise = nativeCall(
-        (cb) => nk.getDailyActiveEnergyBurned(range, cb),
-        (r: any[]) => bucketDaily(r, 'kcal', 'sum'),
-        []
-      );
-
-      // ── Sleep history ──────────────────────────────────────────────────────
-      const sleepHistPromise = nativeCall(
-        (cb) =>
-          nk.getSleepSamples(
-            { ...range, limit: 2000 },
-            cb
-          ),
-        (results: any[]): DailyHealthSample[] => {
-          const asleepValues = new Set(['ASLEEP', 'CORE', 'DEEP', 'REM', 'SLEEPING']);
-          const map = new Map<string, number>();
-          for (const s of results) {
-            const stage = String(s.value).toUpperCase();
-            if (!asleepValues.has(stage)) continue;
-            const date = (s.startDate ?? '').slice(0, 10);
-            if (!date) continue;
-            const start = new Date(s.startDate).getTime();
-            const end = new Date(s.endDate).getTime();
-            map.set(date, (map.get(date) ?? 0) + Math.max(0, end - start));
-          }
-          return Array.from(map.entries()).map(([date, ms]) => ({
-            date,
-            value: Math.round((ms / (1000 * 60 * 60)) * 10) / 10,
-            unit: 'hours',
-            source: 'Apple Health',
-          }));
-        },
-        []
-      );
-
-      // ── Body weight history ────────────────────────────────────────────────
-      const weightHistPromise = nativeCall(
-        (cb) => nk.getWeightSamples(range, cb),
-        (r: any[]): DailyHealthSample[] =>
-          r.map((s) => ({
-            date: (s.startDate ?? '').slice(0, 10),
-            value: Math.round((s.value / 2.20462) * 10) / 10, // lbs → kg
-            unit: 'kg',
-            source: 'Apple Health',
-          })),
-        []
-      );
-
-      // ── Body fat % history ─────────────────────────────────────────────────
-      const fatHistPromise = nativeCall(
-        (cb) => nk.getBodyFatPercentageSamples(range, cb),
-        (r: any[]): DailyHealthSample[] =>
-          r.map((s) => ({
-            date: (s.startDate ?? '').slice(0, 10),
-            value: s.value ?? 0,
-            unit: '%',
-            source: 'Apple Health',
-          })),
-        []
-      );
-
-      // ── VO2 Max history ────────────────────────────────────────────────────
-      const vo2Promise = nativeCall(
-        (cb) => nk.getVo2MaxSamples(range, cb),
-        (r: any[]): DailyHealthSample[] =>
-          r.map((s) => ({
-            date: (s.startDate ?? '').slice(0, 10),
-            value: s.value ?? 0,
-            unit: 'mL/kg/min',
-            source: 'Apple Health',
-          })),
-        []
-      );
-
-      // ── SpO2 history ───────────────────────────────────────────────────────
-      const spo2Promise = nativeCall(
-        (cb) => nk.getOxygenSaturationSamples(range, cb),
-        (r: any[]) => bucketDaily(r, '%', 'avg'),
-        []
-      );
-
-      // ── Respiratory rate history ───────────────────────────────────────────
-      const respPromise = nativeCall(
-        (cb) => nk.getRespiratoryRateSamples(range, cb),
-        (r: any[]) => bucketDaily(r, 'breaths/min', 'avg'),
-        []
-      );
-
-      // ── BMR history ───────────────────────────────────────────────────────
-      const bmrPromise = nativeCall(
-        (cb) => nk.getDailyBasalEnergyBurned(range, cb),
-        (r: any[]) => bucketDaily(r, 'kcal', 'sum'),
-        []
-      );
-
-      // ── Distance history ───────────────────────────────────────────────────
-      const distPromise = nativeCall(
-        (cb) => nk.getDailyDistanceWalkingRunning(range, cb),
-        (r: any[]): DailyHealthSample[] =>
-          r.map((s) => ({
-            date: (s.startDate ?? '').slice(0, 10),
-            value: Math.round((s.value ?? 0) * 1000), // km → m
-            unit: 'meters',
-            source: 'Apple Health',
-          })),
-        []
-      );
-
-      const [
-        hrv,
-        rhr,
-        stepsHist,
-        calHist,
-        sleepHist,
-        weightHist,
-        fatHist,
-        vo2,
-        spo2,
-        resp,
-        bmr,
-        dist,
-      ] = await Promise.all([
-        hrvPromise,
-        rhrPromise,
-        stepsHistPromise,
-        calHistPromise,
-        sleepHistPromise,
-        weightHistPromise,
-        fatHistPromise,
-        vo2Promise,
-        spo2Promise,
-        respPromise,
-        bmrPromise,
-        distPromise,
-      ]);
+      const data = await fetchHistoricalDataForRange(nk, startDate, endDate);
 
       // Write all to store
       await Promise.all([
-        writeMetric('hrv', hrv),
-        writeMetric('resting_hr', rhr),
-        writeMetric('steps_history', stepsHist),
-        writeMetric('active_cal_history', calHist),
-        writeMetric('sleep_history', sleepHist),
-        writeMetric('body_weight', weightHist),
-        writeMetric('body_fat', fatHist),
-        writeMetric('vo2max', vo2),
-        writeMetric('spo2', spo2),
-        writeMetric('respiratory', resp),
-        writeMetric('bmr', bmr),
-        writeMetric('distance', dist),
+        writeMetric('hrv', data.hrv),
+        writeMetric('resting_hr', data.rhr),
+        writeMetric('steps_history', data.stepsHist),
+        writeMetric('active_cal_history', data.calHist),
+        writeMetric('sleep_history', data.sleepHist),
+        writeMetric('body_weight', data.weightHist),
+        writeMetric('body_fat', data.fatHist),
+        writeMetric('vo2max', data.vo2),
+        writeMetric('spo2', data.spo2),
+        writeMetric('respiratory', data.resp),
+        writeMetric('bmr', data.bmr),
+        writeMetric('distance', data.dist),
       ]);
 
       await markInitialSyncComplete();

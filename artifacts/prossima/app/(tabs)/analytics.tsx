@@ -682,118 +682,6 @@ export default function TrendsScreen() {
 				</>
 			)}
 
-			{/* ── Training Trend Cards ── */}
-			<Text style={[styles.sectionHeading, { color: colors.foreground }]}>
-				Training · {rangeLabel}
-			</Text>
-
-			{/* Workout Frequency */}
-			<TrendCard
-				icon={<Ionicons name="barbell" size={18} color="#5856D6" />}
-				title="Workouts"
-				subtitle="Sessions logged"
-				value={fmt(totalWorkouts)}
-				unit="sessions"
-				delta={workoutsDelta}
-				positiveIsGood
-				chartData={workoutsData}
-				accentColor="#5856D6"
-				note={
-					totalWorkouts > 0
-						? `${(totalWorkouts / (rangeDays / 7)).toFixed(1)} per week on average`
-						: undefined
-				}
-			/>
-
-			{/* Training Volume */}
-			<TrendCard
-				icon={
-					<MaterialCommunityIcons name="dumbbell" size={18} color="#00B4D8" />
-				}
-				title="Volume"
-				subtitle="Total weight lifted"
-				value={
-					totalVolume >= 1000 ? fmt(totalVolume / 1000, 1) : fmt(totalVolume)
-				}
-				unit={totalVolume >= 1000 ? "tonnes" : "kg"}
-				delta={volumeDelta}
-				positiveIsGood
-				chartData={volumeData}
-				accentColor="#00B4D8"
-			/>
-
-			{/* Avg Session Duration */}
-			<TrendCard
-				icon={<Ionicons name="time-outline" size={18} color="#10B981" />}
-				title="Avg Duration"
-				subtitle="Per session"
-				value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
-				unit="min"
-				delta={durationDelta}
-				positiveIsGood
-				chartData={durationData}
-				accentColor="#10B981"
-			/>
-
-			{/* Personal Bests */}
-			{pbInWindow > 0 && (
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.pbCard,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 20,
-							borderColor: colors.border,
-						},
-					]}
-				>
-					<View
-						style={[
-							styles.pbIconWrap,
-							{ backgroundColor: "rgba(255,215,0,0.12)" },
-						]}
-					>
-						<Ionicons name="star" size={20} color="#FFD700" />
-					</View>
-					<View style={{ flex: 1 }}>
-						<Text style={[styles.pbTitle, { color: colors.foreground }]}>
-							{pbInWindow} Personal Best{pbInWindow > 1 ? "s" : ""}
-						</Text>
-						<Text style={[styles.pbSub, { color: colors.mutedForeground }]}>
-							Achieved in the last {rangeLabel}
-						</Text>
-					</View>
-				</GlassView>
-			)}
-
-			{/* Empty state */}
-			{totalWorkouts === 0 && (
-				<GlassView
-					colorScheme={resolvedScheme}
-					style={[
-						styles.emptyCard,
-						{
-							backgroundColor: colors.card,
-							borderRadius: 20,
-							borderColor: colors.border,
-						},
-					]}
-				>
-					<Ionicons
-						name="leaf-outline"
-						size={32}
-						color={colors.mutedForeground}
-					/>
-					<Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-						No training data
-					</Text>
-					<Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
-						Complete sessions to see your trends here.
-					</Text>
-				</GlassView>
-			)}
-
 			{/* ════════════════════════════════════════════════════════════════
 			    ── Health Section ──────────────────────────────────────────── */}
 			{isConnected && (
@@ -1151,6 +1039,120 @@ export default function TrendsScreen() {
 						accentColor="#34C759"
 					/>
 				</>
+			)}
+
+			{totalWorkouts !== 0 ? (
+				<>
+					<Text style={[styles.sectionHeading, { color: colors.foreground }]}>
+						Training · {rangeLabel}
+					</Text>
+
+					<TrendCard
+						icon={<Ionicons name="barbell" size={18} color="#5856D6" />}
+						title="Workouts"
+						subtitle="Sessions logged"
+						value={fmt(totalWorkouts)}
+						unit="sessions"
+						delta={workoutsDelta}
+						positiveIsGood
+						chartData={workoutsData}
+						accentColor="#5856D6"
+						note={
+							totalWorkouts > 0
+								? `${(totalWorkouts / (rangeDays / 7)).toFixed(1)} per week on average`
+								: undefined
+						}
+					/>
+					<TrendCard
+						icon={
+							<MaterialCommunityIcons
+								name="dumbbell"
+								size={18}
+								color="#00B4D8"
+							/>
+						}
+						title="Volume"
+						subtitle="Total weight lifted"
+						value={
+							totalVolume >= 1000
+								? fmt(totalVolume / 1000, 1)
+								: fmt(totalVolume)
+						}
+						unit={totalVolume >= 1000 ? "tonnes" : "kg"}
+						delta={volumeDelta}
+						positiveIsGood
+						chartData={volumeData}
+						accentColor="#00B4D8"
+					/>
+
+					{/* Avg Session Duration */}
+					<TrendCard
+						icon={<Ionicons name="time-outline" size={18} color="#10B981" />}
+						title="Avg Duration"
+						subtitle="Per session"
+						value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
+						unit="min"
+						delta={durationDelta}
+						positiveIsGood
+						chartData={durationData}
+						accentColor="#10B981"
+					/>
+
+					{pbInWindow > 0 && (
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[
+								styles.pbCard,
+								{
+									backgroundColor: colors.card,
+									borderRadius: 20,
+									borderColor: colors.border,
+								},
+							]}
+						>
+							<View
+								style={[
+									styles.pbIconWrap,
+									{ backgroundColor: "rgba(255,215,0,0.12)" },
+								]}
+							>
+								<Ionicons name="star" size={20} color="#FFD700" />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={[styles.pbTitle, { color: colors.foreground }]}>
+									{pbInWindow} Personal Best{pbInWindow > 1 ? "s" : ""}
+								</Text>
+								<Text style={[styles.pbSub, { color: colors.mutedForeground }]}>
+									Achieved in the last {rangeLabel}
+								</Text>
+							</View>
+						</GlassView>
+					)}
+				</>
+			) : (
+				<GlassView
+					colorScheme={resolvedScheme}
+					style={[
+						styles.emptyCard,
+						{
+							backgroundColor: colors.card,
+							borderRadius: 20,
+							borderColor: colors.border,
+						},
+					]}
+				>
+					<Ionicons
+						name="leaf-outline"
+						size={32}
+						color={colors.mutedForeground}
+					/>
+					<Text style={[styles.emptyTitle, { color: colors.foreground }]}>
+						No training data
+					</Text>
+					<Text style={[styles.emptyBody, { color: colors.mutedForeground }]}>
+						Complete sessions to see your trends here.
+					</Text>
+				</GlassView>
 			)}
 		</ScrollView>
 	);
