@@ -90,9 +90,6 @@ function halfDelta(values: number[]): number | null {
 	return ((avgSecond - avgFirst) / avgFirst) * 100;
 }
 
-
-
-
 // ─── Range Selector ──────────────────────────────────────────────────────────
 
 function RangeSelector({
@@ -350,15 +347,18 @@ export default function TrendsScreen() {
 			style={{ flex: 1 }}
 			contentContainerStyle={[
 				styles.content,
-				{ paddingTop: topPad, paddingBottom: botPad + 80 },
+				// Match the + 16 padding
+				{ paddingTop: topPad + 16, paddingBottom: botPad + 80 },
 			]}
 			showsVerticalScrollIndicator={false}
 			contentInsetAdjustmentBehavior="never"
 		>
-			{/* ── Header ── */}
-			<Text style={[styles.screenTitle, { color: colors.foreground }]}>
-				Trends
-			</Text>
+			{/* ── Unified Header ── */}
+			<View style={styles.screenHeader}>
+				<Text style={[styles.screenTitle, { color: colors.foreground }]}>
+					Trends
+				</Text>
+			</View>
 
 			{/* ── Range Selector ── */}
 			<RangeSelector selected={range} onChange={setRange} />
@@ -877,11 +877,9 @@ const styles = StyleSheet.create({
 	content: { paddingHorizontal: 20, gap: 14 },
 
 	screenTitle: {
-		fontSize: 32,
+		fontSize: 34,
 		fontWeight: "700",
 		letterSpacing: -0.5,
-		lineHeight: 36,
-		marginBottom: 4,
 	},
 
 	rangeRow: {
@@ -1083,5 +1081,11 @@ const styles = StyleSheet.create({
 		width: StyleSheet.hairlineWidth,
 		alignSelf: "stretch",
 		marginVertical: 4,
+	},
+	screenHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginBottom: 16,
 	},
 });

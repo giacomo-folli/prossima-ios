@@ -79,10 +79,10 @@ export default function HomeScreen() {
 	const healthWorkout: HealthWorkout | null = stats.recentWorkout;
 
 	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
+	const topPad = Platform.OS === "web" ? 20 : insets.top;
 	const bottomPadding = tabBarHeight + insets.bottom + 16;
 
 	const gradientColors = colors.backgroundGradient;
-
 	if (healthLoading) {
 		return <LinearGradient colors={gradientColors} style={{ flex: 1 }} />;
 	}
@@ -92,7 +92,7 @@ export default function HomeScreen() {
 			style={{ flex: 1 }}
 			contentContainerStyle={[
 				styles.content,
-				{ paddingTop: 0, paddingBottom: bottomPadding },
+				{ paddingTop: topPad + 16, paddingBottom: bottomPadding },
 			]}
 			showsVerticalScrollIndicator={false}
 			contentInsetAdjustmentBehavior="never"
@@ -105,19 +105,15 @@ export default function HomeScreen() {
 			}
 		>
 			{/* ── Header ── */}
-			<View style={styles.headerSection}>
+			<View style={styles.screenHeader}>
 				<View style={{ flex: 1 }}>
-					<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-						Today's Activity
+					<Text style={[styles.screenTitle, { color: colors.foreground }]}>
+						Today
 					</Text>
-
 					<Text
-						style={[
-							styles.greeting,
-							{ color: colors.foreground, letterSpacing: 1.2 },
-						]}
+						style={[styles.screenSubtitle, { color: colors.mutedForeground }]}
 					>
-						{name}
+						{name ? `${name}'s Activity` : "Your Activity"}
 					</Text>
 				</View>
 				<View style={[styles.headerRightRow, { zIndex: 10 }]}>
@@ -137,24 +133,9 @@ export default function HomeScreen() {
 				</View>
 			</View>
 
-			{/* <View
-				style={[styles.cardDivider, { backgroundColor: colors.separator }]}
-			/> */}
-
 			{/* ── Activity Rings ── */}
 			{isConnected && (
 				<>
-					{/* <GlassView
-						colorScheme={resolvedScheme}
-						style={[
-							styles.chartWrapper,
-							{
-								backgroundColor: colors.card,
-								borderRadius: 24,
-								paddingVertical: 24,
-							},
-						]}
-					> */}
 					<ConcentricRingChart
 						readinessProgress={readiness?.hasData ? readiness.score / 100 : 0}
 						readinessColor={getReadinessColor(readiness?.level ?? 0)}
@@ -652,5 +633,21 @@ const styles = StyleSheet.create({
 	},
 	statGoal: {
 		fontSize: 13,
+	},
+	screenHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginBottom: 16,
+	},
+	screenTitle: {
+		fontSize: 34,
+		fontWeight: "700",
+		letterSpacing: -0.5,
+	},
+	screenSubtitle: {
+		fontSize: 16,
+		fontWeight: "500",
+		marginTop: 4,
 	},
 });

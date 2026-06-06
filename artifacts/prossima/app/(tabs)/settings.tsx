@@ -241,16 +241,19 @@ export default function SettingsScreen() {
 		<ScrollView
 			contentContainerStyle={[
 				styles.content,
-				{ paddingTop: topPad, paddingBottom: botPad + 16 },
+				// Match the + 16 padding
+				{ paddingTop: topPad + 16, paddingBottom: botPad + 16 },
 			]}
 			keyboardShouldPersistTaps="handled"
 			showsVerticalScrollIndicator={false}
 			contentInsetAdjustmentBehavior="never"
 		>
-			{/* ── Page Title ── */}
-			<Text style={[styles.screenTitle, { color: colors.foreground }]}>
-				Settings
-			</Text>
+			{/* ── Unified Header ── */}
+			<View style={styles.screenHeader}>
+				<Text style={[styles.screenTitle, { color: colors.foreground }]}>
+					Settings
+				</Text>
+			</View>
 
 			{/* ── Profile Card ── */}
 			<Pressable
@@ -316,11 +319,7 @@ export default function SettingsScreen() {
 					icon="heart"
 					iconBg="#FF2D55"
 					label="Apple Health"
-					sublabel={
-						isConnected
-							? "Connected · syncing HRV, sleep, HR & more"
-							: "Unlock Readiness Score & 10 health metrics"
-					}
+					sublabel={isConnected ? "Connected" : "Disconnected"}
 					isLast={true}
 					rightContent={
 						isConnected ? (
@@ -414,11 +413,16 @@ export default function SettingsScreen() {
 
 const styles = StyleSheet.create({
 	content: { paddingHorizontal: 20, gap: 16 },
+	screenHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		justifyContent: "space-between",
+		marginBottom: 16,
+	},
 	screenTitle: {
-		fontSize: 36,
-		fontWeight: "300",
+		fontSize: 34,
+		fontWeight: "700",
 		letterSpacing: -0.5,
-		marginBottom: 4,
 	},
 
 	// Profile Card
