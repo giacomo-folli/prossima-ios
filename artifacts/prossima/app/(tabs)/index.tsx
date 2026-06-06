@@ -66,7 +66,7 @@ export default function HomeScreen() {
 		requestPermissions,
 		syncData,
 	} = useHealth();
-	const { name, imageUri } = useProfile();
+	const { name, imageUri, stepsGoal, caloriesGoal, activityTimeGoal } = useProfile();
 	const [refreshing, setRefreshing] = React.useState(false);
 
 	const onRefresh = React.useCallback(async () => {
@@ -142,15 +142,15 @@ export default function HomeScreen() {
 						readinessValue={
 							readiness?.hasData ? readiness.score.toString() : "—"
 						}
-						stepsProgress={stats.steps / 15000}
-						calProgress={stats.calories / 550}
-						activeProgress={stats.activityTime / 60}
+						stepsProgress={stats.steps / stepsGoal}
+						calProgress={stats.calories / caloriesGoal}
+						activeProgress={stats.activityTime / activityTimeGoal}
 						stepsValue={stats.steps.toLocaleString()}
-						stepsGoal="15,000"
+						stepsGoal={stepsGoal.toLocaleString()}
 						calValue={stats.calories.toString()}
-						calGoal="550"
+						calGoal={caloriesGoal.toString()}
 						activeValue={`${stats.activityTime}m`}
-						activeGoal="60m"
+						activeGoal={`${activityTimeGoal}m`}
 						size={260}
 					/>
 					{/* </GlassView> */}
@@ -272,7 +272,7 @@ export default function HomeScreen() {
 							<Text
 								style={[styles.statGoal, { color: colors.mutedForeground }]}
 							>
-								/ 15,000
+								/ {stepsGoal.toLocaleString()}
 							</Text>
 						</View>
 
@@ -307,7 +307,7 @@ export default function HomeScreen() {
 							<Text
 								style={[styles.statGoal, { color: colors.mutedForeground }]}
 							>
-								/ 550
+								/ {caloriesGoal}
 							</Text>
 						</View>
 
@@ -342,7 +342,7 @@ export default function HomeScreen() {
 							<Text
 								style={[styles.statGoal, { color: colors.mutedForeground }]}
 							>
-								/ 60m
+								/ {activityTimeGoal}m
 							</Text>
 						</View>
 

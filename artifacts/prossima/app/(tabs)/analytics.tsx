@@ -13,6 +13,7 @@ import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { useHealth } from "@/context/HealthContext";
+import { useProfile } from "@/context/ProfileContext";
 import { MicroBar } from "@/components/MicroBar";
 import { LineChart } from "@/components/LineChart";
 import { DailyHealthSample } from "@/context/HealthStore";
@@ -164,6 +165,7 @@ export default function TrendsScreen() {
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { isConnected, stats, timeSeries, workouts, readiness } = useHealth();
+	const { stepsGoal } = useProfile();
 
 	const [range, setRange] = useState<RangeKey>("1W");
 	const rangeDays = RANGES.find((r) => r.key === range)!.days;
@@ -723,8 +725,8 @@ export default function TrendsScreen() {
 						chartData={stepsHistData}
 						accentColor="#34C759"
 						chartType="line"
-						referenceValue={10000}
-						referenceLabel="10k goal"
+						referenceValue={stepsGoal}
+						referenceLabel={`${(stepsGoal / 1000).toFixed(1).replace(/\.0$/, "")}k goal`}
 						showYLabels
 						formatY={(v) =>
 							v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${Math.round(v)}`

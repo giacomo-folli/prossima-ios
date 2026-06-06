@@ -314,7 +314,12 @@ async function fetchHistoricalDataForRange(
 
 	const hrvPromise = nativeCall(
 		(cb) => nk.getHeartRateVariabilitySamples(range, cb),
-		(r: any[]) => bucketDaily(r, "ms", "avg"),
+		(r: any[]) =>
+			bucketDaily(
+				r.map((s) => ({ ...s, value: (s.value ?? 0) * 1000 })),
+				"ms",
+				"avg",
+			),
 		[],
 	);
 
@@ -536,17 +541,35 @@ export function HealthProvider({
 		try {
 			const stored = await AsyncStorage.getItem(HEALTH_CONNECTED_KEY);
 			if (stored === "true") {
-				setIsConnected(true);
-				// Eagerly hydrate time-series and workouts from local store
-				const [ts, w] = await Promise.all([loadAllMetrics(), readWorkouts()]);
-				setTimeSeries(ts);
-				setWorkouts(w);
+				const nk = getNativeHealthKit();
+				if (nk?.initHealthKit) {
+					nk.initHealthKit(buildPermissions(), async (err: any) => {
+						if (err) {
+							console.warn("HealthKit initialization on startup failed:", err);
+						}
+						try {
+							setIsConnected(true);
+							const [ts, w] = await Promise.all([loadAllMetrics(), readWorkouts()]);
+							setTimeSeries(ts);
+							setWorkouts(w);
+						} catch (e) {
+							console.error("Failed to hydrate local health store:", e);
+						} finally {
+							setLoading(false);
+						}
+					});
+					return;
+				} else {
+					setIsConnected(true);
+					const [ts, w] = await Promise.all([loadAllMetrics(), readWorkouts()]);
+					setTimeSeries(ts);
+					setWorkouts(w);
+				}
 			}
 		} catch (e) {
-			console.error("Failed to check health connection", e);
-		} finally {
-			setLoading(false);
+			console.error("Failed to check health connection:", e);
 		}
+		setLoading(false);
 	}, []);
 
 	useEffect(() => {
@@ -804,7 +827,9 @@ export function HealthProvider({
 				(results: any[]): number | null => {
 					if (!Array.isArray(results) || results.length === 0) return null;
 					// Use the most recent overnight reading (first in descending order)
-					return results[0].value ?? null;
+					return results[0].value !== undefined && results[0].value !== null
+						? results[0].value * 1000
+						: null;
 				},
 				null,
 			);

@@ -181,7 +181,7 @@ export default function SettingsScreen() {
 		fullHistoricalSync,
 		syncing,
 	} = useHealth();
-	const { name, imageUri } = useProfile();
+	const { name, imageUri, stepsGoal, caloriesGoal, activityTimeGoal } = useProfile();
 
 	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
 	const topPad = Platform.OS === "web" ? 20 : insets.top;
@@ -305,6 +305,18 @@ export default function SettingsScreen() {
 					/>
 				</GlassView>
 			</Pressable>
+
+			{/* ── Personal Goals ── */}
+			<SettingSection label="PERSONAL GOALS">
+				<SettingRow
+					icon="flag"
+					iconBg="#FF9F0A"
+					label="Customize Goals"
+					sublabel={`Steps: ${stepsGoal.toLocaleString()} · Calories: ${caloriesGoal} kcal · Time: ${activityTimeGoal} min`}
+					isLast={true}
+					onPress={() => router.push("/edit-goals")}
+				/>
+			</SettingSection>
 
 			{/* ── Apple Health ── */}
 			<SettingSection
