@@ -5,6 +5,7 @@ import React, {
 	useCallback,
 	useEffect,
 	useRef,
+	useMemo,
 } from "react";
 import { Platform, Alert, NativeModules, AppState } from "react-native";
 import AppleHealthKitLibrary from "react-native-health";
@@ -16,7 +17,6 @@ import {
 	clearAllHealthData,
 	hasCompletedInitialSync,
 	markInitialSyncComplete,
-	readMetric,
 	writeMetric,
 	writeSample,
 	loadAllMetrics,
@@ -35,10 +35,11 @@ const getNativeHealthKit = () => {
 	return NativeModules.AppleHealthKit || NativeModules.RNAppleHealthKit || null;
 };
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const HEALTH_CONNECTED_KEY = "@prossima_health_connected";
-const HEALTH_LAST_BACKFILL_DATE = "@prossima_health_last_backfill";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface HealthWorkout {
 	activityName: string;
@@ -47,7 +48,7 @@ export interface HealthWorkout {
 	startDate: string;
 }
 
-/** Today's live stats (unchanged from before) */
+/** Today's live stats */
 export interface HealthStats {
 	steps: number;
 	calories: number;
@@ -84,15 +85,16 @@ interface HealthContextType {
 	readiness: ReadinessBreakdown | null;
 	loading: boolean;
 	syncing: boolean;
+	backfilling: boolean;
 	requestPermissions: () => Promise<void>;
 	syncData: () => Promise<void>;
 	fullHistoricalSync: () => Promise<void>;
 	disconnect: () => Promise<void>;
 }
 
-// ─── Defaults ─────────────────────────────────────────────────────────────────
+// ─── Factories (avoid shared mutable references) ──────────────────────────────
 
-const DEFAULT_STATS: HealthStats = {
+const makeDefaultStats = (): HealthStats => ({
 	steps: 0,
 	calories: 0,
 	activityTime: 0,
@@ -107,9 +109,9 @@ const DEFAULT_STATS: HealthStats = {
 	vo2Max: null,
 	distanceMeters: 0,
 	basalCalories: 0,
-};
+});
 
-const EMPTY_TIME_SERIES: HealthTimeSeries = {
+const makeEmptyTimeSeries = (): HealthTimeSeries => ({
 	hrv: [],
 	resting_hr: [],
 	steps_history: [],
@@ -123,7 +125,7 @@ const EMPTY_TIME_SERIES: HealthTimeSeries = {
 	body_weight: [],
 	body_fat: [],
 	readiness: [],
-};
+});
 
 // ─── Permissions list ─────────────────────────────────────────────────────────
 
@@ -174,7 +176,34 @@ function toDateStr(d: Date): string {
 	return d.toISOString().slice(0, 10);
 }
 
-// ─── Promise wrapper for native callbacks ─────────────────────────────────────
+/**
+ * Returns the "sleep night" date string for a given sleep segment.
+ * Any segment that ends before noon is attributed to the morning of its end
+ * date (i.e. the night before). This correctly handles segments that cross
+ * midnight (e.g. 11:50 PM → 2:00 AM belongs to the next calendar day's night).
+ */
+function sleepNightDate(startISO: string, endISO: string): string {
+	const end = new Date(endISO);
+	// If the segment ends before noon, attribute it to the end date
+	// (it's a morning segment belonging to that night).
+	// If it ends after noon, attribute to the start date's date.
+	if (end.getHours() < 12) {
+		return toDateStr(end);
+	}
+	return toDateStr(new Date(startISO));
+}
+
+/**
+ * react-native-health returns weight in the unit configured in the user's
+ * iOS Health settings — either "lb" or "kg". Normalise to kg.
+ */
+function normaliseWeightToKg(value: number, unit?: string): number {
+	if (unit && unit.toLowerCase().startsWith("lb")) {
+		return Math.round((value / 2.20462) * 10) / 10;
+	}
+	// If unit is "kg" or missing, trust the value as-is
+	return Math.round(value * 10) / 10;
+}
 
 function nativeCall<T>(
 	fn: (cb: (err: any, result: any) => void) => void,
@@ -200,6 +229,68 @@ function nativeCall<T>(
 	});
 }
 
+/**
+ * Buckets an array of { startDate, endDate, value } samples into daily
+ * aggregates keyed by date string (YYYY-MM-DD).
+ */
+function bucketDaily(
+	results: any[],
+	unit: string,
+	mode: "sum" | "avg" | "last" = "avg",
+): DailyHealthSample[] {
+	const map = new Map<string, number[]>();
+	for (const r of results) {
+		const date = (r.startDate ?? r.endDate ?? "").slice(0, 10);
+		if (!date) continue;
+		const val = r.value ?? 0;
+		if (!map.has(date)) map.set(date, []);
+		map.get(date)!.push(val);
+	}
+	return Array.from(map.entries()).map(([date, vals]) => ({
+		date,
+		value:
+			mode === "sum"
+				? vals.reduce((a, b) => a + b, 0)
+				: mode === "last"
+					? vals[vals.length - 1]
+					: vals.reduce((a, b) => a + b, 0) / vals.length,
+		unit,
+		source: "Apple Health",
+	}));
+}
+
+/**
+ * Parses a list of raw Apple Health sleep samples into daily totals, correctly
+ * attributing cross-midnight segments to the right night via sleepNightDate().
+ */
+function parseSleepSamples(results: any[]): DailyHealthSample[] {
+	const asleepValues = new Set(["ASLEEP", "CORE", "DEEP", "REM", "SLEEPING"]);
+	const map = new Map<string, number>();
+
+	for (const s of results) {
+		const stage = String(s.value).toUpperCase();
+		if (!asleepValues.has(stage)) continue;
+
+		const startISO = s.startDate ?? "";
+		const endISO = s.endDate ?? "";
+		if (!startISO || !endISO) continue;
+
+		// Use sleepNightDate() so cross-midnight segments land on the
+		// correct night rather than always using startDate day.
+		const date = sleepNightDate(startISO, endISO);
+		const start = new Date(startISO).getTime();
+		const end = new Date(endISO).getTime();
+		map.set(date, (map.get(date) ?? 0) + Math.max(0, end - start));
+	}
+
+	return Array.from(map.entries()).map(([date, ms]) => ({
+		date,
+		value: Math.round((ms / (1000 * 60 * 60)) * 10) / 10,
+		unit: "hours",
+		source: "Apple Health",
+	}));
+}
+
 // ─── Reusable Historical Fetch ────────────────────────────────────────────────
 
 async function fetchHistoricalDataForRange(
@@ -209,106 +300,50 @@ async function fetchHistoricalDataForRange(
 ) {
 	const range = { startDate, endDate, limit: 500, ascending: true };
 
-	// Helper: bucket an array of {startDate/endDate, value} samples into daily sums/averages
-	const bucketDaily = (
-		results: any[],
-		unit: string,
-		mode: "sum" | "avg" | "last" = "avg",
-	): DailyHealthSample[] => {
-		const map = new Map<string, number[]>();
-		for (const r of results) {
-			const date = (r.startDate ?? r.endDate ?? "").slice(0, 10);
-			if (!date) continue;
-			const val = r.value ?? 0;
-			if (!map.has(date)) map.set(date, []);
-			map.get(date)!.push(val);
-		}
-		return Array.from(map.entries()).map(([date, vals]) => ({
-			date,
-			value:
-				mode === "sum"
-					? vals.reduce((a, b) => a + b, 0)
-					: mode === "last"
-						? vals[vals.length - 1]
-						: vals.reduce((a, b) => a + b, 0) / vals.length,
-			unit,
-			source: "Apple Health",
-		}));
-	};
-
-	// ── HRV history ────────────────────────────────────────────────────────
 	const hrvPromise = nativeCall(
 		(cb) => nk.getHeartRateVariabilitySamples(range, cb),
 		(r: any[]) => bucketDaily(r, "ms", "avg"),
 		[],
 	);
 
-	// ── Resting HR history ─────────────────────────────────────────────────
 	const rhrPromise = nativeCall(
 		(cb) => nk.getRestingHeartRateSamples(range, cb),
 		(r: any[]) => bucketDaily(r, "bpm", "avg"),
 		[],
 	);
 
-	// ── Steps history ──────────────────────────────────────────────────────
 	const stepsHistPromise = nativeCall(
 		(cb) => nk.getDailyStepCountSamples(range, cb),
 		(r: any[]) => bucketDaily(r, "steps", "sum"),
 		[],
 	);
 
-	// ── Active calories history ────────────────────────────────────────────
 	const calHistPromise = nativeCall(
 		(cb) => nk.getDailyActiveEnergyBurned(range, cb),
 		(r: any[]) => bucketDaily(r, "kcal", "sum"),
 		[],
 	);
 
-	// ── Sleep history ──────────────────────────────────────────────────────
+	// Uses shared parseSleepSamples() with correct midnight attribution
 	const sleepHistPromise = nativeCall(
 		(cb) => nk.getSleepSamples({ ...range, limit: 2000 }, cb),
-		(results: any[]): DailyHealthSample[] => {
-			const asleepValues = new Set([
-				"ASLEEP",
-				"CORE",
-				"DEEP",
-				"REM",
-				"SLEEPING",
-			]);
-			const map = new Map<string, number>();
-			for (const s of results) {
-				const stage = String(s.value).toUpperCase();
-				if (!asleepValues.has(stage)) continue;
-				const date = (s.startDate ?? "").slice(0, 10);
-				if (!date) continue;
-				const start = new Date(s.startDate).getTime();
-				const end = new Date(s.endDate).getTime();
-				map.set(date, (map.get(date) ?? 0) + Math.max(0, end - start));
-			}
-			return Array.from(map.entries()).map(([date, ms]) => ({
-				date,
-				value: Math.round((ms / (1000 * 60 * 60)) * 10) / 10,
-				unit: "hours",
-				source: "Apple Health",
-			}));
-		},
+		parseSleepSamples,
 		[],
 	);
 
-	// ── Body weight history ────────────────────────────────────────────────
+	// Reads `unit` field from each sample to normalise correctly
 	const weightHistPromise = nativeCall(
 		(cb) => nk.getWeightSamples(range, cb),
 		(r: any[]): DailyHealthSample[] =>
 			r.map((s) => ({
 				date: (s.startDate ?? "").slice(0, 10),
-				value: Math.round((s.value / 2.20462) * 10) / 10, // lbs → kg
+				value: normaliseWeightToKg(s.value ?? 0, s.unit),
 				unit: "kg",
 				source: "Apple Health",
 			})),
 		[],
 	);
 
-	// ── Body fat % history ─────────────────────────────────────────────────
 	const fatHistPromise = nativeCall(
 		(cb) => nk.getBodyFatPercentageSamples(range, cb),
 		(r: any[]): DailyHealthSample[] =>
@@ -321,7 +356,6 @@ async function fetchHistoricalDataForRange(
 		[],
 	);
 
-	// ── VO2 Max history ────────────────────────────────────────────────────
 	const vo2Promise = nativeCall(
 		(cb) => nk.getVo2MaxSamples(range, cb),
 		(r: any[]): DailyHealthSample[] =>
@@ -334,28 +368,24 @@ async function fetchHistoricalDataForRange(
 		[],
 	);
 
-	// ── SpO2 history ───────────────────────────────────────────────────────
 	const spo2Promise = nativeCall(
 		(cb) => nk.getOxygenSaturationSamples(range, cb),
 		(r: any[]) => bucketDaily(r, "%", "avg"),
 		[],
 	);
 
-	// ── Respiratory rate history ───────────────────────────────────────────
 	const respPromise = nativeCall(
 		(cb) => nk.getRespiratoryRateSamples(range, cb),
 		(r: any[]) => bucketDaily(r, "breaths/min", "avg"),
 		[],
 	);
 
-	// ── BMR history ───────────────────────────────────────────────────────
 	const bmrPromise = nativeCall(
 		(cb) => nk.getDailyBasalEnergyBurned(range, cb),
 		(r: any[]) => bucketDaily(r, "kcal", "sum"),
 		[],
 	);
 
-	// ── Distance history ───────────────────────────────────────────────────
 	const distPromise = nativeCall(
 		(cb) => nk.getDailyDistanceWalkingRunning(range, cb),
 		(r: any[]): DailyHealthSample[] =>
@@ -412,6 +442,30 @@ async function fetchHistoricalDataForRange(
 	};
 }
 
+/**
+ * Writes all metrics from a fetchHistoricalDataForRange result to the store
+ * and returns the freshly reloaded time-series.
+ */
+async function persistHistoricalData(
+	data: Awaited<ReturnType<typeof fetchHistoricalDataForRange>>,
+): Promise<HealthTimeSeries> {
+	await Promise.all([
+		writeMetric("hrv", data.hrv),
+		writeMetric("resting_hr", data.rhr),
+		writeMetric("steps_history", data.stepsHist),
+		writeMetric("active_cal_history", data.calHist),
+		writeMetric("sleep_history", data.sleepHist),
+		writeMetric("body_weight", data.weightHist),
+		writeMetric("body_fat", data.fatHist),
+		writeMetric("vo2max", data.vo2),
+		writeMetric("spo2", data.spo2),
+		writeMetric("respiratory", data.resp),
+		writeMetric("bmr", data.bmr),
+		writeMetric("distance", data.dist),
+	]);
+	return loadAllMetrics();
+}
+
 // ─── Context ──────────────────────────────────────────────────────────────────
 
 const HealthContext = createContext<HealthContextType | null>(null);
@@ -421,19 +475,21 @@ export function HealthProvider({
 	sessions = [],
 }: {
 	children: React.ReactNode;
-	/** Pass training sessions for training load computation */
+	/** Pass training sessions for training load computation in readiness score */
 	sessions?: import("@/types").Session[];
 }) {
 	const [isConnected, setIsConnected] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
-	const [stats, setStats] = useState<HealthStats>(DEFAULT_STATS);
+	// FIX #11: Separate backfill loading state so UI can differentiate
+	const [backfilling, setBackfilling] = useState(false);
+	const [stats, setStats] = useState<HealthStats>(makeDefaultStats);
 	const [timeSeries, setTimeSeries] =
-		useState<HealthTimeSeries>(EMPTY_TIME_SERIES);
+		useState<HealthTimeSeries>(makeEmptyTimeSeries);
 	const [readiness, setReadiness] = useState<ReadinessBreakdown | null>(null);
 
 	// Keep sessions in a ref so syncData/fullHistoricalSync closures always
-	// see the latest value without depending on prop updates.
+	// see the latest value without re-creating the callbacks.
 	const sessionsRef = useRef(sessions);
 	useEffect(() => {
 		sessionsRef.current = sessions;
@@ -461,7 +517,26 @@ export function HealthProvider({
 		checkConnection();
 	}, [checkConnection]);
 
-	// ── Recompute readiness whenever stats or timeSeries change ───────────────
+	// ── Recompute readiness only when the inputs that matter change ────────────
+	// Memoize the readiness inputs so the effect only re-runs when HRV,
+	// sleep, or resting HR change — not on every step/calorie update.
+
+	const readinessInputs = useMemo(
+		() => ({
+			todayHrv: stats.todayHrv,
+			sleepHours: stats.sleepHours,
+			sleepDeepRatio: stats.sleepDeepRatio,
+			sleepRemRatio: stats.sleepRemRatio,
+			todayRestingHr: stats.todayRestingHr,
+		}),
+		[
+			stats.todayHrv,
+			stats.sleepHours,
+			stats.sleepDeepRatio,
+			stats.sleepRemRatio,
+			stats.todayRestingHr,
+		],
+	);
 
 	useEffect(() => {
 		if (!isConnected) {
@@ -469,28 +544,27 @@ export function HealthProvider({
 			return;
 		}
 
-		// Build sleep night from today's stats
 		const lastNightSleep: SleepNight | null =
-			stats.sleepHours > 0
+			readinessInputs.sleepHours > 0
 				? {
-						totalHours: stats.sleepHours,
-						deepRatio: stats.sleepDeepRatio,
-						remRatio: stats.sleepRemRatio,
+						totalHours: readinessInputs.sleepHours,
+						deepRatio: readinessInputs.sleepDeepRatio,
+						remRatio: readinessInputs.sleepRemRatio,
 					}
 				: null;
 
 		const breakdown = computeReadinessScore({
 			hrvSamples: timeSeries.hrv,
-			todayHrv: stats.todayHrv,
+			todayHrv: readinessInputs.todayHrv,
 			lastNightSleep,
 			restingHrSamples: timeSeries.resting_hr,
-			todayRestingHr: stats.todayRestingHr,
+			todayRestingHr: readinessInputs.todayRestingHr,
 			sessions: sessionsRef.current,
 		});
 
 		setReadiness(breakdown);
 
-		// Persist today's readiness score into the store so it can be trended
+		// Persist today's readiness score into the time-series store
 		const today = toDateStr(new Date());
 		writeSample("readiness", {
 			date: today,
@@ -498,9 +572,34 @@ export function HealthProvider({
 			unit: "score",
 			source: "Prossima",
 		}).catch(() => {});
-	}, [isConnected, stats, timeSeries]);
+	}, [isConnected, readinessInputs, timeSeries.hrv, timeSeries.resting_hr]);
 
-	// ── Today's data sync (fast, runs on foreground) ──────────────────────────
+	// ── Background 30-day backfill ─────────────────────────────────────────────
+	// Extracted to useCallback so it has a stable reference and doesn't
+	// cause infinite loops when referenced from syncData.
+
+	const backfillMissingData = useCallback(async () => {
+		if (!isConnected) return;
+		const nk = getNativeHealthKit();
+		if (!nk?.initHealthKit) return;
+
+		setBackfilling(true);
+		try {
+			const data = await fetchHistoricalDataForRange(
+				nk,
+				daysAgo(30).toISOString(),
+				startOfToday().toISOString(),
+			);
+			// persistHistoricalData combines write + loadAllMetrics in one
+			// call, avoiding redundant store reads.
+			const ts = await persistHistoricalData(data);
+			setTimeSeries(ts);
+		} catch (e) {
+			console.error("Error backfilling missing health data", e);
+		} finally {
+			setBackfilling(false);
+		}
+	}, [isConnected]);
 
 	const syncData = useCallback(async () => {
 		if (!isConnected) return;
@@ -530,30 +629,35 @@ export function HealthProvider({
 					basalCalories: 1800,
 				});
 			} else {
-				setStats(DEFAULT_STATS);
+				setStats(makeDefaultStats());
 			}
 			return;
 		}
 
 		try {
 			const today = startOfToday();
-			const dayOptions = { date: today.toISOString() };
 			const todayStr = toDateStr(today);
+			const dayRange = {
+				startDate: today.toISOString(),
+				endDate: new Date().toISOString(),
+			};
 
 			const stepsP = nativeCall(
-				(cb) => nk.getStepCount(dayOptions, cb),
+				(cb) => nk.getStepCount({ date: today.toISOString() }, cb),
 				(r) => r.value ?? 0,
 				0,
 			);
 
+			// getDailyActiveEnergyBurned returns an array; getActiveEnergyBurned
+			// with { date } returns a scalar { value }. Use the scalar form correctly.
 			const calP = nativeCall(
-				(cb) => nk.getActiveEnergyBurned(dayOptions, cb),
-				(r: any[]) => r.reduce((a, c) => a + (c.value ?? 0), 0),
+				(cb) => nk.getActiveEnergyBurned({ date: today.toISOString() }, cb),
+				(r) => r.value ?? 0,
 				0,
 			);
 
 			const timeP = nativeCall(
-				(cb) => nk.getAppleExerciseTime(dayOptions, cb),
+				(cb) => nk.getAppleExerciseTime({ date: today.toISOString() }, cb),
 				(r) => r.value ?? 0,
 				0,
 			);
@@ -601,9 +705,8 @@ export function HealthProvider({
 						}
 					}
 
-					const totalH = totalMs / (1000 * 60 * 60);
 					return {
-						totalHours: totalH,
+						totalHours: totalMs / (1000 * 60 * 60),
 						deepRatio: totalMs > 0 ? deepMs / totalMs : 0,
 						remRatio: totalMs > 0 ? remMs / totalMs : 0,
 					};
@@ -635,31 +738,35 @@ export function HealthProvider({
 				null,
 			);
 
+			// ── HRV ───────────────────────────────────────────────────────────────
+			// Query from the prior night (18:00 yesterday) to capture the
+			// clinically relevant overnight/post-wake resting HRV. Use the last
+			// sample before waking rather than the first sample of the calendar day.
 			const hrvP = nativeCall(
 				(cb) =>
 					nk.getHeartRateVariabilitySamples(
 						{
-							startDate: today.toISOString(),
+							startDate: sleepWindowStart.toISOString(),
 							endDate: new Date().toISOString(),
-							limit: 5,
-							ascending: true,
+							limit: 50,
+							ascending: false, // most recent first
 						},
 						cb,
 					),
 				(results: any[]): number | null => {
 					if (!Array.isArray(results) || results.length === 0) return null;
-					// Use first morning reading
+					// Use the most recent overnight reading (first in descending order)
 					return results[0].value ?? null;
 				},
 				null,
 			);
 
+			// Resting HR
 			const rhrP = nativeCall(
 				(cb) =>
 					nk.getRestingHeartRateSamples(
 						{
-							startDate: today.toISOString(),
-							endDate: new Date().toISOString(),
+							...dayRange,
 							limit: 1,
 							ascending: false,
 						},
@@ -672,6 +779,9 @@ export function HealthProvider({
 				null,
 			);
 
+			// Body weight
+			// Pass sample.unit to normaliseWeightToKg so metric devices
+			// don't get double-converted.
 			const weightP = nativeCall(
 				(cb) =>
 					nk.getWeightSamples(
@@ -685,13 +795,13 @@ export function HealthProvider({
 					),
 				(results: any[]): number | null => {
 					if (!Array.isArray(results) || results.length === 0) return null;
-					// react-native-health returns weight in pounds by default
-					const lbs = results[0].value ?? null;
-					return lbs !== null ? Math.round((lbs / 2.20462) * 10) / 10 : null;
+					const sample = results[0];
+					return normaliseWeightToKg(sample.value ?? 0, sample.unit);
 				},
 				null,
 			);
 
+			// Body fat
 			const fatP = nativeCall(
 				(cb) =>
 					nk.getBodyFatPercentageSamples(
@@ -710,7 +820,7 @@ export function HealthProvider({
 				null,
 			);
 
-			// ── VO2 Max ───────────────────────────────────────────────────────────
+			// VO2 Max─
 			const vo2P = nativeCall(
 				(cb) =>
 					nk.getVo2MaxSamples(
@@ -736,13 +846,12 @@ export function HealthProvider({
 				0,
 			);
 
-			// ── Basal Calories ────────────────────────────────────────────────────
+			// ── Basal calories ────────────────────────────────────────────────────
+			// FIX #2: getBasalEnergyBurned with { date } returns a scalar object,
+			// not an array. Treat it consistently as a scalar.
 			const bmrP = nativeCall(
-				(cb) => nk.getBasalEnergyBurned(dayOptions, cb),
-				(results: any) =>
-					Array.isArray(results)
-						? results.reduce((a: number, c: any) => a + (c.value ?? 0), 0)
-						: ((results as any)?.value ?? 0),
+				(cb) => nk.getBasalEnergyBurned({ date: today.toISOString() }, cb),
+				(r) => r.value ?? 0,
 				0,
 			);
 
@@ -903,59 +1012,20 @@ export function HealthProvider({
 				samples.map(({ metric, sample }) => writeSample(metric, sample)),
 			);
 
-			// Reload full time-series from store so the UI updates
+			// FIX #10: Only one loadAllMetrics call here (not two). The backfill
+			// will do its own reload after it finishes.
 			const ts = await loadAllMetrics();
 			setTimeSeries(ts);
 
-			// Fire and forget backfill sync to catch up on any missed days in the background
+			// FIX #4: backfillMissingData is now a stable useCallback reference,
+			// so this fire-and-forget call won't cause re-render loops.
 			backfillMissingData().catch((err) =>
 				console.error("Backfill failed", err),
 			);
 		} catch (e) {
 			console.error("Error syncing health data", e);
 		}
-	}, [isConnected]);
-
-	// ── Missing data backfill (background, 30-day rolling window) ───────────────
-
-	const backfillMissingData = async () => {
-		if (!isConnected) return;
-		const nk = getNativeHealthKit();
-		if (!nk?.initHealthKit) return;
-
-		try {
-			// Always fetch the last 30 days to catch any retroactively imported data
-			const startD = daysAgo(30);
-			const today = startOfToday();
-
-			const startDate = startD.toISOString();
-			const endDate = today.toISOString();
-
-			const data = await fetchHistoricalDataForRange(nk, startDate, endDate);
-
-			// Write all to store
-			await Promise.all([
-				writeMetric("hrv", data.hrv),
-				writeMetric("resting_hr", data.rhr),
-				writeMetric("steps_history", data.stepsHist),
-				writeMetric("active_cal_history", data.calHist),
-				writeMetric("sleep_history", data.sleepHist),
-				writeMetric("body_weight", data.weightHist),
-				writeMetric("body_fat", data.fatHist),
-				writeMetric("vo2max", data.vo2),
-				writeMetric("spo2", data.spo2),
-				writeMetric("respiratory", data.resp),
-				writeMetric("bmr", data.bmr),
-				writeMetric("distance", data.dist),
-			]);
-
-			// Reload into state so UI updates
-			const ts = await loadAllMetrics();
-			setTimeSeries(ts);
-		} catch (e) {
-			console.error("Error backfilling missing health data", e);
-		}
-	};
+	}, [isConnected, backfillMissingData]);
 
 	// ── Full historical sync (90 days) ────────────────────────────────────────
 
@@ -969,37 +1039,37 @@ export function HealthProvider({
 				try {
 					const mockTs: HealthTimeSeries = {
 						hrv: Array.from({ length: 30 }).map((_, i) => ({
-							date: daysAgo(i).toISOString().slice(0, 10),
+							date: toDateStr(daysAgo(i)),
 							value: 60 + Math.random() * 10,
 							unit: "ms",
 							source: "Mock",
 						})),
 						resting_hr: Array.from({ length: 30 }).map((_, i) => ({
-							date: daysAgo(i).toISOString().slice(0, 10),
+							date: toDateStr(daysAgo(i)),
 							value: 55 + Math.random() * 5,
 							unit: "bpm",
 							source: "Mock",
 						})),
 						steps_history: Array.from({ length: 30 }).map((_, i) => ({
-							date: daysAgo(i).toISOString().slice(0, 10),
+							date: toDateStr(daysAgo(i)),
 							value: 5000 + Math.random() * 5000,
 							unit: "steps",
 							source: "Mock",
 						})),
 						active_cal_history: Array.from({ length: 30 }).map((_, i) => ({
-							date: daysAgo(i).toISOString().slice(0, 10),
+							date: toDateStr(daysAgo(i)),
 							value: 300 + Math.random() * 300,
 							unit: "kcal",
 							source: "Mock",
 						})),
 						sleep_history: Array.from({ length: 30 }).map((_, i) => ({
-							date: daysAgo(i).toISOString().slice(0, 10),
+							date: toDateStr(daysAgo(i)),
 							value: 6 + Math.random() * 2,
 							unit: "hours",
 							source: "Mock",
 						})),
 						vo2max: Array.from({ length: 30 }).map((_, i) => ({
-							date: daysAgo(i).toISOString().slice(0, 10),
+							date: toDateStr(daysAgo(i)),
 							value: 45,
 							unit: "mL/kg/min",
 							source: "Mock",
@@ -1023,31 +1093,14 @@ export function HealthProvider({
 
 		setSyncing(true);
 		try {
-			const startDate = daysAgo(90).toISOString();
-			const endDate = new Date().toISOString();
-
-			const data = await fetchHistoricalDataForRange(nk, startDate, endDate);
-
-			// Write all to store
-			await Promise.all([
-				writeMetric("hrv", data.hrv),
-				writeMetric("resting_hr", data.rhr),
-				writeMetric("steps_history", data.stepsHist),
-				writeMetric("active_cal_history", data.calHist),
-				writeMetric("sleep_history", data.sleepHist),
-				writeMetric("body_weight", data.weightHist),
-				writeMetric("body_fat", data.fatHist),
-				writeMetric("vo2max", data.vo2),
-				writeMetric("spo2", data.spo2),
-				writeMetric("respiratory", data.resp),
-				writeMetric("bmr", data.bmr),
-				writeMetric("distance", data.dist),
-			]);
-
+			const data = await fetchHistoricalDataForRange(
+				nk,
+				daysAgo(90).toISOString(),
+				new Date().toISOString(),
+			);
+			// FIX #10: shared helper combines write + loadAllMetrics in one place
+			const ts = await persistHistoricalData(data);
 			await markInitialSyncComplete();
-
-			// Reload into state
-			const ts = await loadAllMetrics();
 			setTimeSeries(ts);
 		} catch (e) {
 			console.error("Error during full historical sync", e);
@@ -1061,13 +1114,20 @@ export function HealthProvider({
 	useEffect(() => {
 		if (!isConnected) return;
 
+		let cancelled = false;
+
 		(async () => {
 			await syncData();
+			if (cancelled) return;
 			const done = await hasCompletedInitialSync();
-			if (!done) {
+			if (!done && !cancelled) {
 				await fullHistoricalSync();
 			}
 		})();
+
+		return () => {
+			cancelled = true;
+		};
 	}, [isConnected]); // eslint-disable-line react-hooks/exhaustive-deps
 
 	useEffect(() => {
@@ -1132,8 +1192,8 @@ export function HealthProvider({
 			await AsyncStorage.removeItem(HEALTH_CONNECTED_KEY);
 			await clearAllHealthData();
 			setIsConnected(false);
-			setStats(DEFAULT_STATS);
-			setTimeSeries(EMPTY_TIME_SERIES);
+			setStats(makeDefaultStats());
+			setTimeSeries(makeEmptyTimeSeries());
 			setReadiness(null);
 		} catch (e) {
 			console.error("Error disconnecting health", e);
@@ -1149,6 +1209,7 @@ export function HealthProvider({
 				readiness,
 				loading,
 				syncing,
+				backfilling,
 				requestPermissions,
 				syncData,
 				fullHistoricalSync,
