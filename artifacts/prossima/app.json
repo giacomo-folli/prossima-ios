@@ -38,8 +38,8 @@
       [
         "react-native-health",
         {
-          "NSHealthShareUsageDescription": "We need access to your health data to track your steps, active energy, and workout duration.",
-          "NSHealthUpdateUsageDescription": "We need access to your health data to save workouts securely to Apple Health."
+          "healthSharePermission": "We need access to your health data to track your steps, active energy, and workout duration.",
+          "healthUpdatePermission": "We need access to your health data to save workouts securely to Apple Health."
         }
       ]
     ],

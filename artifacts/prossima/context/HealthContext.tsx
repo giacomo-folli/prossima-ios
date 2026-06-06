@@ -1,7 +1,13 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { Platform, Alert } from 'react-native';
-import AppleHealthKit, { HealthValue, HealthInputOptions } from 'react-native-health';
+import { Platform, Alert, NativeModules, AppState } from 'react-native';
+import AppleHealthKitLibrary, { HealthValue, HealthInputOptions } from 'react-native-health';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+// Directly access NativeModules to ensure New Architecture Interop Layer works correctly
+const getNativeHealthKit = () => {
+  if (Platform.OS !== 'ios') return null;
+  return NativeModules.AppleHealthKit || NativeModules.RNAppleHealthKit || null;
+};
 
 const HEALTH_CONNECTED_KEY = '@prossima_health_connected';
 
@@ -51,7 +57,8 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
   const syncData = useCallback(async () => {
     if (!isConnected) return;
 
-    if (Platform.OS !== 'ios' || !AppleHealthKit.initHealthKit) {
+    const nativeHealthKit = getNativeHealthKit();
+    if (!nativeHealthKit || !nativeHealthKit.initHealthKit) {
       // Graceful fallback for Android / Web / Expo Go
       setStats({
         steps: 0,
@@ -70,14 +77,14 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
       };
 
       const stepsP = new Promise<number>((resolve) => {
-        AppleHealthKit.getStepCount(options, (err: any, results: any) => {
+        nativeHealthKit.getStepCount(options, (err: any, results: any) => {
           if (err || !results) resolve(0);
           else resolve(results.value);
         });
       });
 
       const calP = new Promise<number>((resolve) => {
-        AppleHealthKit.getActiveEnergyBurned(
+        nativeHealthKit.getActiveEnergyBurned(
           options,
           (err: any, results: any) => {
             if (err || !results) resolve(0);
@@ -87,7 +94,7 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
       });
 
       const timeP = new Promise<number>((resolve) => {
-        AppleHealthKit.getAppleExerciseTime(
+        nativeHealthKit.getAppleExerciseTime(
           options,
           (err: any, results: any) => {
             if (err || !results) resolve(0);
@@ -115,8 +122,22 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isConnected, syncData]);
 
+  // Sync data when app comes to foreground
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && isConnected) {
+        syncData();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isConnected, syncData]);
+
   const requestPermissions = useCallback(async () => {
-    if (Platform.OS !== 'ios' || !AppleHealthKit.initHealthKit) {
+    const nativeHealthKit = getNativeHealthKit();
+    if (!nativeHealthKit || !nativeHealthKit.initHealthKit) {
       Alert.alert(
         'Connection Failed',
         'Apple Health is only available on iOS devices.'
@@ -127,9 +148,9 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
     const permissions = {
       permissions: {
         read: [
-          AppleHealthKit.Constants.Permissions.StepCount,
-          AppleHealthKit.Constants.Permissions.ActiveEnergyBurned,
-          AppleHealthKit.Constants.Permissions.AppleExerciseTime,
+          AppleHealthKitLibrary.Constants.Permissions.StepCount,
+          AppleHealthKitLibrary.Constants.Permissions.ActiveEnergyBurned,
+          AppleHealthKitLibrary.Constants.Permissions.AppleExerciseTime,
         ],
         write: [],
       },
@@ -137,7 +158,7 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
 
     return new Promise<void>((resolve, reject) => {
       try {
-        AppleHealthKit.initHealthKit(permissions, async (err: any, results: any) => {
+        nativeHealthKit.initHealthKit(permissions, async (err: any, results: any) => {
           if (err) {
             const errorMsg = typeof err === 'string' ? err : err?.message || 'Unknown error occurred while connecting to Apple Health.';
             console.error('Error initializing HealthKit: ', err);
