@@ -199,8 +199,20 @@ function sleepNightDate(startISO: string, endISO: string): string {
  * iOS Health settings — either "lb" or "kg". Normalise to kg.
  */
 function normaliseWeightToKg(value: number, unit?: string): number {
-	if (unit && unit.toLowerCase().startsWith("lb")) {
-		return Math.round((value / 2.20462) * 10) / 10;
+	if (unit) {
+		const u = unit.toLowerCase();
+		if (u.startsWith("lb") || u.startsWith("pound")) {
+			return Math.round((value / 2.20462) * 10) / 10;
+		}
+		if (u.startsWith("gram") || u === "g") {
+			return Math.round((value / 1000) * 10) / 10;
+		}
+		if (u.startsWith("oz") || u.startsWith("ounce")) {
+			return Math.round((value * 0.0283495) * 10) / 10;
+		}
+		if (u.startsWith("stone")) {
+			return Math.round((value * 6.35029) * 10) / 10;
+		}
 	}
 	// If unit is "kg" or missing, trust the value as-is
 	return Math.round(value * 10) / 10;
@@ -649,17 +661,27 @@ export function HealthProvider({
 				0,
 			);
 
-			// getDailyActiveEnergyBurned returns an array; getActiveEnergyBurned
-			// with { date } returns a scalar { value }. Use the scalar form correctly.
+			// getActiveEnergyBurned returns an array of samples. We must sum them up.
 			const calP = nativeCall(
-				(cb) => nk.getActiveEnergyBurned({ date: today.toISOString() }, cb),
-				(r) => r.value ?? 0,
+				(cb) => nk.getActiveEnergyBurned(dayRange, cb),
+				(r) => {
+					if (Array.isArray(r)) {
+						return r.reduce((acc, s) => acc + (s.value ?? 0), 0);
+					}
+					return r?.value ?? 0;
+				},
 				0,
 			);
 
+			// getAppleExerciseTime returns an array of samples. We must sum them up.
 			const timeP = nativeCall(
-				(cb) => nk.getAppleExerciseTime({ date: today.toISOString() }, cb),
-				(r) => r.value ?? 0,
+				(cb) => nk.getAppleExerciseTime(dayRange, cb),
+				(r) => {
+					if (Array.isArray(r)) {
+						return r.reduce((acc, s) => acc + (s.value ?? 0), 0);
+					}
+					return r?.value ?? 0;
+				},
 				0,
 			);
 
@@ -717,23 +739,25 @@ export function HealthProvider({
 
 			const workoutP = nativeCall(
 				(cb) =>
-					nk.getWorkoutSessions(
+					nk.getAnchoredWorkouts(
 						{
 							startDate: daysAgo(7).toISOString(),
 							endDate: new Date().toISOString(),
 							limit: 10,
-							ascending: false,
 						},
 						cb,
 					),
-				(results: any[]): HealthWorkout | null => {
-					if (!Array.isArray(results) || results.length === 0) return null;
-					const latest = results[0];
+				(results: any): HealthWorkout | null => {
+					const workouts = results?.data;
+					if (!Array.isArray(workouts) || workouts.length === 0) return null;
+					// Sort descending by start time to get the most recent
+					workouts.sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+					const latest = workouts[0];
 					return {
 						activityName: latest.activityName ?? "Workout",
 						durationMinutes: Math.round((latest.duration ?? 0) / 60),
-						calories: Math.round(latest.totalEnergyBurned ?? 0),
-						startDate: latest.startDate ?? new Date().toISOString(),
+						calories: Math.round(latest.calories ?? 0),
+						startDate: latest.start ?? new Date().toISOString(),
 					};
 				},
 				null,
