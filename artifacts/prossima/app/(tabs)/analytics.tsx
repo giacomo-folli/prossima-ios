@@ -6,10 +6,15 @@ import {
 	StyleSheet,
 	Text,
 	View,
+	Animated,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
+import { LinearGradient } from "expo-linear-gradient";
+import { METRIC_COLORS } from "@/constants/colors";
+
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { useHealth } from "@/context/HealthContext";
@@ -180,6 +185,38 @@ export default function TrendsScreen() {
 	const { isConnected, stats, timeSeries, workouts, readiness } = useHealth();
 	const { stepsGoal } = useProfile();
 
+	const animValue = React.useRef(new Animated.Value(0)).current;
+
+	React.useEffect(() => {
+		Animated.loop(
+			Animated.sequence([
+				Animated.timing(animValue, {
+					toValue: 1,
+					duration: 18000,
+					useNativeDriver: true,
+				}),
+				Animated.timing(animValue, {
+					toValue: 0,
+					duration: 18000,
+					useNativeDriver: true,
+				}),
+			]),
+		).start();
+	}, [animValue]);
+
+	const translateX = animValue.interpolate({
+		inputRange: [0, 1],
+		outputRange: [-30, 10],
+	});
+	const translateY = animValue.interpolate({
+		inputRange: [0, 1],
+		outputRange: [-20, 20],
+	});
+	const scale = animValue.interpolate({
+		inputRange: [0, 1],
+		outputRange: [1.15, 1.3],
+	});
+
 	const [range, setRange] = useState<RangeKey>("1W");
 	const rangeDays = RANGES.find((r) => r.key === range)!.days;
 
@@ -337,16 +374,28 @@ export default function TrendsScreen() {
 	const rangeLabel = RANGES.find((r) => r.key === range)!.label;
 
 	return (
-		<ScrollView
-			style={{ flex: 1 }}
-			contentContainerStyle={[
-				styles.content,
-				// Match the + 16 padding
-				{ paddingTop: topPad + 16, paddingBottom: botPad + 80 },
-			]}
-			showsVerticalScrollIndicator={false}
-			contentInsetAdjustmentBehavior="never"
-		>
+		<View style={{ flex: 1 }}>
+			<AnimatedLinearGradient
+				colors={colors.backgroundGradient}
+				start={{ x: 1, y: 0 }}
+				end={{ x: 0, y: 1 }}
+				style={[
+					StyleSheet.absoluteFill,
+					{
+						transform: [{ translateX }, { translateY }, { scale }],
+					},
+				]}
+			/>
+			<ScrollView
+				style={{ flex: 1, backgroundColor: "transparent" }}
+				contentContainerStyle={[
+					styles.content,
+					// Match the + 16 padding
+					{ paddingTop: topPad + 16, paddingBottom: botPad + 80 },
+				]}
+				showsVerticalScrollIndicator={false}
+				contentInsetAdjustmentBehavior="never"
+			>
 			{/* ── Unified Header ── */}
 			<View style={styles.screenHeader}>
 				<Text style={[styles.screenTitle, { color: colors.foreground }]}>
@@ -380,6 +429,11 @@ export default function TrendsScreen() {
 									backgroundColor: colors.card,
 									borderRadius: 20,
 									borderColor: colors.border,
+									shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
+									shadowOffset: { width: 0, height: 4 },
+									shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
+									shadowRadius: 12,
+									elevation: 4,
 								},
 							]}
 						>
@@ -474,14 +528,14 @@ export default function TrendsScreen() {
 									]}
 								>
 									{[
-										{ label: "HRV", value: readiness.hrv, color: "#10B981" },
+										{ label: "HRV", value: readiness.hrv, color: METRIC_COLORS.hrv },
 										{
 											label: "Sleep",
 											value: readiness.sleep,
-											color: "#5856D6",
+											color: METRIC_COLORS.sleep,
 										},
-										{ label: "HR", value: readiness.rhr, color: "#FF3B30" },
-										{ label: "Load", value: readiness.load, color: "#00B4D8" },
+										{ label: "HR", value: readiness.rhr, color: METRIC_COLORS.restingHr },
+										{ label: "Load", value: readiness.load, color: METRIC_COLORS.activeTime },
 									].map((p) => (
 										<View key={p.label} style={styles.pillarItem}>
 											<Text style={[styles.pillarValue, { color: p.color }]}>
@@ -528,7 +582,7 @@ export default function TrendsScreen() {
 					{/* ── HRV Trend ── */}
 					<TrendCard
 						icon={
-							<MaterialCommunityIcons name="pulse" size={18} color="#10B981" />
+							<MaterialCommunityIcons name="pulse" size={18} color={METRIC_COLORS.hrv} />
 						}
 						title="HRV"
 						value={latestHrv !== null ? fmt(latestHrv, 1) : "—"}
@@ -536,7 +590,7 @@ export default function TrendsScreen() {
 						delta={hrvDelta}
 						positiveIsGood
 						chartData={hrvData}
-						accentColor="#10B981"
+						accentColor={METRIC_COLORS.hrv}
 						chartType="line"
 						showYLabels
 						formatY={(v) => `${Math.round(v)}ms`}
@@ -549,14 +603,14 @@ export default function TrendsScreen() {
 
 					{/* ── Resting HR Trend ── */}
 					<TrendCard
-						icon={<Ionicons name="heart" size={18} color="#FF3B30" />}
+						icon={<Ionicons name="heart" size={18} color={METRIC_COLORS.restingHr} />}
 						title="Resting Heart Rate"
 						value={latestRhr !== null ? fmt(latestRhr) : "—"}
 						unit="bpm"
 						delta={rhrDelta}
 						positiveIsGood={false}
 						chartData={rhrData}
-						accentColor="#FF3B30"
+						accentColor={METRIC_COLORS.restingHr}
 						chartType="line"
 						showYLabels
 						formatY={(v) => `${Math.round(v)}`}
@@ -565,14 +619,14 @@ export default function TrendsScreen() {
 
 					{/* ── Sleep Duration — LINE CHART with 8h reference ── */}
 					<TrendCard
-						icon={<Ionicons name="moon" size={18} color="#5856D6" />}
+						icon={<Ionicons name="moon" size={18} color={METRIC_COLORS.sleep} />}
 						title="Sleep Duration"
 						value={avgSleepInRange > 0 ? fmt(avgSleepInRange, 1) : "—"}
 						unit="h / night"
 						delta={sleepDelta}
 						positiveIsGood
 						chartData={sleepData}
-						accentColor="#5856D6"
+						accentColor={METRIC_COLORS.sleep}
 						chartType="line"
 						referenceValue={8}
 						referenceLabel="8h target"
@@ -592,7 +646,7 @@ export default function TrendsScreen() {
 								<MaterialCommunityIcons
 									name="scale-bathroom"
 									size={18}
-									color="#FF9F0A"
+									color={METRIC_COLORS.weight}
 								/>
 							}
 							title="Body Weight"
@@ -601,7 +655,7 @@ export default function TrendsScreen() {
 							delta={weightDelta}
 							positiveIsGood={false}
 							chartData={weightData}
-							accentColor="#FF9F0A"
+							accentColor={METRIC_COLORS.weight}
 							chartType="line"
 							showYLabels
 							formatY={(v) => `${v.toFixed(1)}`}
@@ -611,14 +665,14 @@ export default function TrendsScreen() {
 					{/* ── VO2 Max ── */}
 					{(vo2Data.some((d) => d.value > 0) || latestVo2 !== null) && (
 						<TrendCard
-							icon={<Ionicons name="cellular" size={18} color="#30D158" />}
+							icon={<Ionicons name="cellular" size={18} color={METRIC_COLORS.vo2max} />}
 							title="VO2 Max"
 							value={latestVo2 !== null ? fmt(latestVo2, 1) : "—"}
 							unit="mL/kg/min"
 							delta={null}
 							positiveIsGood
 							chartData={vo2Data}
-							accentColor="#30D158"
+							accentColor={METRIC_COLORS.vo2max}
 							chartType="line"
 							showYLabels
 							formatY={(v) => `${Math.round(v)}`}
@@ -637,6 +691,11 @@ export default function TrendsScreen() {
 									backgroundColor: colors.card,
 									borderRadius: 20,
 									borderColor: colors.border,
+									shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
+									shadowOffset: { width: 0, height: 4 },
+									shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
+									shadowRadius: 12,
+									elevation: 4,
 								},
 							]}
 						>
@@ -644,10 +703,10 @@ export default function TrendsScreen() {
 								<View
 									style={[
 										styles.cardIconWrap,
-										{ backgroundColor: "rgba(0,122,255,0.12)" },
+										{ backgroundColor: METRIC_COLORS.spo2 + "1F" },
 									]}
 								>
-									<Ionicons name="water" size={18} color="#007AFF" />
+									<Ionicons name="water" size={18} color={METRIC_COLORS.spo2} />
 								</View>
 								<View style={{ flex: 1 }}>
 									<Text
@@ -689,7 +748,7 @@ export default function TrendsScreen() {
 										<LineChart
 											data={spo2Data}
 											height={48}
-											accentColor="#007AFF"
+											accentColor={METRIC_COLORS.spo2}
 											labelColor={colors.mutedForeground}
 											guideCount={0}
 											animationDuration={500}
@@ -728,7 +787,7 @@ export default function TrendsScreen() {
 										<LineChart
 											data={respData}
 											height={48}
-											accentColor="#5AC8FA"
+											accentColor={METRIC_COLORS.respiratory}
 											labelColor={colors.mutedForeground}
 											guideCount={0}
 											animationDuration={500}
@@ -745,7 +804,7 @@ export default function TrendsScreen() {
 							<MaterialCommunityIcons
 								name="shoe-print"
 								size={18}
-								color="#34C759"
+								color={METRIC_COLORS.steps}
 							/>
 						}
 						title="Daily Steps"
@@ -754,7 +813,7 @@ export default function TrendsScreen() {
 						delta={stepsDelta}
 						positiveIsGood
 						chartData={stepsHistData}
-						accentColor="#34C759"
+						accentColor={METRIC_COLORS.steps}
 						chartType="line"
 						referenceValue={stepsGoal}
 						referenceLabel={`${(stepsGoal / 1000).toFixed(1).replace(/\.0$/, "")}k goal`}
@@ -775,14 +834,14 @@ export default function TrendsScreen() {
 					</Text>
 
 					<TrendCard
-						icon={<Ionicons name="heart" size={18} color="#5856D6" />}
+						icon={<Ionicons name="heart" size={18} color={METRIC_COLORS.workout} />}
 						title="Workouts"
 						value={fmt(totalWorkouts)}
 						unit="sessions"
 						delta={workoutsDelta}
 						positiveIsGood
 						chartData={workoutsData}
-						accentColor="#5856D6"
+						accentColor={METRIC_COLORS.workout}
 						note={
 							totalWorkouts > 0
 								? `${(totalWorkouts / (rangeDays / 7)).toFixed(1)} per week on average`
@@ -795,7 +854,7 @@ export default function TrendsScreen() {
 							<MaterialCommunityIcons
 								name="fire"
 								size={18}
-								color="#FF9F0A"
+								color={METRIC_COLORS.calories}
 							/>
 						}
 						title="Active Energy"
@@ -805,18 +864,18 @@ export default function TrendsScreen() {
 						delta={caloriesDelta}
 						positiveIsGood
 						chartData={caloriesData}
-						accentColor="#FF9F0A"
+						accentColor={METRIC_COLORS.calories}
 					/>
 
 					<TrendCard
-						icon={<Ionicons name="time-outline" size={18} color="#30D158" />}
+						icon={<Ionicons name="time-outline" size={18} color={METRIC_COLORS.activeTime} />}
 						title="Avg Duration"
 						value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
 						unit="min"
 						delta={durationDelta}
 						positiveIsGood
 						chartData={durationData}
-						accentColor="#30D158"
+						accentColor={METRIC_COLORS.activeTime}
 					/>
 				</>
 			) : (
@@ -828,6 +887,11 @@ export default function TrendsScreen() {
 							backgroundColor: colors.card,
 							borderRadius: 20,
 							borderColor: colors.border,
+							shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
+							shadowOffset: { width: 0, height: 4 },
+							shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
+							shadowRadius: 12,
+							elevation: 4,
 						},
 					]}
 				>
@@ -844,7 +908,8 @@ export default function TrendsScreen() {
 					</Text>
 				</GlassView>
 			)}
-		</ScrollView>
+			</ScrollView>
+		</View>
 	);
 }
 

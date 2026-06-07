@@ -74,6 +74,11 @@ export function TrendCard({
 					backgroundColor: colors.card,
 					borderRadius: 20,
 					borderColor: colors.border,
+					shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
+					shadowOffset: { width: 0, height: 4 },
+					shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
+					shadowRadius: 12,
+					elevation: 4,
 				},
 			]}
 		>

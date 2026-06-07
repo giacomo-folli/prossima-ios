@@ -7,8 +7,11 @@ import {
 	Text,
 	View,
 	RefreshControl,
+	Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+
+const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
@@ -18,6 +21,7 @@ import { useHealth, HealthWorkout } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
 import { Image } from "expo-image";
+import { METRIC_COLORS } from "@/constants/colors";
 
 function fmtDate(iso: string) {
 	return new Date(iso).toLocaleDateString("en-US", {
@@ -69,6 +73,38 @@ export default function HomeScreen() {
 	const { name, imageUri, stepsGoal, caloriesGoal, activityTimeGoal } = useProfile();
 	const [refreshing, setRefreshing] = React.useState(false);
 
+	const animValue = React.useRef(new Animated.Value(0)).current;
+
+	React.useEffect(() => {
+		Animated.loop(
+			Animated.sequence([
+				Animated.timing(animValue, {
+					toValue: 1,
+					duration: 18000,
+					useNativeDriver: true,
+				}),
+				Animated.timing(animValue, {
+					toValue: 0,
+					duration: 18000,
+					useNativeDriver: true,
+				}),
+			]),
+		).start();
+	}, [animValue]);
+
+	const translateX = animValue.interpolate({
+		inputRange: [0, 1],
+		outputRange: [-30, 10],
+	});
+	const translateY = animValue.interpolate({
+		inputRange: [0, 1],
+		outputRange: [-20, 20],
+	});
+	const scale = animValue.interpolate({
+		inputRange: [0, 1],
+		outputRange: [1.15, 1.3],
+	});
+
 	const onRefresh = React.useCallback(async () => {
 		setRefreshing(true);
 		await syncData();
@@ -84,26 +120,38 @@ export default function HomeScreen() {
 
 	const gradientColors = colors.backgroundGradient;
 	if (healthLoading) {
-		return <LinearGradient colors={gradientColors} style={{ flex: 1 }} />;
+		return <LinearGradient colors={gradientColors} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={{ flex: 1 }} />;
 	}
 
 	return (
-		<ScrollView
-			style={{ flex: 1 }}
-			contentContainerStyle={[
-				styles.content,
-				{ paddingTop: topPad + 16, paddingBottom: bottomPadding },
-			]}
-			showsVerticalScrollIndicator={false}
-			contentInsetAdjustmentBehavior="never"
-			refreshControl={
-				<RefreshControl
-					refreshing={refreshing}
-					onRefresh={onRefresh}
-					tintColor={colors.foreground}
-				/>
-			}
-		>
+		<View style={{ flex: 1 }}>
+			<AnimatedLinearGradient
+				colors={gradientColors}
+				start={{ x: 1, y: 0 }}
+				end={{ x: 0, y: 1 }}
+				style={[
+					StyleSheet.absoluteFill,
+					{
+						transform: [{ translateX }, { translateY }, { scale }],
+					},
+				]}
+			/>
+			<ScrollView
+				style={{ flex: 1, backgroundColor: "transparent" }}
+				contentContainerStyle={[
+					styles.content,
+					{ paddingTop: topPad + 16, paddingBottom: bottomPadding },
+				]}
+				showsVerticalScrollIndicator={false}
+				contentInsetAdjustmentBehavior="never"
+				refreshControl={
+					<RefreshControl
+						refreshing={refreshing}
+						onRefresh={onRefresh}
+						tintColor={colors.foreground}
+					/>
+				}
+			>
 			{/* ── Header ── */}
 			<View style={styles.screenHeader}>
 				<View style={{ flex: 1 }}>
@@ -171,13 +219,18 @@ export default function HomeScreen() {
 								borderRadius: 22,
 								borderColor: colors.border,
 								flex: 1,
+								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.04)",
+								shadowOffset: { width: 0, height: 2 },
+								shadowOpacity: resolvedScheme === "dark" ? 0.25 : 0.5,
+								shadowRadius: 6,
+								elevation: 2,
 							},
 						]}
 					>
 						<Ionicons
 							name="moon"
 							size={14}
-							color="#5856D6"
+							color={METRIC_COLORS.sleep}
 							style={{ marginRight: 6 }}
 						/>
 						<Text
@@ -200,13 +253,18 @@ export default function HomeScreen() {
 								borderRadius: 22,
 								borderColor: colors.border,
 								flex: 1,
+								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.04)",
+								shadowOffset: { width: 0, height: 2 },
+								shadowOpacity: resolvedScheme === "dark" ? 0.25 : 0.5,
+								shadowRadius: 6,
+								elevation: 2,
 							},
 						]}
 					>
 						<MaterialCommunityIcons
 							name="pulse"
 							size={14}
-							color="#10B981"
+							color={METRIC_COLORS.hrv}
 							style={{ marginRight: 6 }}
 						/>
 						<Text
@@ -235,6 +293,11 @@ export default function HomeScreen() {
 								backgroundColor: colors.card,
 								borderRadius: 20,
 								borderColor: colors.border,
+								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
+								shadowOffset: { width: 0, height: 4 },
+								shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
+								shadowRadius: 12,
+								elevation: 4,
 							},
 						]}
 					>
@@ -251,13 +314,13 @@ export default function HomeScreen() {
 							<View
 								style={[
 									styles.statIconWrap,
-									{ backgroundColor: "rgba(52, 199, 89, 0.1)" },
+									{ backgroundColor: METRIC_COLORS.steps + "1A" },
 								]}
 							>
 								<MaterialCommunityIcons
 									name="shoe-print"
 									size={18}
-									color="#34C759"
+									color={METRIC_COLORS.steps}
 								/>
 							</View>
 							<View style={{ flex: 1 }}>
@@ -290,10 +353,10 @@ export default function HomeScreen() {
 							<View
 								style={[
 									styles.statIconWrap,
-									{ backgroundColor: "rgba(255, 107, 0, 0.1)" },
+									{ backgroundColor: METRIC_COLORS.calories + "1A" },
 								]}
 							>
-								<MaterialCommunityIcons name="fire" size={18} color="#FF6B00" />
+								<MaterialCommunityIcons name="fire" size={18} color={METRIC_COLORS.calories} />
 							</View>
 							<View style={{ flex: 1 }}>
 								<Text
@@ -325,10 +388,10 @@ export default function HomeScreen() {
 							<View
 								style={[
 									styles.statIconWrap,
-									{ backgroundColor: "rgba(0, 180, 216, 0.1)" },
+									{ backgroundColor: METRIC_COLORS.activeTime + "1A" },
 								]}
 							>
-								<Ionicons name="timer-outline" size={18} color="#00B4D8" />
+								<Ionicons name="timer-outline" size={18} color={METRIC_COLORS.activeTime} />
 							</View>
 							<View style={{ flex: 1 }}>
 								<Text
@@ -352,10 +415,10 @@ export default function HomeScreen() {
 							<View
 								style={[
 									styles.statIconWrap,
-									{ backgroundColor: "rgba(255, 45, 85, 0.1)" },
+									{ backgroundColor: METRIC_COLORS.restingHr + "1A" },
 								]}
 							>
-								<Ionicons name="heart" size={18} color="#FF2D55" />
+								<Ionicons name="heart" size={18} color={METRIC_COLORS.restingHr} />
 							</View>
 							<View style={{ flex: 1 }}>
 								<Text
@@ -391,6 +454,11 @@ export default function HomeScreen() {
 								backgroundColor: colors.card,
 								borderRadius: 20,
 								borderColor: colors.border,
+								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
+								shadowOffset: { width: 0, height: 4 },
+								shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
+								shadowRadius: 12,
+								elevation: 4,
 							},
 						]}
 					>
@@ -399,10 +467,10 @@ export default function HomeScreen() {
 							<View
 								style={[
 									styles.workoutIconWrap,
-									{ backgroundColor: "rgba(255, 59, 48, 0.1)" },
+									{ backgroundColor: METRIC_COLORS.workout + "1A" },
 								]}
 							>
-								<Ionicons name="heart" size={18} color="#FF3B30" />
+								<Ionicons name="heart" size={18} color={METRIC_COLORS.workout} />
 							</View>
 							<View style={{ flex: 1 }}>
 								<Text
@@ -451,7 +519,7 @@ export default function HomeScreen() {
 								]}
 							/>
 							<View style={styles.healthWorkoutStat}>
-								<MaterialCommunityIcons name="fire" size={16} color="#FF6B00" />
+								<MaterialCommunityIcons name="fire" size={16} color={METRIC_COLORS.calories} />
 								<Text
 									style={[
 										styles.healthWorkoutStatVal,
@@ -467,7 +535,8 @@ export default function HomeScreen() {
 					</GlassView>
 				</>
 			)}
-		</ScrollView>
+			</ScrollView>
+		</View>
 	);
 }
 

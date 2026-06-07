@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
+import { METRIC_COLORS } from "@/constants/colors";
 
 interface ConcentricRingChartProps {
 	readinessProgress?: number; // 0 to 1
@@ -40,14 +41,14 @@ export function ConcentricRingChart({
 	const colors = useColors();
 
 	// Color schemes for rings
-	const ringSteps = "#34C759"; // Green matching steps metric
-	const ringCal = "#FF6B00"; // Orange matching calories metric
-	const ringActive = "#00B4D8"; // Teal/Blue matching activity time metric
+	const ringSteps = METRIC_COLORS.steps;
+	const ringCal = METRIC_COLORS.calories;
+	const ringActive = METRIC_COLORS.activeTime;
 
 	const trackReadiness = "rgba(148, 163, 184, 0.12)";
-	const trackSteps = "rgba(52, 199, 89, 0.12)";
-	const trackCal = "rgba(255, 107, 0, 0.12)";
-	const trackActive = "rgba(0, 180, 216, 0.12)";
+	const trackSteps = METRIC_COLORS.steps + "1F";
+	const trackCal = METRIC_COLORS.calories + "1F";
+	const trackActive = METRIC_COLORS.activeTime + "1F";
 
 	const strokeWidth = 12;
 	const spacing = 4;
@@ -80,21 +81,21 @@ export function ConcentricRingChart({
 		<View style={[styles.container, { width: size, height: size }]}>
 			<Svg width={size} height={size} style={StyleSheet.absoluteFill}>
 				<Defs>
-					<LinearGradient id="gradLevel3" x1="0%" y1="100%" x2="100%" y2="0%">
-						<Stop offset="0%" stopColor="#00F5A0" />
-						<Stop offset="100%" stopColor="#00E5FF" />
+					<LinearGradient id="gradLevel3" x1="0" y1="1" x2="1" y2="0">
+						<Stop offset="0" stopColor="#00F5A0" />
+						<Stop offset="1" stopColor="#00E5FF" />
 					</LinearGradient>
-					<LinearGradient id="gradLevel2" x1="0%" y1="100%" x2="100%" y2="0%">
-						<Stop offset="0%" stopColor="#FF9F0A" />
-						<Stop offset="100%" stopColor="#FFD60A" />
+					<LinearGradient id="gradLevel2" x1="0" y1="1" x2="1" y2="0">
+						<Stop offset="0" stopColor="#FF9F0A" />
+						<Stop offset="1" stopColor="#FFD60A" />
 					</LinearGradient>
-					<LinearGradient id="gradLevel1" x1="0%" y1="100%" x2="100%" y2="0%">
-						<Stop offset="0%" stopColor="#FF2D55" />
-						<Stop offset="100%" stopColor="#FF3B30" />
+					<LinearGradient id="gradLevel1" x1="0" y1="1" x2="1" y2="0">
+						<Stop offset="0" stopColor="#FF2D55" />
+						<Stop offset="1" stopColor="#FF3B30" />
 					</LinearGradient>
-					<LinearGradient id="gradLevel0" x1="0%" y1="100%" x2="100%" y2="0%">
-						<Stop offset="0%" stopColor="#64748B" />
-						<Stop offset="100%" stopColor="#94A3B8" />
+					<LinearGradient id="gradLevel0" x1="0" y1="1" x2="1" y2="0">
+						<Stop offset="0" stopColor="#64748B" />
+						<Stop offset="1" stopColor="#94A3B8" />
 					</LinearGradient>
 				</Defs>
 

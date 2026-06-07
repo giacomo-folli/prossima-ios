@@ -29,8 +29,8 @@ const colors = {
 	dark: {
 		text: "#F1F5F9",
 		tint: "#3B82F6",
-		background: "#0B0E14",
-		backgroundGradient: ["#0B0E14", "#151D2A", "#0B0E14"],
+		background: "#FFFFFF",
+		backgroundGradient: ["#FFA066", "#FFF2EB", "#FFFFFF"],
 		foreground: "#F8FAFC",
 		card: "rgba(255, 255, 255, 0.08)",
 		cardForeground: "#F8FAFC",
@@ -55,8 +55,8 @@ const colors = {
 	light: {
 		text: "#0F172A",
 		tint: "#007AFF",
-		background: "#F1F5F9",
-		backgroundGradient: ["#E2E8F0", "#F8FAFC", "#E8EEF5"],
+		background: "#FFFFFF",
+		backgroundGradient: ["#FFA066", "#FFF2EB", "#FFFFFF"],
 		foreground: "#0F172A",
 		card: "rgba(255, 255, 255, 0.65)",
 		cardForeground: "#0F172A",
@@ -82,3 +82,17 @@ const colors = {
 } as const;
 
 export default colors;
+
+export const METRIC_COLORS = {
+	steps: "#4CD964",         // Standard Light Green
+	calories: "#FF5E3A",      // Light Coral-Orange
+	activeTime: "#00D3FF",    // Light Sky Blue / Cyan
+	sleep: "#7A66FF",         // Light Neon Purple
+	hrv: "#4CD964",           // Light Green
+	restingHr: "#FF5252",     // Light Crimson Red
+	workout: "#FF5252",       // Workout Light Red
+	weight: "#FFA726",        // Light Amber/Gold
+	vo2max: "#4CD964",        // Light Green
+	spo2: "#00D3FF",          // Light Sky Blue / Cyan
+	respiratory: "#5AC8FA",   // Light iOS Blue
+};
