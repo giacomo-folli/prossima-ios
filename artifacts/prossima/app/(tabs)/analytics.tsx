@@ -7,13 +7,13 @@ import {
 	Text,
 	View,
 	Animated,
-	Modal,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
 import { LinearGradient } from "expo-linear-gradient";
 import { METRIC_COLORS } from "@/constants/colors";
+import { router } from "expo-router";
 
 const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { useColors } from "@/hooks/useColors";
@@ -25,146 +25,7 @@ import { LineChart } from "@/components/LineChart";
 import { DailyHealthSample } from "@/context/HealthStore";
 import { TrendCard } from "@/components/TrendCard";
 
-interface MetricInfo {
-	title: string;
-	icon: React.ReactNode;
-	explanation: string;
-	whyItMatters: string;
-	tips: string[];
-	normalRange?: string;
-}
 
-const METRIC_DETAILS: Record<string, MetricInfo> = {
-	readiness: {
-		title: "Readiness Score",
-		icon: <Ionicons name="flash" size={24} color="#00E5FF" />,
-		explanation: "Readiness is a daily metric from 0 to 100 that tells you how prepared your body is for physical and mental strain.",
-		whyItMatters: "It combines HRV (35%), sleep (25%, if recorded), resting HR (20%), and training load (20%). It helps prevent overtraining and guides you on when to push hard or rest.",
-		normalRange: "70 to 100 (Optimal)",
-		tips: [
-			"Prioritize consistent sleep schedules.",
-			"Avoid high-intensity training when your score is below 50.",
-			"Incorporate active recovery days to bounce back."
-		]
-	},
-	hrv: {
-		title: "Heart Rate Variability",
-		icon: <MaterialCommunityIcons name="pulse" size={24} color="#4CD964" />,
-		explanation: "HRV measures the variation in time between consecutive heartbeats in milliseconds (ms). It is regulated by the autonomic nervous system.",
-		whyItMatters: "A higher HRV indicates your nervous system is balanced and ready to adapt to stressors. A drop in HRV is a strong indicator of fatigue, stress, or upcoming illness.",
-		normalRange: "Varies by individual (higher is better)",
-		tips: [
-			"Reduce mental stress through meditation or breathing exercises.",
-			"Avoid eating heavy meals within 3 hours of sleeping.",
-			"Allow adequate recovery after high-intensity workouts."
-		]
-	},
-	restingHr: {
-		title: "Resting Heart Rate",
-		icon: <Ionicons name="heart" size={24} color="#FF5252" />,
-		explanation: "Your resting heart rate is the number of times your heart beats per minute (bpm) when you are completely at rest.",
-		whyItMatters: "A lower RHR indicates efficient heart function and cardiorespiratory fitness. An elevated resting HR can indicate fatigue, overreaching, or a lack of recovery.",
-		normalRange: "50 to 80 bpm for most active adults",
-		tips: [
-			"Incorporate steady-state zone 2 aerobic exercise into your week.",
-			"Stay properly hydrated, especially in warmer weather.",
-			"Avoid alcohol, which significantly elevates overnight RHR."
-		]
-	},
-	sleep: {
-		title: "Sleep Duration",
-		icon: <Ionicons name="moon" size={24} color="#7A66FF" />,
-		explanation: "Sleep duration tracks the total hours you spent asleep last night.",
-		whyItMatters: "Sleep is the cornerstone of physical recovery, hormone regulation, and cognitive function. Chronic sleep deficit hinders muscle repair and immune system health.",
-		normalRange: "7 to 9 hours per night",
-		tips: [
-			"Go to bed and wake up at the same time every day.",
-			"Make your bedroom cool, dark, and quiet.",
-			"Limit screens and blue light exposure 1 hour before sleep."
-		]
-	},
-	weight: {
-		title: "Body Weight",
-		icon: <MaterialCommunityIcons name="scale-bathroom" size={24} color="#FFA726" />,
-		explanation: "Body weight is the measurement of your total body mass in kilograms.",
-		whyItMatters: "Tracking weight helps monitor energy balance and hydration status. It is crucial for strength-to-weight ratio sports and general body composition tracking.",
-		normalRange: "Varies based on height, composition, and goals",
-		tips: [
-			"Weigh yourself under the same conditions (e.g. morning, fasting).",
-			"Focus on weekly trends rather than daily fluctuations.",
-			"Combine weight tracking with body fat tracking to monitor lean mass."
-		]
-	},
-	vo2max: {
-		title: "VO2 Max",
-		icon: <Ionicons name="cellular" size={24} color="#4CD964" />,
-		explanation: "VO2 Max measures the maximum amount of oxygen your body can use during intense exercise.",
-		whyItMatters: "It is the gold standard indicator of cardiovascular fitness and aerobic endurance. Improving your VO2 Max enhances overall health and longevity.",
-		normalRange: "Age and gender dependent (higher is better)",
-		tips: [
-			"Perform weekly high-intensity interval training (HIIT) sessions.",
-			"Increase your total weekly running or cycling volume.",
-			"Include tempo runs to push your lactate threshold."
-		]
-	},
-	vitals: {
-		title: "Recovery Vitals",
-		icon: <Ionicons name="water" size={24} color="#00D3FF" />,
-		explanation: "Vitals track blood oxygen saturation (SpO2) and sleeping respiratory rate.",
-		whyItMatters: "SpO2 measures the percentage of oxygen in your blood (normal: 95-100%). Sleeping respiratory rate tracks breaths per minute. Shifts can signal illness, low oxygen environments, or high physiological stress.",
-		normalRange: "SpO2: 95%+ · Resp Rate: 12-20 breaths/min",
-		tips: [
-			"Monitor for deviations from your normal personal baseline.",
-			"Elevated sleeping respiratory rate often precedes visible symptoms of a cold or fever."
-		]
-	},
-	steps: {
-		title: "Daily Steps",
-		icon: <MaterialCommunityIcons name="shoe-print" size={24} color="#4CD964" />,
-		explanation: "Tracks the total steps walked or run throughout the day.",
-		whyItMatters: "Steps are an excellent measure of non-exercise activity thermogenesis (NEAT) and help prevent sedentary lifestyle diseases.",
-		normalRange: "8,000 to 10,000+ steps per day",
-		tips: [
-			"Take short walking breaks every hour during work.",
-			"Park further away or choose the stairs over the elevator.",
-			"Add a 15-minute walk after lunch or dinner."
-		]
-	},
-	workouts: {
-		title: "Workouts",
-		icon: <Ionicons name="heart" size={24} color="#FF5252" />,
-		explanation: "Workouts tracks the total number of structured exercise sessions logged.",
-		whyItMatters: "Consistency in training frequency is key to long-term cardiovascular and muscular adaptation.",
-		normalRange: "3 to 5 sessions per week for balanced fitness",
-		tips: [
-			"Balance heavy strength and conditioning sessions with light cardio.",
-			"Ensure at least 1-2 rest days per week to allow recovery.",
-			"Log workouts consistently to keep your Training Load accurate."
-		]
-	},
-	calories: {
-		title: "Active Energy",
-		icon: <MaterialCommunityIcons name="fire" size={24} color="#FF5E3A" />,
-		explanation: "Active Energy is the active calories burned through exercise, workouts, and general daily movement.",
-		whyItMatters: "Helps you monitor your energy output, manage body weight goals, and properly fuel your recovery.",
-		normalRange: "Goal-dependent (e.g. 500+ active kcal/day)",
-		tips: [
-			"Match your daily food intake to your active output (carbohydrates are crucial for intense days).",
-			"A higher active energy output requires longer sleep and recovery."
-		]
-	},
-	duration: {
-		title: "Avg Duration",
-		icon: <Ionicons name="time-outline" size={24} color="#00D3FF" />,
-		explanation: "The average duration in minutes of your exercise sessions.",
-		whyItMatters: "Tracks training volume and time under tension, ensuring your training sessions are of adequate duration to trigger metabolic adaptation.",
-		normalRange: "30 to 90 minutes per session",
-		tips: [
-			"Keep workouts focused; avoid rest periods extending past 2-3 minutes unless training maximum strength.",
-			"Quality is more important than duration — avoid junk volume."
-		]
-	}
-};
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -360,7 +221,6 @@ export default function TrendsScreen() {
 	});
 
 	const [range, setRange] = useState<RangeKey>("1W");
-	const [selectedMetric, setSelectedMetric] = useState<string | null>(null);
 	const rangeDays = RANGES.find((r) => r.key === range)!.days;
 
 	const topPad = Platform.OS === "web" ? 20 : insets.top;
@@ -566,7 +426,7 @@ export default function TrendsScreen() {
 					{/* ── Readiness Score History ── */}
 					{readiness !== null && (
 						<Pressable
-							onPress={() => setSelectedMetric("readiness")}
+							onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "readiness" } })}
 							style={({ pressed }) => [
 								{
 									opacity: pressed ? 0.85 : 1,
@@ -753,7 +613,7 @@ export default function TrendsScreen() {
 								? `Latest: ${latestHrv.toFixed(1)} ms`
 								: undefined
 						}
-						onPress={() => setSelectedMetric("hrv")}
+						onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "hrv" } })}
 					/>
 
 					{/* ── Resting HR Trend ── */}
@@ -770,7 +630,7 @@ export default function TrendsScreen() {
 						showYLabels
 						formatY={(v) => `${Math.round(v)}`}
 						note="Falling trend = improving cardiovascular fitness"
-						onPress={() => setSelectedMetric("restingHr")}
+						onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "restingHr" } })}
 					/>
 
 					{/* ── Sleep Duration — LINE CHART with 8h reference ── */}
@@ -793,7 +653,7 @@ export default function TrendsScreen() {
 								? `7–9h optimal · averaging ${fmt(avgSleepInRange, 1)}h`
 								: undefined
 						}
-						onPress={() => setSelectedMetric("sleep")}
+						onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "sleep" } })}
 					/>
 
 					{/* ── Body Weight ── */}
@@ -816,7 +676,7 @@ export default function TrendsScreen() {
 							chartType="line"
 							showYLabels
 							formatY={(v) => `${v.toFixed(1)}`}
-							onPress={() => setSelectedMetric("weight")}
+							onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "weight" } })}
 						/>
 					)}
 
@@ -835,7 +695,7 @@ export default function TrendsScreen() {
 							showYLabels
 							formatY={(v) => `${Math.round(v)}`}
 							note="Updated by Apple Health after outdoor workouts"
-							onPress={() => setSelectedMetric("vo2max")}
+							onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "vo2max" } })}
 						/>
 					)}
 
@@ -843,7 +703,7 @@ export default function TrendsScreen() {
 					{(spo2Data.some((d) => d.value > 0) ||
 						respData.some((d) => d.value > 0)) && (
 						<Pressable
-							onPress={() => setSelectedMetric("vitals")}
+							onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "vitals" } })}
 							style={({ pressed }) => [
 								{
 									opacity: pressed ? 0.85 : 1,
@@ -990,7 +850,7 @@ export default function TrendsScreen() {
 						formatY={(v) =>
 							v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${Math.round(v)}`
 						}
-						onPress={() => setSelectedMetric("steps")}
+						onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "steps" } })}
 					/>
 				</>
 			)}
@@ -1017,7 +877,7 @@ export default function TrendsScreen() {
 								? `${(totalWorkouts / (rangeDays / 7)).toFixed(1)} per week on average`
 								: undefined
 						}
-						onPress={() => setSelectedMetric("workouts")}
+						onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "workouts" } })}
 					/>
 
 					<TrendCard
@@ -1036,7 +896,7 @@ export default function TrendsScreen() {
 						positiveIsGood
 						chartData={caloriesData}
 						accentColor={METRIC_COLORS.calories}
-						onPress={() => setSelectedMetric("calories")}
+						onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "calories" } })}
 					/>
 
 					<TrendCard
@@ -1048,7 +908,7 @@ export default function TrendsScreen() {
 						positiveIsGood
 						chartData={durationData}
 						accentColor={METRIC_COLORS.activeTime}
-						onPress={() => setSelectedMetric("duration")}
+						onPress={() => router.push({ pathname: "/metric-detail", params: { metric: "duration" } })}
 					/>
 				</>
 			) : (
@@ -1082,84 +942,6 @@ export default function TrendsScreen() {
 				</GlassView>
 			)}
 			</ScrollView>
-
-			<Modal
-				visible={selectedMetric !== null}
-				transparent={true}
-				animationType="slide"
-				onRequestClose={() => setSelectedMetric(null)}
-			>
-				<Pressable style={styles.modalBackdrop} onPress={() => setSelectedMetric(null)}>
-					<View style={styles.modalCenteringContainer}>
-						<Pressable style={styles.modalDummy} onPress={(e) => e.stopPropagation()}>
-							<GlassView
-								colorScheme={resolvedScheme}
-								style={[
-									styles.modalContent,
-									{
-										backgroundColor: colors.card,
-										borderColor: colors.border,
-									},
-								]}
-							>
-								{selectedMetric && METRIC_DETAILS[selectedMetric] && (() => {
-									const m = METRIC_DETAILS[selectedMetric];
-									return (
-										<>
-											<View style={styles.modalHeader}>
-												<View style={styles.modalIconWrap}>
-													{m.icon}
-												</View>
-												<View style={{ flex: 1 }}>
-													<Text style={[styles.modalTitle, { color: colors.foreground }]}>
-														{m.title}
-													</Text>
-													{m.normalRange && (
-														<Text style={[styles.modalRangeText, { color: colors.mutedForeground }]}>
-															Normal Range: {m.normalRange}
-														</Text>
-													)}
-												</View>
-												<Pressable onPress={() => setSelectedMetric(null)} style={styles.modalCloseBtn}>
-													<Ionicons name="close" size={18} color={colors.mutedForeground} />
-												</Pressable>
-											</View>
-
-											<ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-												<Text style={[styles.modalSectionLabel, { color: colors.mutedForeground }]}>
-													What is it?
-												</Text>
-												<Text style={[styles.modalBodyText, { color: colors.foreground }]}>
-													{m.explanation}
-												</Text>
-
-												<Text style={[styles.modalSectionLabel, { color: colors.mutedForeground, marginTop: 16 }]}>
-													Why it matters
-												</Text>
-												<Text style={[styles.modalBodyText, { color: colors.foreground }]}>
-													{m.whyItMatters}
-												</Text>
-
-												<Text style={[styles.modalSectionLabel, { color: colors.mutedForeground, marginTop: 16 }]}>
-													Tips & Recommendations
-												</Text>
-												{m.tips.map((t, idx) => (
-													<View key={idx} style={styles.tipRow}>
-														<Ionicons name="checkmark-circle" size={16} color={colors.success} style={{ marginTop: 2 }} />
-														<Text style={[styles.tipText, { color: colors.foreground }]}>
-															{t}
-														</Text>
-													</View>
-												))}
-											</ScrollView>
-										</>
-									);
-								})()}
-							</GlassView>
-						</Pressable>
-					</View>
-				</Pressable>
-			</Modal>
 		</View>
 	);
 }
@@ -1380,84 +1162,5 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "space-between",
 		marginBottom: 16,
-	},
-	modalBackdrop: {
-		flex: 1,
-		backgroundColor: "rgba(0,0,0,0.6)",
-		justifyContent: "flex-end",
-	},
-	modalCenteringContainer: {
-		alignItems: "center",
-		justifyContent: "flex-end",
-	},
-	modalDummy: {
-		width: "100%",
-	},
-	modalContent: {
-		borderTopLeftRadius: 28,
-		borderTopRightRadius: 28,
-		borderWidth: 1,
-		padding: 24,
-		maxHeight: "85%",
-		paddingBottom: 40,
-	},
-	modalHeader: {
-		flexDirection: "row",
-		alignItems: "center",
-		gap: 12,
-		marginBottom: 16,
-		paddingBottom: 16,
-		borderBottomWidth: StyleSheet.hairlineWidth,
-		borderBottomColor: "rgba(255, 255, 255, 0.1)",
-	},
-	modalIconWrap: {
-		width: 48,
-		height: 48,
-		borderRadius: 24,
-		backgroundColor: "rgba(255, 255, 255, 0.08)",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	modalTitle: {
-		fontSize: 20,
-		fontWeight: "700",
-	},
-	modalRangeText: {
-		fontSize: 12,
-		marginTop: 2,
-		fontWeight: "500",
-	},
-	modalCloseBtn: {
-		width: 32,
-		height: 32,
-		borderRadius: 16,
-		backgroundColor: "rgba(255, 255, 255, 0.08)",
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	modalBody: {
-		marginBottom: 10,
-	},
-	modalSectionLabel: {
-		fontSize: 11,
-		fontWeight: "600",
-		letterSpacing: 0.8,
-		textTransform: "uppercase",
-		marginBottom: 6,
-	},
-	modalBodyText: {
-		fontSize: 14,
-		lineHeight: 20,
-	},
-	tipRow: {
-		flexDirection: "row",
-		gap: 8,
-		marginTop: 6,
-		alignItems: "flex-start",
-	},
-	tipText: {
-		fontSize: 14,
-		lineHeight: 20,
-		flex: 1,
 	},
 });
