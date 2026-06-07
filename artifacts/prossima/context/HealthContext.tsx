@@ -44,8 +44,6 @@ const getNativeHealthKit = () => {
 
 const HEALTH_CONNECTED_KEY = "@prossima_health_connected";
 
-
-
 /** Today's live stats */
 export interface HealthStats {
 	steps: number;
@@ -207,10 +205,10 @@ function normaliseWeightToKg(value: number, unit?: string): number {
 			return Math.round((value / 1000) * 10) / 10;
 		}
 		if (u.startsWith("oz") || u.startsWith("ounce")) {
-			return Math.round((value * 0.0283495) * 10) / 10;
+			return Math.round(value * 0.0283495 * 10) / 10;
 		}
 		if (u.startsWith("stone")) {
-			return Math.round((value * 6.35029) * 10) / 10;
+			return Math.round(value * 6.35029 * 10) / 10;
 		}
 	}
 	// If unit is "kg" or missing, trust the value as-is
@@ -519,11 +517,7 @@ async function persistHistoricalData(
 
 const HealthContext = createContext<HealthContextType | null>(null);
 
-export function HealthProvider({
-	children,
-}: {
-	children: React.ReactNode;
-}) {
+export function HealthProvider({ children }: { children: React.ReactNode }) {
 	const [isConnected, setIsConnected] = useState(false);
 	const [loading, setLoading] = useState(true);
 	const [syncing, setSyncing] = useState(false);
@@ -549,7 +543,10 @@ export function HealthProvider({
 						}
 						try {
 							setIsConnected(true);
-							const [ts, w] = await Promise.all([loadAllMetrics(), readWorkouts()]);
+							const [ts, w] = await Promise.all([
+								loadAllMetrics(),
+								readWorkouts(),
+							]);
 							setTimeSeries(ts);
 							setWorkouts(w);
 						} catch (e) {
@@ -631,7 +628,13 @@ export function HealthProvider({
 			unit: "score",
 			source: "Prossima",
 		}).catch(() => {});
-	}, [isConnected, readinessInputs, timeSeries.hrv, timeSeries.resting_hr, workouts]);
+	}, [
+		isConnected,
+		readinessInputs,
+		timeSeries.hrv,
+		timeSeries.resting_hr,
+		workouts,
+	]);
 
 	// ── Background 30-day backfill ─────────────────────────────────────────────
 	// Extracted to useCallback so it has a stable reference and doesn't
@@ -667,27 +670,27 @@ export function HealthProvider({
 			if (__DEV__) {
 				const mockRecentWorkout = {
 					activityName: "Running",
-					durationMinutes: 45,
-					calories: 450,
+					durationMinutes: Number((45 * Math.random()).toFixed(0)),
+					calories: Number((450 * Math.random()).toFixed(0)),
 					startDate: new Date().toISOString(),
 				};
 				setStats({
-					steps: 8432,
-					calories: 450,
-					activityTime: 45,
-					sleepHours: 7.2,
+					steps: Number((8432 * Math.random()).toFixed(0)),
+					calories: Number((450 * Math.random()).toFixed(0)),
+					activityTime: Number((45 * Math.random()).toFixed(0)),
+					sleepHours: Number((7.2 * Math.random()).toFixed(0)),
 					sleepDeepRatio: 0.2,
 					sleepRemRatio: 0.25,
 					recentWorkout: mockRecentWorkout,
-					todayHrv: 65,
-					todayRestingHr: 55,
-					bodyWeightKg: 75.5,
+					todayHrv: Number((65 * Math.random()).toFixed(0)),
+					todayRestingHr: Number((55 * Math.random()).toFixed(0)),
+					bodyWeightKg: Number((75.5 * Math.random()).toFixed(0)),
 					bodyFatPercent: 15.2,
-					vo2Max: 45.1,
-					distanceMeters: 6200,
-					basalCalories: 1800,
+					vo2Max: Number((45.1 * Math.random()).toFixed(0)),
+					distanceMeters: Number((6200 * Math.random()).toFixed(0)),
+					basalCalories: Number((1800 * Math.random()).toFixed(0)),
 				});
-				setWorkouts([mockRecentWorkout]);
+				setWorkouts([mockRecentWorkout, mockRecentWorkout]);
 			} else {
 				setStats(makeDefaultStats());
 				setWorkouts([]);
@@ -960,9 +963,10 @@ export function HealthProvider({
 			const updatedWorkouts = await writeWorkouts(fetchedWorkouts);
 			setWorkouts(updatedWorkouts);
 
-			const recentWorkout = updatedWorkouts.length > 0
-				? updatedWorkouts[updatedWorkouts.length - 1]
-				: null;
+			const recentWorkout =
+				updatedWorkouts.length > 0
+					? updatedWorkouts[updatedWorkouts.length - 1]
+					: null;
 
 			const newStats: HealthStats = {
 				steps: Math.round(steps),

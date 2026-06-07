@@ -38,14 +38,14 @@ export function ConcentricRingChart({
 	const colors = useColors();
 
 	// Color schemes for rings
-	const ringTeal = "#00B4D8";
-	const ringOrange = "#FF6B00";
-	const ringGreen = "#10B981";
+	const ringSteps = "#34C759"; // Green matching steps metric
+	const ringCal = "#FF6B00"; // Orange matching calories metric
+	const ringActive = "#00B4D8"; // Teal/Blue matching activity time metric
 
 	const trackReadiness = "rgba(148, 163, 184, 0.12)";
-	const trackTeal = "rgba(0, 180, 216, 0.12)";
-	const trackOrange = "rgba(255, 107, 0, 0.12)";
-	const trackGreen = "rgba(16, 185, 129, 0.12)";
+	const trackSteps = "rgba(52, 199, 89, 0.12)";
+	const trackCal = "rgba(255, 107, 0, 0.12)";
+	const trackActive = "rgba(0, 180, 216, 0.12)";
 
 	const strokeWidth = 12;
 	const spacing = 4;
@@ -55,24 +55,24 @@ export function ConcentricRingChart({
 
 	// Calculate radiuses
 	const rReadiness = (size - strokeWidth) / 2 - 2; // outermost
-	const rTeal = hasReadiness
+	const rSteps = hasReadiness
 		? rReadiness - strokeWidth - spacing
 		: (size - strokeWidth) / 2 - 2;
-	const rOrange = rTeal - strokeWidth - spacing; // middle
-	const rGreen = rOrange - strokeWidth - spacing; // innermost
+	const rCal = rSteps - strokeWidth - spacing; // middle
+	const rActive = rCal - strokeWidth - spacing; // innermost
 
 	// Circumferences
 	const cReadiness = 2 * Math.PI * rReadiness;
-	const cTeal = 2 * Math.PI * rTeal;
-	const cOrange = 2 * Math.PI * rOrange;
-	const cGreen = 2 * Math.PI * rGreen;
+	const cSteps = 2 * Math.PI * rSteps;
+	const cCal = 2 * Math.PI * rCal;
+	const cActive = 2 * Math.PI * rActive;
 
 	// Dash Offsets
 	const offsetReadiness =
 		cReadiness * (1 - Math.min(Math.max(readinessProgress || 0, 0), 1));
-	const offsetTeal = cTeal * (1 - Math.min(Math.max(stepsProgress, 0), 1));
-	const offsetOrange = cOrange * (1 - Math.min(Math.max(calProgress, 0), 1));
-	const offsetGreen = cGreen * (1 - Math.min(Math.max(activeProgress, 0), 1));
+	const offsetSteps = cSteps * (1 - Math.min(Math.max(stepsProgress, 0), 1));
+	const offsetCal = cCal * (1 - Math.min(Math.max(calProgress, 0), 1));
+	const offsetActive = cActive * (1 - Math.min(Math.max(activeProgress, 0), 1));
 
 	return (
 		<View style={[styles.container, { width: size, height: size }]}>
@@ -104,70 +104,70 @@ export function ConcentricRingChart({
 					</>
 				)}
 
-				{/* Teal Ring Track and Progress */}
+				{/* Steps Ring Track and Progress */}
 				<Circle
 					cx={center}
 					cy={center}
-					r={rTeal}
-					stroke={trackTeal}
+					r={rSteps}
+					stroke={trackSteps}
 					strokeWidth={strokeWidth}
 					fill="none"
 				/>
 				<Circle
 					cx={center}
 					cy={center}
-					r={rTeal}
-					stroke={ringTeal}
+					r={rSteps}
+					stroke={ringSteps}
 					strokeWidth={strokeWidth}
 					fill="none"
-					strokeDasharray={`${cTeal} ${cTeal}`}
-					strokeDashoffset={offsetTeal}
+					strokeDasharray={`${cSteps} ${cSteps}`}
+					strokeDashoffset={offsetSteps}
 					strokeLinecap="round"
 					rotation="-90"
 					origin={`${center}, ${center}`}
 				/>
 
-				{/* Orange Ring Track and Progress */}
+				{/* Calories Ring Track and Progress */}
 				<Circle
 					cx={center}
 					cy={center}
-					r={rOrange}
-					stroke={trackOrange}
+					r={rCal}
+					stroke={trackCal}
 					strokeWidth={strokeWidth}
 					fill="none"
 				/>
 				<Circle
 					cx={center}
 					cy={center}
-					r={rOrange}
-					stroke={ringOrange}
+					r={rCal}
+					stroke={ringCal}
 					strokeWidth={strokeWidth}
 					fill="none"
-					strokeDasharray={`${cOrange} ${cOrange}`}
-					strokeDashoffset={offsetOrange}
+					strokeDasharray={`${cCal} ${cCal}`}
+					strokeDashoffset={offsetCal}
 					strokeLinecap="round"
 					rotation="-90"
 					origin={`${center}, ${center}`}
 				/>
 
-				{/* Green Ring Track and Progress */}
+				{/* Activity Ring Track and Progress */}
 				<Circle
 					cx={center}
 					cy={center}
-					r={rGreen}
-					stroke={trackGreen}
+					r={rActive}
+					stroke={trackActive}
 					strokeWidth={strokeWidth}
 					fill="none"
 				/>
 				<Circle
 					cx={center}
 					cy={center}
-					r={rGreen}
-					stroke={ringGreen}
+					r={rActive}
+					stroke={ringActive}
 					strokeWidth={strokeWidth}
 					fill="none"
-					strokeDasharray={`${cGreen} ${cGreen}`}
-					strokeDashoffset={offsetGreen}
+					strokeDasharray={`${cActive} ${cActive}`}
+					strokeDashoffset={offsetActive}
 					strokeLinecap="round"
 					rotation="-90"
 					origin={`${center}, ${center}`}
@@ -194,7 +194,7 @@ export function ConcentricRingChart({
 					</>
 				)}
 				{!hasReadiness && (
-					<Text style={[styles.stepsTitle, { color: "#0084A3" }]}>Steps:</Text>
+					<Text style={[styles.stepsTitle, { color: "#34C759" }]}>Steps:</Text>
 				)}
 			</View>
 		</View>
