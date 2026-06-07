@@ -58,6 +58,50 @@ const SUGGESTION_CHIPS = [
   { id: "3", text: "Recovery tips", icon: "heart" as const },
 ];
 
+const preprocessMarkdown = (text: string): string => {
+  if (!text) return "";
+  return text
+    .replace(/^(?:\s*#{1,6}\s+)(.*)$/gm, "**$1**")
+    .replace(/^(?:\s*[-*]\s+)/gm, "• ");
+};
+
+const renderFormattedText = (text: string) => {
+  if (!text) return null;
+
+  const processed = preprocessMarkdown(text);
+  const boldParts = processed.split(/(\*\*.*?\*\*|__.*?__)/g);
+
+  return boldParts.map((boldPart, boldIndex) => {
+    const isBold =
+      (boldPart.startsWith("**") && boldPart.endsWith("**")) ||
+      (boldPart.startsWith("__") && boldPart.endsWith("__"));
+    const textToProcess = isBold ? boldPart.slice(2, -2) : boldPart;
+
+    const italicParts = textToProcess.split(/(\*.*?\*|_.*?_)/g);
+
+    return italicParts.map((italicPart, italicIndex) => {
+      const isItalic =
+        (italicPart.startsWith("*") && italicPart.endsWith("*")) ||
+        (italicPart.startsWith("_") && italicPart.endsWith("_"));
+      const cleanText = isItalic ? italicPart.slice(1, -1) : italicPart;
+
+      if (cleanText === "") return null;
+
+      return (
+        <Text
+          key={`${boldIndex}-${italicIndex}`}
+          style={[
+            isBold && { fontWeight: "700" },
+            isItalic && { fontStyle: "italic" },
+          ]}
+        >
+          {cleanText}
+        </Text>
+      );
+    });
+  });
+};
+
 export default function ChatScreen() {
   const { stats, readiness } = useHealth();
   const { resolvedScheme } = useTheme();
@@ -343,7 +387,7 @@ Analyze the following daily biometric data to provide a concise, highly actionab
             ]}
           >
             <Text style={[styles.messageText, { color: "#FFFFFF" }]}>
-              {item.content}
+              {renderFormattedText(item.content)}
             </Text>
           </View>
         </View>
@@ -380,7 +424,7 @@ Analyze the following daily biometric data to provide a concise, highly actionab
             ]}
           >
             <Text style={[styles.messageText, { color: colors.text }]}>
-              {item.content}
+              {renderFormattedText(item.content)}
             </Text>
           </GlassView>
           {/* Action buttons */}
