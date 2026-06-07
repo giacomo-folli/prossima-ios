@@ -1,6 +1,6 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
 
@@ -8,6 +8,7 @@ interface ConcentricRingChartProps {
 	readinessProgress?: number; // 0 to 1
 	readinessColor?: string;
 	readinessValue?: string;
+	readinessLevel?: number;
 	stepsProgress: number; // 0 to 1
 	calProgress: number; // 0 to 1
 	activeProgress: number; // 0 to 1
@@ -24,6 +25,7 @@ export function ConcentricRingChart({
 	readinessProgress,
 	readinessColor = "#10B981",
 	readinessValue,
+	readinessLevel = 0,
 	stepsProgress,
 	calProgress,
 	activeProgress,
@@ -77,6 +79,25 @@ export function ConcentricRingChart({
 	return (
 		<View style={[styles.container, { width: size, height: size }]}>
 			<Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+				<Defs>
+					<LinearGradient id="gradLevel3" x1="0%" y1="100%" x2="100%" y2="0%">
+						<Stop offset="0%" stopColor="#00F5A0" />
+						<Stop offset="100%" stopColor="#00E5FF" />
+					</LinearGradient>
+					<LinearGradient id="gradLevel2" x1="0%" y1="100%" x2="100%" y2="0%">
+						<Stop offset="0%" stopColor="#FF9F0A" />
+						<Stop offset="100%" stopColor="#FFD60A" />
+					</LinearGradient>
+					<LinearGradient id="gradLevel1" x1="0%" y1="100%" x2="100%" y2="0%">
+						<Stop offset="0%" stopColor="#FF2D55" />
+						<Stop offset="100%" stopColor="#FF3B30" />
+					</LinearGradient>
+					<LinearGradient id="gradLevel0" x1="0%" y1="100%" x2="100%" y2="0%">
+						<Stop offset="0%" stopColor="#64748B" />
+						<Stop offset="100%" stopColor="#94A3B8" />
+					</LinearGradient>
+				</Defs>
+
 				{/* Readiness Ring Track and Progress */}
 				{hasReadiness && (
 					<>
@@ -92,7 +113,15 @@ export function ConcentricRingChart({
 							cx={center}
 							cy={center}
 							r={rReadiness}
-							stroke={readinessColor}
+							stroke={
+								readinessLevel === 3
+									? "url(#gradLevel3)"
+									: readinessLevel === 2
+										? "url(#gradLevel2)"
+										: readinessLevel === 1
+											? "url(#gradLevel1)"
+											: "url(#gradLevel0)"
+							}
 							strokeWidth={strokeWidth}
 							fill="none"
 							strokeDasharray={`${cReadiness} ${cReadiness}`}
@@ -178,14 +207,14 @@ export function ConcentricRingChart({
 			<View style={[StyleSheet.absoluteFill, styles.centerArea]}>
 				{hasReadiness && readinessValue !== undefined && (
 					<>
-						<Text style={[styles.readinessTitle, { color: readinessColor }]}>
+						<Text style={[styles.readinessTitle, { color: colors.mutedForeground }]}>
 							Readiness
 						</Text>
 						<View style={styles.readinessRow}>
 							<Text
 								style={[
 									styles.readinessValueText,
-									{ color: colors.foreground },
+									{ color: readinessColor, fontSize: 38, fontWeight: "800" },
 								]}
 							>
 								{readinessValue}

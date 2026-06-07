@@ -29,11 +29,11 @@ function fmtDate(iso: string) {
 function getReadinessColor(level: number) {
 	switch (level) {
 		case 3:
-			return "#10B981";
+			return "#00E5FF";
 		case 2:
-			return "#F59E0B";
+			return "#FF9F0A";
 		case 1:
-			return "#EF4444";
+			return "#FF2D55";
 		default:
 			return "#64748B";
 	}
@@ -142,6 +142,7 @@ export default function HomeScreen() {
 						readinessValue={
 							readiness?.hasData ? readiness.score.toString() : "—"
 						}
+						readinessLevel={readiness?.hasData ? readiness.level : 0}
 						stepsProgress={stats.steps / stepsGoal}
 						calProgress={stats.calories / caloriesGoal}
 						activeProgress={stats.activityTime / activityTimeGoal}

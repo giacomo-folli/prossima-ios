@@ -51,6 +51,9 @@ export interface LineChartProps {
 	/** Whether zero values count as real data (default false) */
 	allowZero?: boolean;
 
+	/** Whether the chart should start from zero (default true) */
+	startFromZero?: boolean;
+
 	/** Stroke width (default 2) */
 	strokeWidth?: number;
 
@@ -110,6 +113,7 @@ export function LineChart({
 	guideCount = 2,
 	showYLabels = false,
 	allowZero = false,
+	startFromZero = true,
 	strokeWidth = 2,
 	animationDuration = 600,
 }: LineChartProps) {
@@ -142,27 +146,41 @@ export function LineChart({
 	const chartW = containerWidth - PAD_LEFT - PAD_RIGHT;
 	const chartH = height - PAD_TOP - AXIS_HEIGHT;
 
-	// ── Compute point positions ────────────────────────────────────────────
-	const points = useMemo(() => {
-		if (!hasData || data.length === 0) return [];
-
+	// ── Compute global min/max for scaling ─────────────────────────────────
+	const { chartMin, chartMax, chartRange } = useMemo(() => {
+		if (!hasData || data.length === 0) {
+			return { chartMin: 0, chartMax: 1, chartRange: 1 };
+		}
 		const values = data.map((d) =>
 			allowZero ? d.value : d.value > 0 ? d.value : NaN,
 		);
 		const nonNaN = values.filter((v) => !isNaN(v));
-		const minVal = Math.min(...nonNaN);
-		const maxVal = Math.max(...nonNaN);
+		if (nonNaN.length === 0) {
+			return { chartMin: 0, chartMax: 1, chartRange: 1 };
+		}
+
+		const minVal = startFromZero ? 0 : Math.min(...nonNaN);
+		const peakVal = Math.max(...nonNaN);
+		// Add 15% padding at the top so the peak values don't touch the top of the chart
+		const maxVal = peakVal > 0 ? peakVal * 1.15 : 1;
 		const range = maxVal - minVal || 1;
+
+		return { chartMin: minVal, chartMax: maxVal, chartRange: range };
+	}, [data, hasData, allowZero, startFromZero]);
+
+	// ── Compute point positions ────────────────────────────────────────────
+	const points = useMemo(() => {
+		if (!hasData || data.length === 0) return [];
 
 		return data.map((d, i) => {
 			const x = PAD_LEFT + (i / Math.max(data.length - 1, 1)) * chartW;
 			const val = allowZero ? d.value : d.value > 0 ? d.value : NaN;
 			const y = isNaN(val)
 				? NaN
-				: PAD_TOP + chartH - ((val - minVal) / range) * (chartH - PAD_TOP / 2);
+				: PAD_TOP + chartH - ((val - chartMin) / chartRange) * (chartH - PAD_TOP / 2);
 			return { x, y, value: val, label: d.label };
 		});
-	}, [data, chartW, chartH, PAD_LEFT, PAD_TOP, hasData, allowZero]);
+	}, [data, chartW, chartH, PAD_LEFT, PAD_TOP, hasData, allowZero, chartMin, chartRange]);
 
 	// Only connected (non-NaN) segments
 	const validPoints = useMemo(
@@ -173,34 +191,26 @@ export function LineChart({
 	// ── Guide lines ────────────────────────────────────────────────────────
 	const guides = useMemo(() => {
 		if (guideCount === 0 || !hasData || validPoints.length === 0) return [];
-		const ys = validPoints.map((p) => p.value);
-		const minV = Math.min(...ys);
-		const maxV = Math.max(...ys);
-		const range = maxV - minV || 1;
 
 		return Array.from({ length: guideCount }, (_, i) => {
 			const frac = i / (guideCount - 1 || 1);
-			const val = minV + frac * range;
+			const val = chartMin + frac * chartRange;
 			const yPos =
-				PAD_TOP + chartH - ((val - minV) / range) * (chartH - PAD_TOP / 2);
+				PAD_TOP + chartH - ((val - chartMin) / chartRange) * (chartH - PAD_TOP / 2);
 			return { val, yPos };
 		});
-	}, [guideCount, hasData, validPoints, PAD_TOP, chartH]);
+	}, [guideCount, hasData, validPoints, PAD_TOP, chartH, chartMin, chartRange]);
 
 	// ── Reference line position ────────────────────────────────────────────
 	const refLineY = useMemo(() => {
 		if (referenceValue === undefined || !hasData || validPoints.length === 0)
 			return null;
-		const ys = validPoints.map((p) => p.value);
-		const minV = Math.min(...ys);
-		const maxV = Math.max(...ys);
-		const range = maxV - minV || 1;
 		return (
 			PAD_TOP +
 			chartH -
-			((referenceValue - minV) / range) * (chartH - PAD_TOP / 2)
+			((referenceValue - chartMin) / chartRange) * (chartH - PAD_TOP / 2)
 		);
-	}, [referenceValue, hasData, validPoints, PAD_TOP, chartH]);
+	}, [referenceValue, hasData, validPoints, PAD_TOP, chartH, chartMin, chartRange]);
 
 	// ── SVG paths ──────────────────────────────────────────────────────────
 	const linePath = useMemo(() => smoothPath(validPoints), [validPoints]);

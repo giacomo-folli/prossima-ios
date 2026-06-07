@@ -135,18 +135,22 @@ export function TrendCard({
 						<MicroBar data={chartData} accentColor={accentColor} />
 						{/* X-axis labels for bar chart */}
 						<View style={styles.axisRow}>
-							{chartData.map((d, i) => (
-								<Text
-									key={i}
-									style={[
-										styles.axisLabel,
-										{ color: colors.mutedForeground, flex: 1 },
-									]}
-									numberOfLines={1}
-								>
-									{i === 0 || i === chartData.length - 1 ? d.label : ""}
-								</Text>
-							))}
+							{chartData.map((d, i) => {
+								const visible = chartData.length <= 7 ||
+									(chartData.length >= 20 ? (i === 0 || i === chartData.length - 1) : (i % 2 === 0));
+								return (
+									<Text
+										key={i}
+										style={[
+											styles.axisLabel,
+											{ color: colors.mutedForeground, flex: 1 },
+										]}
+										numberOfLines={2}
+									>
+										{visible ? d.label : ""}
+									</Text>
+								);
+							})}
 						</View>
 					</>
 				)

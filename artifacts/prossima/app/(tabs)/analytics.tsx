@@ -33,6 +33,19 @@ const RANGES: { key: RangeKey; label: string; days: number }[] = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+function getReadinessColor(level: number) {
+	switch (level) {
+		case 3:
+			return "#00E5FF";
+		case 2:
+			return "#FF9F0A";
+		case 1:
+			return "#FF2D55";
+		default:
+			return "#64748B";
+	}
+}
+
 function startOfDay(d: Date) {
 	const c = new Date(d);
 	c.setHours(0, 0, 0, 0);
@@ -370,71 +383,87 @@ export default function TrendsScreen() {
 								},
 							]}
 						>
-							<View style={styles.readinessCardHeader}>
-								<View
-									style={[
-										styles.readinessIconWrap,
-										{ backgroundColor: "rgba(16,185,129,0.12)" },
-									]}
-								>
-									<Ionicons name="flash" size={18} color="#10B981" />
-								</View>
-								<View style={{ flex: 1 }}>
-									<Text
-										style={[styles.cardTitle, { color: colors.foreground }]}
-									>
-										Readiness Score
-									</Text>
-									<Text
-										style={[
-											styles.cardSubtitle,
-											{ color: colors.mutedForeground },
-										]}
-									>
-										Today's composite
-									</Text>
-								</View>
-								<View style={styles.cardValueBlock}>
-									<Text
-										style={[styles.cardValue, { color: colors.foreground }]}
-									>
-										{readiness.hasData ? readiness.score : "—"}
-									</Text>
-									<Text
-										style={[styles.cardUnit, { color: colors.mutedForeground }]}
-									>
-										/ 100
-									</Text>
-									{readinessDelta !== null && readiness.hasData && (
+							{(() => {
+								const readinessColor = getReadinessColor(readiness.level ?? 0);
+								const iconBg =
+									readiness.level === 3
+										? "rgba(0, 229, 255, 0.12)"
+										: readiness.level === 2
+											? "rgba(255, 159, 10, 0.12)"
+											: readiness.level === 1
+												? "rgba(255, 45, 85, 0.12)"
+												: "rgba(100, 116, 139, 0.12)";
+								return (
+									<View style={styles.readinessCardHeader}>
 										<View
 											style={[
-												styles.deltaBadge,
-												{
-													backgroundColor:
-														(readinessDelta >= 0 ? "#10B981" : "#EF4444") +
-														"18",
-												},
+												styles.readinessIconWrap,
+												{ backgroundColor: iconBg },
 											]}
 										>
-											<Ionicons
-												name={readinessDelta >= 0 ? "arrow-up" : "arrow-down"}
-												size={10}
-												color={readinessDelta >= 0 ? "#10B981" : "#EF4444"}
-											/>
+											<Ionicons name="flash" size={18} color={readinessColor} />
+										</View>
+										<View style={{ flex: 1 }}>
+											<Text
+												style={[styles.cardTitle, { color: colors.foreground }]}
+											>
+												Readiness Score
+											</Text>
 											<Text
 												style={[
-													styles.deltaText,
-													{
-														color: readinessDelta >= 0 ? "#10B981" : "#EF4444",
-													},
+													styles.cardSubtitle,
+													{ color: colors.mutedForeground },
 												]}
 											>
-												{Math.abs(readinessDelta).toFixed(0)}%
+												Today's composite
 											</Text>
 										</View>
-									)}
-								</View>
-							</View>
+										<View style={styles.cardValueBlock}>
+											<Text
+												style={[
+													styles.cardValue,
+													{ color: readinessColor, fontSize: 26, fontWeight: "800" },
+												]}
+											>
+												{readiness.hasData ? readiness.score : "—"}
+											</Text>
+											<Text
+												style={[styles.cardUnit, { color: colors.mutedForeground }]}
+											>
+												/ 100
+											</Text>
+											{readinessDelta !== null && readiness.hasData && (
+												<View
+													style={[
+														styles.deltaBadge,
+														{
+															backgroundColor:
+																(readinessDelta >= 0 ? readinessColor : "#EF4444") +
+																"18",
+														},
+													]}
+												>
+													<Ionicons
+														name={readinessDelta >= 0 ? "arrow-up" : "arrow-down"}
+														size={10}
+														color={readinessDelta >= 0 ? readinessColor : "#EF4444"}
+													/>
+													<Text
+														style={[
+															styles.deltaText,
+															{
+																color: readinessDelta >= 0 ? readinessColor : "#EF4444",
+															},
+														]}
+													>
+														{Math.abs(readinessDelta).toFixed(0)}%
+													</Text>
+												</View>
+											)}
+										</View>
+									</View>
+								);
+							})()}
 
 							{/* Pillar breakdown */}
 							{readiness.hasData && (
@@ -476,7 +505,7 @@ export default function TrendsScreen() {
 								<LineChart
 									data={readinessHistData}
 									height={64}
-									accentColor="#10B981"
+									accentColor={getReadinessColor(readiness.level ?? 0)}
 									labelColor={colors.mutedForeground}
 									guideCount={0}
 									animationDuration={600}
@@ -591,6 +620,8 @@ export default function TrendsScreen() {
 							chartData={vo2Data}
 							accentColor="#30D158"
 							chartType="line"
+							showYLabels
+							formatY={(v) => `${Math.round(v)}`}
 							note="Updated by Apple Health after outdoor workouts"
 						/>
 					)}

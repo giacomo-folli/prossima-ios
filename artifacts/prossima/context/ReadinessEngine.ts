@@ -9,6 +9,20 @@
 
 import { DailyHealthSample, HealthWorkout } from './HealthStore';
 
+// ─── Date Helpers ─────────────────────────────────────────────────────────────
+
+function getLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function toDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export interface SleepNight {
@@ -59,15 +73,20 @@ export interface ReadinessBreakdown {
  */
 export function computeHrvScore(
   samples: DailyHealthSample[],
-  todayHrv: number | null
+  todayHrv: number | null,
+  referenceDate?: string
 ): number {
   if (todayHrv === null || todayHrv <= 0) return 50; // neutral default
 
   // Use last 30 days for personal baseline
-  const cutoff = new Date();
+  const ref = referenceDate ? getLocalDate(referenceDate) : new Date();
+  const cutoff = new Date(ref);
   cutoff.setDate(cutoff.getDate() - 30);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-  const baseline = samples.filter((s) => s.date >= cutoffStr && s.value > 0);
+  const cutoffStr = toDateString(cutoff);
+  const refStr = referenceDate ?? toDateString(new Date());
+  const baseline = samples.filter(
+    (s) => s.date >= cutoffStr && s.date <= refStr && s.value > 0
+  );
 
   if (baseline.length < 3) return 50; // not enough data → neutral
 
@@ -128,14 +147,19 @@ export function computeSleepScore(sleep: SleepNight | null): number {
  */
 export function computeRestingHrScore(
   samples: DailyHealthSample[],
-  todayRhr: number | null
+  todayRhr: number | null,
+  referenceDate?: string
 ): number {
   if (todayRhr === null || todayRhr <= 0) return 50; // neutral default
 
-  const cutoff = new Date();
+  const ref = referenceDate ? getLocalDate(referenceDate) : new Date();
+  const cutoff = new Date(ref);
   cutoff.setDate(cutoff.getDate() - 7);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-  const recent = samples.filter((s) => s.date >= cutoffStr && s.value > 0);
+  const cutoffStr = toDateString(cutoff);
+  const refStr = referenceDate ?? toDateString(new Date());
+  const recent = samples.filter(
+    (s) => s.date >= cutoffStr && s.date <= refStr && s.value > 0
+  );
 
   if (recent.length < 2) return 50; // not enough data
 
@@ -159,14 +183,24 @@ export function computeRestingHrScore(
  * ACWR <0.5    → detraining  (scaled down to 40)
  * No sessions  → 80 pts (rest day, slightly positive)
  */
-export function computeTrainingLoadScore(workouts: HealthWorkout[]): number {
-  const now = Date.now();
+export function computeTrainingLoadScore(
+  workouts: HealthWorkout[],
+  referenceDate?: string
+): number {
+  const ref = referenceDate ? getLocalDate(referenceDate) : new Date();
+  const refEnd = new Date(ref);
+  refEnd.setHours(23, 59, 59, 999);
+  const limitTime = refEnd.getTime();
 
   const durationAt = (days: number): number => {
-    const cutoff = new Date();
+    const cutoff = new Date(ref);
     cutoff.setDate(cutoff.getDate() - days);
+    cutoff.setHours(0, 0, 0, 0);
     return workouts
-      .filter((w) => new Date(w.startDate).getTime() >= cutoff.getTime())
+      .filter((w) => {
+        const t = new Date(w.startDate).getTime();
+        return t >= cutoff.getTime() && t <= limitTime;
+      })
       .reduce((total, w) => total + w.durationMinutes, 0);
   };
 
@@ -211,15 +245,17 @@ function scoreLevel(score: number): 0 | 1 | 2 | 3 {
 }
 
 export function computeReadinessScore(
-  inputs: ReadinessInputs
+  inputs: ReadinessInputs,
+  referenceDate?: string
 ): ReadinessBreakdown {
-  const hrv = computeHrvScore(inputs.hrvSamples, inputs.todayHrv);
+  const hrv = computeHrvScore(inputs.hrvSamples, inputs.todayHrv, referenceDate);
   const sleep = computeSleepScore(inputs.lastNightSleep);
   const rhr = computeRestingHrScore(
     inputs.restingHrSamples,
-    inputs.todayRestingHr
+    inputs.todayRestingHr,
+    referenceDate
   );
-  const load = computeTrainingLoadScore(inputs.workouts);
+  const load = computeTrainingLoadScore(inputs.workouts, referenceDate);
 
   // Composite with weights
   const rawScore = hrv * 0.35 + sleep * 0.25 + rhr * 0.2 + load * 0.2;
