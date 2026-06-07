@@ -176,7 +176,7 @@ function toDateStr(d: Date): string {
 
 async function calculateAndPersistPastReadiness(
 	ts: HealthTimeSeries,
-	wList: HealthWorkout[]
+	wList: HealthWorkout[],
 ): Promise<HealthTimeSeries> {
 	const datesToCalculate: string[] = [];
 	// Go up to yesterday. Today's readiness is handled reactively by the useEffect.
@@ -191,12 +191,13 @@ async function calculateAndPersistPastReadiness(
 		const hasRhr = ts.resting_hr.some((s) => s.date === dateStr);
 		const hasSleep = ts.sleep_history.some((s) => s.date === dateStr);
 		const hasWorkout = wList.some(
-			(w) => toDateStr(new Date(w.startDate)) === dateStr
+			(w) => toDateStr(new Date(w.startDate)) === dateStr,
 		);
 
 		if (hasHrv || hasRhr || hasSleep || hasWorkout) {
 			const hrvVal = ts.hrv.find((s) => s.date === dateStr)?.value ?? null;
-			const rhrVal = ts.resting_hr.find((s) => s.date === dateStr)?.value ?? null;
+			const rhrVal =
+				ts.resting_hr.find((s) => s.date === dateStr)?.value ?? null;
 			const sleepVal =
 				ts.sleep_history.find((s) => s.date === dateStr)?.value ?? null;
 			const lastNightSleep: SleepNight | null =
@@ -204,14 +205,17 @@ async function calculateAndPersistPastReadiness(
 					? { totalHours: sleepVal, deepRatio: 0, remRatio: 0 }
 					: null;
 
-			const breakdown = computeReadinessScore({
-				hrvSamples: ts.hrv,
-				todayHrv: hrvVal,
-				lastNightSleep,
-				restingHrSamples: ts.resting_hr,
-				todayRestingHr: rhrVal,
-				workouts: wList,
-			}, dateStr);
+			const breakdown = computeReadinessScore(
+				{
+					hrvSamples: ts.hrv,
+					todayHrv: hrvVal,
+					lastNightSleep,
+					restingHrSamples: ts.resting_hr,
+					todayRestingHr: rhrVal,
+					workouts: wList,
+				},
+				dateStr,
+			);
 
 			const existingSample = ts.readiness.find((s) => s.date === dateStr);
 			if (!existingSample || existingSample.value !== breakdown.score) {
@@ -370,7 +374,7 @@ async function fetchHistoricalDataForRange(
 	const range = { startDate, endDate, limit: 500, ascending: true };
 
 	const hrvPromise = nativeCall(
-		(cb) => nk.getHeartRateVariabilitySamples(range, cb),
+		(cb) => nk.getHeartRateVariabilitySamples({ ...range, limit: 3000 }, cb),
 		(r: any[]) =>
 			bucketDaily(
 				r.map((s) => ({ ...s, value: (s.value ?? 0) * 1000 })),
@@ -443,13 +447,13 @@ async function fetchHistoricalDataForRange(
 	);
 
 	const spo2Promise = nativeCall(
-		(cb) => nk.getOxygenSaturationSamples(range, cb),
+		(cb) => nk.getOxygenSaturationSamples({ ...range, limit: 3000 }, cb),
 		(r: any[]) => bucketDaily(r, "%", "avg"),
 		[],
 	);
 
 	const respPromise = nativeCall(
-		(cb) => nk.getRespiratoryRateSamples(range, cb),
+		(cb) => nk.getRespiratoryRateSamples({ ...range, limit: 3000 }, cb),
 		(r: any[]) => bucketDaily(r, "breaths/min", "avg"),
 		[],
 	);
@@ -569,7 +573,10 @@ async function persistHistoricalData(
 		loadAllMetrics(),
 		readWorkouts(),
 	]);
-	const updatedTs = await calculateAndPersistPastReadiness(timeSeries, workouts);
+	const updatedTs = await calculateAndPersistPastReadiness(
+		timeSeries,
+		workouts,
+	);
 	return { timeSeries: updatedTs, workouts };
 }
 
@@ -754,7 +761,10 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
 				setStats(newStats);
 
 				const todayStr = toDateStr(new Date());
-				const samples: { metric: HealthMetricKey; sample: DailyHealthSample }[] = [
+				const samples: {
+					metric: HealthMetricKey;
+					sample: DailyHealthSample;
+				}[] = [
 					{
 						metric: "steps_history",
 						sample: {
@@ -863,10 +873,7 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
 					writeWorkouts([mockRecentWorkout]),
 				]);
 
-				const [ts, w] = await Promise.all([
-					loadAllMetrics(),
-					readWorkouts(),
-				]);
+				const [ts, w] = await Promise.all([loadAllMetrics(), readWorkouts()]);
 				const updatedTs = await calculateAndPersistPastReadiness(ts, w);
 				setTimeSeries(updatedTs);
 				setWorkouts(w);
@@ -992,29 +999,77 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
 			);
 
 			// ── HRV ───────────────────────────────────────────────────────────────
-			// Query from the prior night (18:00 yesterday) to capture the
-			// clinically relevant overnight/post-wake resting HRV. Use the last
-			// sample before waking rather than the first sample of the calendar day.
-			const hrvP = nativeCall(
-				(cb) =>
-					nk.getHeartRateVariabilitySamples(
-						{
-							startDate: sleepWindowStart.toISOString(),
-							endDate: new Date().toISOString(),
-							limit: 50,
-							ascending: false, // most recent first
-						},
-						cb,
-					),
-				(results: any[]): number | null => {
-					if (!Array.isArray(results) || results.length === 0) return null;
-					// Use the most recent overnight reading (first in descending order)
-					return results[0].value !== undefined && results[0].value !== null
-						? results[0].value * 1000
-						: null;
-				},
-				null,
-			);
+			// Query from the prior night (18:00 yesterday) to capture the overnight HRV.
+			// If not found, fall back to checking the last 48 hours, and then the last 7 days
+			// to ensure we capture the most recent available HRV measurement.
+			const queryHrvWithFallback = async (): Promise<number | null> => {
+				let samples = await new Promise<any[]>((resolve) => {
+					try {
+						nk.getHeartRateVariabilitySamples(
+							{
+								startDate: sleepWindowStart.toISOString(),
+								endDate: new Date().toISOString(),
+								limit: 50,
+								ascending: false,
+							},
+							(err: any, results: any[]) =>
+								resolve(Array.isArray(results) ? results : []),
+						);
+					} catch {
+						resolve([]);
+					}
+				});
+
+				if (samples.length === 0) {
+					const start48h = new Date();
+					start48h.setDate(start48h.getDate() - 2);
+					samples = await new Promise<any[]>((resolve) => {
+						try {
+							nk.getHeartRateVariabilitySamples(
+								{
+									startDate: start48h.toISOString(),
+									endDate: new Date().toISOString(),
+									limit: 50,
+									ascending: false,
+								},
+								(err: any, results: any[]) =>
+									resolve(Array.isArray(results) ? results : []),
+							);
+						} catch {
+							resolve([]);
+						}
+					});
+				}
+
+				if (samples.length === 0) {
+					const start7d = new Date();
+					start7d.setDate(start7d.getDate() - 7);
+					samples = await new Promise<any[]>((resolve) => {
+						try {
+							nk.getHeartRateVariabilitySamples(
+								{
+									startDate: start7d.toISOString(),
+									endDate: new Date().toISOString(),
+									limit: 50,
+									ascending: false,
+								},
+								(err: any, results: any[]) =>
+									resolve(Array.isArray(results) ? results : []),
+							);
+						} catch {
+							resolve([]);
+						}
+					});
+				}
+
+				if (samples.length === 0) return null;
+				const bestSample = samples[0];
+				return bestSample.value !== undefined && bestSample.value !== null
+					? bestSample.value * 1000
+					: null;
+			};
+
+			const hrvP = queryHrvWithFallback();
 
 			// Resting HR
 			const rhrP = nativeCall(
@@ -1348,19 +1403,18 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
 					};
 
 					const mockWorkouts: HealthWorkout[] = [];
-					const activities = ["Running", "Cycling", "Strength Training", "Yoga", "HIIT"];
+					const activities = ["Running", "Cycling", "Strength Training"];
 					for (let i = 0; i < 30; i++) {
-						if (i % 3 === 0) {
-							const date = daysAgo(i);
-							date.setHours(8, 0, 0, 0);
-							mockWorkouts.push({
-								id: `mock-workout-${i}`,
-								activityName: activities[Math.floor(Math.random() * activities.length)],
-								durationMinutes: 30 + Math.floor(Math.random() * 45),
-								calories: 200 + Math.floor(Math.random() * 300),
-								startDate: date.toISOString(),
-							});
-						}
+						const date = daysAgo(i);
+						date.setHours(8, 0, 0, 0);
+						mockWorkouts.push({
+							id: `mock-workout-${i}`,
+							activityName:
+								activities[Math.floor(Math.random() * activities.length)],
+							durationMinutes: 30 + Math.floor(Math.random() * 45),
+							calories: 200 + Math.floor(Math.random() * 300),
+							startDate: date.toISOString(),
+						});
 					}
 
 					await Promise.all([
@@ -1373,10 +1427,7 @@ export function HealthProvider({ children }: { children: React.ReactNode }) {
 						writeWorkouts(mockWorkouts),
 					]);
 
-					const [ts, w] = await Promise.all([
-						loadAllMetrics(),
-						readWorkouts(),
-					]);
+					const [ts, w] = await Promise.all([loadAllMetrics(), readWorkouts()]);
 					const updatedTs = await calculateAndPersistPastReadiness(ts, w);
 					setTimeSeries(updatedTs);
 					setWorkouts(w);

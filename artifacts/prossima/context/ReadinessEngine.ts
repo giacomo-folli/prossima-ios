@@ -51,7 +51,7 @@ export interface ReadinessBreakdown {
   score: number;
   /** Individual pillar scores (0–100) */
   hrv: number;
-  sleep: number;
+  sleep: number | null;
   rhr: number;
   load: number;
   /** Human-readable status label */
@@ -249,7 +249,7 @@ export function computeReadinessScore(
   referenceDate?: string
 ): ReadinessBreakdown {
   const hrv = computeHrvScore(inputs.hrvSamples, inputs.todayHrv, referenceDate);
-  const sleep = computeSleepScore(inputs.lastNightSleep);
+  const sleepScore = computeSleepScore(inputs.lastNightSleep);
   const rhr = computeRestingHrScore(
     inputs.restingHrSamples,
     inputs.todayRestingHr,
@@ -257,21 +257,29 @@ export function computeReadinessScore(
   );
   const load = computeTrainingLoadScore(inputs.workouts, referenceDate);
 
+  const hasSleep = inputs.lastNightSleep !== null && inputs.lastNightSleep.totalHours > 0;
+
   // Composite with weights
-  const rawScore = hrv * 0.35 + sleep * 0.25 + rhr * 0.2 + load * 0.2;
+  let rawScore: number;
+  if (hasSleep) {
+    rawScore = hrv * 0.35 + sleepScore * 0.25 + rhr * 0.2 + load * 0.2;
+  } else {
+    // Exclude sleep and re-normalize the remaining weights (0.35 HRV + 0.2 RHR + 0.2 Load = 0.75 total)
+    rawScore = (hrv * 0.35 + rhr * 0.2 + load * 0.2) / 0.75;
+  }
   const score = Math.max(0, Math.min(100, Math.round(rawScore)));
 
   // Determine if we have meaningful data (at least some real signal)
   const hasData =
     inputs.todayHrv !== null ||
-    inputs.lastNightSleep !== null ||
+    hasSleep ||
     inputs.todayRestingHr !== null ||
     inputs.workouts.length > 0;
 
   return {
     score,
     hrv,
-    sleep,
+    sleep: hasSleep ? sleepScore : null,
     rhr,
     load,
     label: scoreLabel(score),

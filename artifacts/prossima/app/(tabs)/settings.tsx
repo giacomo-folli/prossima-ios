@@ -189,6 +189,15 @@ export default function SettingsScreen() {
 		insets.bottom + tabBarHeight + (Platform.OS === "web" ? 34 : 0);
 
 	const handleDisconnectHealth = () => {
+		if (Platform.OS === "web") {
+			const confirmed = window.confirm(
+				"Are you sure you want to disconnect? We won't be able to sync your fitness data."
+			);
+			if (confirmed) {
+				disconnect();
+			}
+			return;
+		}
 		Alert.alert(
 			"Disconnect Apple Health",
 			"Are you sure you want to disconnect? We won't be able to sync your fitness data.",
@@ -200,6 +209,22 @@ export default function SettingsScreen() {
 	};
 
 	const handleDeleteAllData = () => {
+		if (Platform.OS === "web") {
+			const confirmed = window.confirm(
+				"Are you sure you want to delete all locally imported data? This will clear all cached health and history data."
+			);
+			if (confirmed) {
+				(async () => {
+					try {
+						await clearLocalData();
+						window.alert("All locally imported data has been deleted.");
+					} catch (e) {
+						window.alert("Failed to delete data.");
+					}
+				})();
+			}
+			return;
+		}
 		Alert.alert(
 			"Delete Imported Data",
 			"Are you sure you want to delete all locally imported data? This will clear all cached health and history data.",
@@ -226,14 +251,26 @@ export default function SettingsScreen() {
 
 	const handleSyncAllData = async () => {
 		if (!isConnected) {
-			Alert.alert("Not Connected", "Please connect to Apple Health first.");
+			if (Platform.OS === "web") {
+				window.alert("Please connect to Apple Health first.");
+			} else {
+				Alert.alert("Not Connected", "Please connect to Apple Health first.");
+			}
 			return;
 		}
 		try {
 			await fullHistoricalSync();
-			Alert.alert("Sync Complete", "All historical data has been imported.");
+			if (Platform.OS === "web") {
+				window.alert("All historical data has been imported.");
+			} else {
+				Alert.alert("Sync Complete", "All historical data has been imported.");
+			}
 		} catch (e) {
-			Alert.alert("Error", "Failed to sync data.");
+			if (Platform.OS === "web") {
+				window.alert("Failed to sync data.");
+			} else {
+				Alert.alert("Error", "Failed to sync data.");
+			}
 		}
 	};
 

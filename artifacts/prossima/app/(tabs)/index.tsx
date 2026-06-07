@@ -69,6 +69,7 @@ export default function HomeScreen() {
 		loading: healthLoading,
 		requestPermissions,
 		syncData,
+		workouts,
 	} = useHealth();
 	const { name, imageUri, stepsGoal, caloriesGoal, activityTimeGoal } = useProfile();
 	const [refreshing, setRefreshing] = React.useState(false);
@@ -437,8 +438,8 @@ export default function HomeScreen() {
 				</>
 			)}
 
-			{/* ── Recent Workout from Apple Health ── */}
-			{isConnected && healthWorkout && (
+			{/* ── Recent Workouts from Apple Health ── */}
+			{isConnected && workouts && workouts.length > 0 && (
 				<>
 					<View style={styles.sectionHeader}>
 						<Text style={[styles.sectionTitle, { color: colors.foreground }]}>
@@ -446,93 +447,97 @@ export default function HomeScreen() {
 						</Text>
 					</View>
 
-					<GlassView
-						colorScheme={resolvedScheme}
-						style={[
-							styles.healthWorkoutCard,
-							{
-								backgroundColor: colors.card,
-								borderRadius: 20,
-								borderColor: colors.border,
-								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
-								shadowOffset: { width: 0, height: 4 },
-								shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
-								shadowRadius: 12,
-								elevation: 4,
-							},
-						]}
-					>
-						{/* Header row */}
-						<View style={styles.healthWorkoutHeader}>
-							<View
-								style={[
-									styles.workoutIconWrap,
-									{ backgroundColor: METRIC_COLORS.workout + "1A" },
-								]}
-							>
-								<Ionicons name="heart" size={18} color={METRIC_COLORS.workout} />
-							</View>
-							<View style={{ flex: 1 }}>
-								<Text
+					{workouts.slice(-3).reverse().map((workout, index) => (
+						<GlassView
+							key={workout.id || workout.startDate || index}
+							colorScheme={resolvedScheme}
+							style={[
+								styles.healthWorkoutCard,
+								{
+									backgroundColor: colors.card,
+									borderRadius: 20,
+									borderColor: colors.border,
+									shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
+									shadowOffset: { width: 0, height: 4 },
+									shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
+									shadowRadius: 12,
+									elevation: 4,
+									marginBottom: index < 2 ? 10 : 0,
+								},
+							]}
+						>
+							{/* Header row */}
+							<View style={styles.healthWorkoutHeader}>
+								<View
 									style={[
-										styles.healthWorkoutName,
-										{ color: colors.foreground },
-									]}
-									numberOfLines={1}
-								>
-									{healthWorkout.activityName}
-								</Text>
-								<Text
-									style={[
-										styles.healthWorkoutDate,
-										{ color: colors.mutedForeground },
+										styles.workoutIconWrap,
+										{ backgroundColor: METRIC_COLORS.workout + "1A" },
 									]}
 								>
-									{fmtDate(healthWorkout.startDate)} · via Apple Health
-								</Text>
+									<Ionicons name="heart" size={18} color={METRIC_COLORS.workout} />
+								</View>
+								<View style={{ flex: 1 }}>
+									<Text
+										style={[
+											styles.healthWorkoutName,
+											{ color: colors.foreground },
+										]}
+										numberOfLines={1}
+									>
+										{workout.activityName}
+									</Text>
+									<Text
+										style={[
+											styles.healthWorkoutDate,
+											{ color: colors.mutedForeground },
+										]}
+									>
+										{fmtDate(workout.startDate)} · via Apple Health
+									</Text>
+								</View>
 							</View>
-						</View>
 
-						{/* Stats row */}
-						<View style={styles.healthWorkoutStats}>
-							<View style={styles.healthWorkoutStat}>
-								<MaterialCommunityIcons
-									name="timer-outline"
-									size={16}
-									color={colors.mutedForeground}
+							{/* Stats row */}
+							<View style={styles.healthWorkoutStats}>
+								<View style={styles.healthWorkoutStat}>
+									<MaterialCommunityIcons
+										name="timer-outline"
+										size={16}
+										color={colors.mutedForeground}
+									/>
+									<Text
+										style={[
+											styles.healthWorkoutStatVal,
+											{ color: colors.foreground },
+										]}
+									>
+										{workout.durationMinutes > 0
+											? `${workout.durationMinutes} min`
+											: "—"}
+									</Text>
+								</View>
+								<View
+									style={[
+										styles.hwStatDivider,
+										{ backgroundColor: colors.separator },
+									]}
 								/>
-								<Text
-									style={[
-										styles.healthWorkoutStatVal,
-										{ color: colors.foreground },
-									]}
-								>
-									{healthWorkout.durationMinutes > 0
-										? `${healthWorkout.durationMinutes} min`
-										: "—"}
-								</Text>
+								<View style={styles.healthWorkoutStat}>
+									<MaterialCommunityIcons name="fire" size={16} color={METRIC_COLORS.calories} />
+									<Text
+										style={[
+											styles.healthWorkoutStatVal,
+											{ color: colors.foreground },
+										]}
+									>
+										{workout.calories > 0
+											? `${workout.calories} cal`
+											: "—"}
+									</Text>
+								</View>
 							</View>
-							<View
-								style={[
-									styles.hwStatDivider,
-									{ backgroundColor: colors.separator },
-								]}
-							/>
-							<View style={styles.healthWorkoutStat}>
-								<MaterialCommunityIcons name="fire" size={16} color={METRIC_COLORS.calories} />
-								<Text
-									style={[
-										styles.healthWorkoutStatVal,
-										{ color: colors.foreground },
-									]}
-								>
-									{healthWorkout.calories > 0
-										? `${healthWorkout.calories} cal`
-										: "—"}
-								</Text>
-							</View>
-						</View>
-					</GlassView>
+						</GlassView>
+					))}
 				</>
 			)}
 			</ScrollView>

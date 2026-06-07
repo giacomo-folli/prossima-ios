@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
@@ -28,6 +28,7 @@ interface TrendCardProps {
 	formatY?: (v: number) => string;
 	/** Passed through to LineChart: show y-axis value labels */
 	showYLabels?: boolean;
+	onPress?: () => void;
 }
 
 /** Which chart style a TrendCard renders */
@@ -49,6 +50,7 @@ export function TrendCard({
 	referenceLabel,
 	formatY,
 	showYLabels,
+	onPress,
 }: TrendCardProps) {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
@@ -66,8 +68,18 @@ export function TrendCard({
 	}, [delta, positiveIsGood]);
 
 	return (
-		<GlassView
-			colorScheme={resolvedScheme}
+		<Pressable
+			onPress={onPress}
+			disabled={!onPress}
+			style={({ pressed }) => [
+				{
+					opacity: pressed ? 0.85 : 1,
+					transform: [{ scale: pressed ? 0.99 : 1 }],
+				},
+			]}
+		>
+			<GlassView
+				colorScheme={resolvedScheme}
 			style={[
 				styles.card,
 				{
@@ -177,7 +189,8 @@ export function TrendCard({
 					{note}
 				</Text>
 			) : null}
-		</GlassView>
+			</GlassView>
+		</Pressable>
 	);
 }
 
