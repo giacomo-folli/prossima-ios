@@ -347,6 +347,18 @@ export default function SettingsScreen() {
 				/>
 			</SettingSection>
 
+			{/* ── Dashboard ── */}
+			<SettingSection label="DASHBOARD">
+				<SettingRow
+					icon="grid"
+					iconBg="#5856D6"
+					label="Customize Trends"
+					sublabel="Choose and reorder widgets"
+					isLast={true}
+					onPress={() => router.push("/edit-trends")}
+				/>
+			</SettingSection>
+
 			{/* ── Apple Health ── */}
 			<SettingSection
 				label="APPLE HEALTH"

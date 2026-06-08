@@ -279,6 +279,16 @@ export function ReadinessWidget({
           />
         </View>
       )}
+
+      {/* Coach's Note */}
+      {hasData && readiness?.prompt && (
+        <View style={[styles.coachNote, { backgroundColor: colors.background + '80' }]}>
+          <MaterialCommunityIcons name="whistle" size={16} color={gaugeColors.end} />
+          <Text style={[styles.coachNoteText, { color: colors.foreground }]}>
+            {readiness.prompt}
+          </Text>
+        </View>
+      )}
     </GlassView>
   );
 }
@@ -392,5 +402,19 @@ const styles = StyleSheet.create({
   noDataSub: {
     fontSize: 13,
     textAlign: 'center',
+  },
+  coachNote: {
+    flexDirection: 'row',
+    marginTop: 16,
+    padding: 12,
+    borderRadius: 12,
+    gap: 8,
+    alignItems: 'flex-start',
+  },
+  coachNoteText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 18,
+    fontStyle: 'italic',
   },
 });

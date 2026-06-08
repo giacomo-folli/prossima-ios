@@ -7,6 +7,28 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+export type WidgetConfig = {
+	id: string;
+	visible: boolean;
+};
+
+export const DEFAULT_HEALTH_WIDGETS: WidgetConfig[] = [
+	{ id: "readiness", visible: true },
+	{ id: "hrv", visible: true },
+	{ id: "rhr", visible: true },
+	{ id: "sleep", visible: true },
+	{ id: "weight", visible: true },
+	{ id: "vo2max", visible: true },
+	{ id: "vitals", visible: true },
+	{ id: "steps", visible: true },
+];
+
+export const DEFAULT_WORKOUT_WIDGETS: WidgetConfig[] = [
+	{ id: "workouts", visible: true },
+	{ id: "calories", visible: true },
+	{ id: "duration", visible: true },
+];
+
 export interface ProfileContextType {
 	name: string;
 	setName: (name: string) => Promise<void>;
@@ -18,6 +40,10 @@ export interface ProfileContextType {
 	setCaloriesGoal: (goal: number) => Promise<void>;
 	activityTimeGoal: number;
 	setActivityTimeGoal: (goal: number) => Promise<void>;
+	healthWidgets: WidgetConfig[];
+	setHealthWidgets: (widgets: WidgetConfig[]) => Promise<void>;
+	workoutWidgets: WidgetConfig[];
+	setWorkoutWidgets: (widgets: WidgetConfig[]) => Promise<void>;
 	loading: boolean;
 }
 
@@ -32,6 +58,10 @@ const ProfileContext = createContext<ProfileContextType>({
 	setCaloriesGoal: async () => {},
 	activityTimeGoal: 60,
 	setActivityTimeGoal: async () => {},
+	healthWidgets: DEFAULT_HEALTH_WIDGETS,
+	setHealthWidgets: async () => {},
+	workoutWidgets: DEFAULT_WORKOUT_WIDGETS,
+	setWorkoutWidgets: async () => {},
 	loading: true,
 });
 
@@ -41,6 +71,8 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 	const [stepsGoal, setStepsGoalState] = useState<number>(15000);
 	const [caloriesGoal, setCaloriesGoalState] = useState<number>(550);
 	const [activityTimeGoal, setActivityTimeGoalState] = useState<number>(60);
+	const [healthWidgets, setHealthWidgetsState] = useState<WidgetConfig[]>(DEFAULT_HEALTH_WIDGETS);
+	const [workoutWidgets, setWorkoutWidgetsState] = useState<WidgetConfig[]>(DEFAULT_WORKOUT_WIDGETS);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
@@ -51,12 +83,24 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 				const storedStepsGoal = await AsyncStorage.getItem("goal_steps");
 				const storedCaloriesGoal = await AsyncStorage.getItem("goal_calories");
 				const storedActivityTimeGoal = await AsyncStorage.getItem("goal_activity_time");
+				const storedHealthWidgets = await AsyncStorage.getItem("widgets_health");
+				const storedWorkoutWidgets = await AsyncStorage.getItem("widgets_workout");
 
 				if (storedName) setNameState(storedName);
 				if (storedImage) setImageUriState(storedImage);
 				if (storedStepsGoal) setStepsGoalState(Number(storedStepsGoal));
 				if (storedCaloriesGoal) setCaloriesGoalState(Number(storedCaloriesGoal));
 				if (storedActivityTimeGoal) setActivityTimeGoalState(Number(storedActivityTimeGoal));
+				if (storedHealthWidgets) {
+					try {
+						setHealthWidgetsState(JSON.parse(storedHealthWidgets));
+					} catch (e) {}
+				}
+				if (storedWorkoutWidgets) {
+					try {
+						setWorkoutWidgetsState(JSON.parse(storedWorkoutWidgets));
+					} catch (e) {}
+				}
 			} catch (e) {
 				console.error("Failed to load profile", e);
 			} finally {
@@ -95,6 +139,16 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 		await AsyncStorage.setItem("goal_activity_time", String(goal));
 	};
 
+	const setHealthWidgets = async (widgets: WidgetConfig[]) => {
+		setHealthWidgetsState(widgets);
+		await AsyncStorage.setItem("widgets_health", JSON.stringify(widgets));
+	};
+
+	const setWorkoutWidgets = async (widgets: WidgetConfig[]) => {
+		setWorkoutWidgetsState(widgets);
+		await AsyncStorage.setItem("widgets_workout", JSON.stringify(widgets));
+	};
+
 	return (
 		<ProfileContext.Provider
 			value={{
@@ -108,6 +162,10 @@ export const ProfileProvider = ({ children }: { children: ReactNode }) => {
 				setCaloriesGoal,
 				activityTimeGoal,
 				setActivityTimeGoal,
+				healthWidgets,
+				setHealthWidgets,
+				workoutWidgets,
+				setWorkoutWidgets,
 				loading,
 			}}
 		>

@@ -182,7 +182,7 @@ export default function TrendsScreen() {
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
 	const { isConnected, stats, timeSeries, workouts, readiness } = useHealth();
-	const { stepsGoal } = useProfile();
+	const { stepsGoal, healthWidgets, workoutWidgets } = useProfile();
 
 	const cardStyle = useCardStyle("standard");
 
@@ -344,6 +344,591 @@ export default function TrendsScreen() {
 
 	const rangeLabel = RANGES.find((r) => r.key === range)!.label;
 
+	const renderHealthWidget = (id: string) => {
+		switch (id) {
+			case "readiness":
+				return readiness !== null ? (
+					<Pressable
+						key="readiness"
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "readiness" },
+							})
+						}
+						style={({ pressed }) => [
+							{
+								opacity: pressed ? 0.85 : 1,
+								transform: [{ scale: pressed ? 0.99 : 1 }],
+							},
+						]}
+					>
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[styles.readinessSummaryCard, cardStyle]}
+						>
+							{(() => {
+								const readinessColor = getReadinessColor(readiness.level ?? 0);
+								const iconBg =
+									readiness.level === 3
+										? "rgba(0, 229, 255, 0.12)"
+										: readiness.level === 2
+											? "rgba(255, 159, 10, 0.12)"
+											: readiness.level === 1
+												? "rgba(255, 45, 85, 0.12)"
+												: "rgba(100, 116, 139, 0.12)";
+								return (
+									<View style={styles.readinessCardHeader}>
+										<View
+											style={[
+												styles.readinessIconWrap,
+												{ backgroundColor: iconBg },
+											]}
+										>
+											<Ionicons name="flash" size={18} color={readinessColor} />
+										</View>
+										<View style={{ flex: 1 }}>
+											<Text
+												style={[styles.cardTitle, { color: colors.foreground }]}
+											>
+												Readiness Score
+											</Text>
+											{readinessDelta !== null && readiness.hasData && (
+												<View
+													style={[
+														styles.deltaBadge,
+														{
+															backgroundColor:
+																(readinessDelta >= 0
+																	? readinessColor
+																	: "#EF4444") + "18",
+														},
+													]}
+												>
+													<Ionicons
+														name={
+															readinessDelta >= 0 ? "arrow-up" : "arrow-down"
+														}
+														size={10}
+														color={
+															readinessDelta >= 0 ? readinessColor : "#EF4444"
+														}
+													/>
+													<Text
+														style={[
+															styles.deltaText,
+															{
+																color:
+																	readinessDelta >= 0
+																		? readinessColor
+																		: "#EF4444",
+															},
+														]}
+													>
+														{Math.abs(readinessDelta).toFixed(0)}%
+													</Text>
+												</View>
+											)}
+										</View>
+										<View style={styles.cardValueBlock}>
+											<Text
+												style={[
+													styles.cardValue,
+													{
+														color: readinessColor,
+														fontSize: 26,
+														fontWeight: "800",
+													},
+												]}
+											>
+												{readiness.hasData ? readiness.score : "—"}
+											</Text>
+											<Text
+												style={[
+													styles.cardUnit,
+													{ color: colors.mutedForeground },
+												]}
+											>
+												/ 100
+											</Text>
+										</View>
+									</View>
+								);
+							})()}
+
+							{/* Pillar breakdown */}
+							{readiness.hasData && (
+								<View
+									style={[
+										styles.pillarRow,
+										{ borderTopColor: colors.separator },
+									]}
+								>
+									{[
+										{
+											label: "HRV",
+											value: readiness.hrv,
+											color: METRIC_COLORS.hrv,
+										},
+										{
+											label: "Sleep",
+											value: readiness.sleep !== null ? readiness.sleep : "—",
+											color: METRIC_COLORS.sleep,
+										},
+										{
+											label: "HR",
+											value: readiness.rhr,
+											color: METRIC_COLORS.restingHr,
+										},
+										{
+											label: "Load",
+											value: readiness.load,
+											color: METRIC_COLORS.activeTime,
+										},
+									].map((p) => (
+										<View key={p.label} style={styles.pillarItem}>
+											<Text style={[styles.pillarValue, { color: p.color }]}>
+												{p.value}
+											</Text>
+											<Text
+												style={[
+													styles.pillarLabel,
+													{ color: colors.mutedForeground },
+												]}
+											>
+												{p.label}
+											</Text>
+										</View>
+									))}
+								</View>
+							)}
+
+							{/* Readiness history — line chart */}
+							{readinessHistData.some((d) => d.value > 0) ? (
+								<LineChart
+									data={readinessHistData}
+									height={64}
+									accentColor={getReadinessColor(readiness.level ?? 0)}
+									labelColor={colors.mutedForeground}
+									guideCount={0}
+									animationDuration={600}
+								/>
+							) : (
+								<View style={styles.noDataRow}>
+									<Text
+										style={[
+											styles.noDataText,
+											{ color: colors.mutedForeground },
+										]}
+									>
+										Score history will appear here over time
+									</Text>
+								</View>
+							)}
+						</GlassView>
+					</Pressable>
+				) : null;
+			case "hrv":
+				return (
+					<TrendCard
+						key="hrv"
+						icon={
+							<MaterialCommunityIcons
+								name="pulse"
+								size={18}
+								color={METRIC_COLORS.hrv}
+							/>
+						}
+						title="HRV"
+						value={latestHrv !== null ? fmt(latestHrv, 1) : "—"}
+						unit="ms"
+						delta={hrvDelta}
+						positiveIsGood
+						chartData={hrvData}
+						accentColor={METRIC_COLORS.hrv}
+						chartType="line"
+						showYLabels
+						formatY={(v) => `${Math.round(v)}ms`}
+						note={
+							latestHrv !== null
+								? `Latest: ${latestHrv.toFixed(1)} ms`
+								: undefined
+						}
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "hrv" },
+							})
+						}
+					/>
+				);
+			case "rhr":
+				return (
+					<TrendCard
+						key="rhr"
+						icon={
+							<Ionicons
+								name="heart"
+								size={18}
+								color={METRIC_COLORS.restingHr}
+							/>
+						}
+						title="Resting Heart Rate"
+						value={latestRhr !== null ? fmt(latestRhr) : "—"}
+						unit="bpm"
+						delta={rhrDelta}
+						positiveIsGood={false}
+						chartData={rhrData}
+						accentColor={METRIC_COLORS.restingHr}
+						chartType="line"
+						showYLabels
+						formatY={(v) => `${Math.round(v)}`}
+						note="Falling trend = improving cardiovascular fitness"
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "restingHr" },
+							})
+						}
+					/>
+				);
+			case "sleep":
+				return (
+					<TrendCard
+						key="sleep"
+						icon={
+							<Ionicons name="moon" size={18} color={METRIC_COLORS.sleep} />
+						}
+						title="Sleep Duration"
+						value={avgSleepInRange > 0 ? fmt(avgSleepInRange, 1) : "—"}
+						unit="h / night"
+						delta={sleepDelta}
+						positiveIsGood
+						chartData={sleepData}
+						accentColor={METRIC_COLORS.sleep}
+						chartType="line"
+						referenceValue={8}
+						referenceLabel="8h target"
+						showYLabels
+						formatY={(v) => `${v.toFixed(1)}h`}
+						note={
+							avgSleepInRange > 0
+								? `7–9h optimal · averaging ${fmt(avgSleepInRange, 1)}h`
+								: undefined
+						}
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "sleep" },
+							})
+						}
+					/>
+				);
+			case "weight":
+				return weightData.some((d) => d.value > 0) || latestWeight !== null ? (
+					<TrendCard
+						key="weight"
+						icon={
+							<MaterialCommunityIcons
+								name="scale-bathroom"
+								size={18}
+								color={METRIC_COLORS.weight}
+							/>
+						}
+						title="Body Weight"
+						value={latestWeight !== null ? fmt(latestWeight, 1) : "—"}
+						unit="kg"
+						delta={weightDelta}
+						positiveIsGood={false}
+						chartData={weightData}
+						accentColor={METRIC_COLORS.weight}
+						chartType="line"
+						showYLabels
+						formatY={(v) => `${v.toFixed(1)}`}
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "weight" },
+							})
+						}
+					/>
+				) : null;
+			case "vo2max":
+				return vo2Data.some((d) => d.value > 0) || latestVo2 !== null ? (
+					<TrendCard
+						key="vo2max"
+						icon={
+							<Ionicons
+								name="cellular"
+								size={18}
+								color={METRIC_COLORS.vo2max}
+							/>
+						}
+						title="VO2 Max"
+						value={latestVo2 !== null ? fmt(latestVo2, 1) : "—"}
+						unit="mL/kg/min"
+						delta={null}
+						positiveIsGood
+						chartData={vo2Data}
+						accentColor={METRIC_COLORS.vo2max}
+						chartType="line"
+						showYLabels
+						formatY={(v) => `${Math.round(v)}`}
+						note="Updated by Apple Health after outdoor workouts"
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "vo2max" },
+							})
+						}
+					/>
+				) : null;
+			case "vitals":
+				return spo2Data.some((d) => d.value > 0) ||
+					respData.some((d) => d.value > 0) ? (
+					<Pressable
+						key="vitals"
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "vitals" },
+							})
+						}
+						style={({ pressed }) => [
+							{
+								opacity: pressed ? 0.85 : 1,
+								transform: [{ scale: pressed ? 0.99 : 1 }],
+							},
+						]}
+					>
+						<GlassView
+							colorScheme={resolvedScheme}
+							style={[styles.card, cardStyle]}
+						>
+							<View style={styles.cardHeader}>
+								<View
+									style={[
+										styles.cardIconWrap,
+										{ backgroundColor: METRIC_COLORS.spo2 + "1F" },
+									]}
+								>
+									<Ionicons name="water" size={18} color={METRIC_COLORS.spo2} />
+								</View>
+								<View style={{ flex: 1 }}>
+									<Text
+										style={[styles.cardTitle, { color: colors.foreground }]}
+									>
+										Recovery Vitals
+									</Text>
+									<Text
+										style={[
+											styles.cardSubtitle,
+											{ color: colors.mutedForeground },
+										]}
+									>
+										Blood oxygen · Respiratory rate
+									</Text>
+								</View>
+							</View>
+							<View style={styles.vitalsRow}>
+								{spo2Data.some((d) => d.value > 0) && (
+									<View style={styles.vitalItem}>
+										<Text
+											style={[styles.vitalValue, { color: colors.foreground }]}
+										>
+											{fmt(
+												spo2Data.filter((d) => d.value > 0).slice(-1)[0]
+													?.value ?? 0,
+												1,
+											)}
+											%
+										</Text>
+										<Text
+											style={[
+												styles.vitalLabel,
+												{ color: colors.mutedForeground },
+											]}
+										>
+											SpO2
+										</Text>
+										<LineChart
+											data={spo2Data}
+											height={48}
+											accentColor={METRIC_COLORS.spo2}
+											labelColor={colors.mutedForeground}
+											guideCount={0}
+											animationDuration={500}
+										/>
+									</View>
+								)}
+								{spo2Data.some((d) => d.value > 0) &&
+									respData.some((d) => d.value > 0) && (
+										<View
+											style={[
+												styles.vitalDivider,
+												{ backgroundColor: colors.separator },
+											]}
+										/>
+									)}
+								{respData.some((d) => d.value > 0) && (
+									<View style={styles.vitalItem}>
+										<Text
+											style={[styles.vitalValue, { color: colors.foreground }]}
+										>
+											{fmt(
+												respData.filter((d) => d.value > 0).slice(-1)[0]
+													?.value ?? 0,
+												1,
+											)}{" "}
+											bpm
+										</Text>
+										<Text
+											style={[
+												styles.vitalLabel,
+												{ color: colors.mutedForeground },
+											]}
+										>
+											Resp Rate
+										</Text>
+										<LineChart
+											data={respData}
+											height={48}
+											accentColor={METRIC_COLORS.respiratory}
+											labelColor={colors.mutedForeground}
+											guideCount={0}
+											animationDuration={500}
+										/>
+									</View>
+								)}
+							</View>
+						</GlassView>
+					</Pressable>
+				) : null;
+			case "steps":
+				return (
+					<TrendCard
+						key="steps"
+						icon={
+							<MaterialCommunityIcons
+								name="shoe-print"
+								size={18}
+								color={METRIC_COLORS.steps}
+							/>
+						}
+						title="Daily Steps"
+						value={avgStepsInRange > 0 ? fmt(avgStepsInRange) : "—"}
+						unit="avg / day"
+						delta={stepsDelta}
+						positiveIsGood
+						chartData={stepsHistData}
+						accentColor={METRIC_COLORS.steps}
+						chartType="line"
+						referenceValue={stepsGoal}
+						referenceLabel={`${(stepsGoal / 1000).toFixed(1).replace(/\.0$/, "")}k goal`}
+						showYLabels
+						formatY={(v) =>
+							v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${Math.round(v)}`
+						}
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "steps" },
+							})
+						}
+					/>
+				);
+			default:
+				return null;
+		}
+	};
+
+	const renderWorkoutWidget = (id: string) => {
+		switch (id) {
+			case "workouts":
+				return (
+					<TrendCard
+						key="workouts"
+						icon={
+							<Ionicons name="heart" size={18} color={METRIC_COLORS.workout} />
+						}
+						title="Workouts"
+						value={fmt(totalWorkouts)}
+						unit="sessions"
+						delta={workoutsDelta}
+						positiveIsGood
+						chartData={workoutsData}
+						accentColor={METRIC_COLORS.workout}
+						note={
+							totalWorkouts > 0
+								? `${(totalWorkouts / (rangeDays / 7)).toFixed(1)} per week on average`
+								: undefined
+						}
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "workouts" },
+							})
+						}
+					/>
+				);
+			case "calories":
+				return (
+					<TrendCard
+						key="calories"
+						icon={
+							<MaterialCommunityIcons
+								name="fire"
+								size={18}
+								color={METRIC_COLORS.calories}
+							/>
+						}
+						title="Active Energy"
+						subtitle="Avg per session"
+						value={fmt(avgCalories)}
+						unit="kcal"
+						delta={caloriesDelta}
+						positiveIsGood
+						chartData={caloriesData}
+						accentColor={METRIC_COLORS.calories}
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "calories" },
+							})
+						}
+					/>
+				);
+			case "duration":
+				return (
+					<TrendCard
+						key="duration"
+						icon={
+							<Ionicons
+								name="time-outline"
+								size={18}
+								color={METRIC_COLORS.activeTime}
+							/>
+						}
+						title="Avg Duration"
+						value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
+						unit="min"
+						delta={durationDelta}
+						positiveIsGood
+						chartData={durationData}
+						accentColor={METRIC_COLORS.activeTime}
+						onPress={() =>
+							router.push({
+								pathname: "/metric-detail",
+								params: { metric: "duration" },
+							})
+						}
+					/>
+				);
+			default:
+				return null;
+		}
+	};
+
 	return (
 		<View style={{ flex: 1 }}>
 			<AnimatedBackground />
@@ -380,599 +965,25 @@ export default function TrendsScreen() {
 							Health · {rangeLabel}
 						</Text>
 
-						{/* ── Readiness Score History ── */}
-						{readiness !== null && (
-							<Pressable
-								onPress={() =>
-									router.push({
-										pathname: "/metric-detail",
-										params: { metric: "readiness" },
-									})
-								}
-								style={({ pressed }) => [
-									{
-										opacity: pressed ? 0.85 : 1,
-										transform: [{ scale: pressed ? 0.99 : 1 }],
-									},
-								]}
-							>
-								<GlassView
-									colorScheme={resolvedScheme}
-									style={[styles.readinessSummaryCard, cardStyle]}
-								>
-									{(() => {
-										const readinessColor = getReadinessColor(
-											readiness.level ?? 0,
-										);
-										const iconBg =
-											readiness.level === 3
-												? "rgba(0, 229, 255, 0.12)"
-												: readiness.level === 2
-													? "rgba(255, 159, 10, 0.12)"
-													: readiness.level === 1
-														? "rgba(255, 45, 85, 0.12)"
-														: "rgba(100, 116, 139, 0.12)";
-										return (
-											<View style={styles.readinessCardHeader}>
-												<View
-													style={[
-														styles.readinessIconWrap,
-														{ backgroundColor: iconBg },
-													]}
-												>
-													<Ionicons
-														name="flash"
-														size={18}
-														color={readinessColor}
-													/>
-												</View>
-												<View style={{ flex: 1 }}>
-													<Text
-														style={[
-															styles.cardTitle,
-															{ color: colors.foreground },
-														]}
-													>
-														Readiness Score
-													</Text>
-													{readinessDelta !== null && readiness.hasData && (
-														<View
-															style={[
-																styles.deltaBadge,
-																{
-																	backgroundColor:
-																		(readinessDelta >= 0
-																			? readinessColor
-																			: "#EF4444") + "18",
-																},
-															]}
-														>
-															<Ionicons
-																name={
-																	readinessDelta >= 0
-																		? "arrow-up"
-																		: "arrow-down"
-																}
-																size={10}
-																color={
-																	readinessDelta >= 0
-																		? readinessColor
-																		: "#EF4444"
-																}
-															/>
-															<Text
-																style={[
-																	styles.deltaText,
-																	{
-																		color:
-																			readinessDelta >= 0
-																				? readinessColor
-																				: "#EF4444",
-																	},
-																]}
-															>
-																{Math.abs(readinessDelta).toFixed(0)}%
-															</Text>
-														</View>
-													)}
-												</View>
-												<View style={styles.cardValueBlock}>
-													<Text
-														style={[
-															styles.cardValue,
-															{
-																color: readinessColor,
-																fontSize: 26,
-																fontWeight: "800",
-															},
-														]}
-													>
-														{readiness.hasData ? readiness.score : "—"}
-													</Text>
-													<Text
-														style={[
-															styles.cardUnit,
-															{ color: colors.mutedForeground },
-														]}
-													>
-														/ 100
-													</Text>
-												</View>
-											</View>
-										);
-									})()}
-
-									{/* Pillar breakdown */}
-									{readiness.hasData && (
-										<View
-											style={[
-												styles.pillarRow,
-												{ borderTopColor: colors.separator },
-											]}
-										>
-											{[
-												{
-													label: "HRV",
-													value: readiness.hrv,
-													color: METRIC_COLORS.hrv,
-												},
-												{
-													label: "Sleep",
-													value:
-														readiness.sleep !== null ? readiness.sleep : "—",
-													color: METRIC_COLORS.sleep,
-												},
-												{
-													label: "HR",
-													value: readiness.rhr,
-													color: METRIC_COLORS.restingHr,
-												},
-												{
-													label: "Load",
-													value: readiness.load,
-													color: METRIC_COLORS.activeTime,
-												},
-											].map((p) => (
-												<View key={p.label} style={styles.pillarItem}>
-													<Text
-														style={[styles.pillarValue, { color: p.color }]}
-													>
-														{p.value}
-													</Text>
-													<Text
-														style={[
-															styles.pillarLabel,
-															{ color: colors.mutedForeground },
-														]}
-													>
-														{p.label}
-													</Text>
-												</View>
-											))}
-										</View>
-									)}
-
-									{/* Readiness history — line chart */}
-									{readinessHistData.some((d) => d.value > 0) ? (
-										<LineChart
-											data={readinessHistData}
-											height={64}
-											accentColor={getReadinessColor(readiness.level ?? 0)}
-											labelColor={colors.mutedForeground}
-											guideCount={0}
-											animationDuration={600}
-										/>
-									) : (
-										<View style={styles.noDataRow}>
-											<Text
-												style={[
-													styles.noDataText,
-													{ color: colors.mutedForeground },
-												]}
-											>
-												Score history will appear here over time
-											</Text>
-										</View>
-									)}
-								</GlassView>
-							</Pressable>
-						)}
-
-						{/* ── HRV Trend ── */}
-						<TrendCard
-							icon={
-								<MaterialCommunityIcons
-									name="pulse"
-									size={18}
-									color={METRIC_COLORS.hrv}
-								/>
-							}
-							title="HRV"
-							value={latestHrv !== null ? fmt(latestHrv, 1) : "—"}
-							unit="ms"
-							delta={hrvDelta}
-							positiveIsGood
-							chartData={hrvData}
-							accentColor={METRIC_COLORS.hrv}
-							chartType="line"
-							showYLabels
-							formatY={(v) => `${Math.round(v)}ms`}
-							note={
-								latestHrv !== null
-									? `Latest: ${latestHrv.toFixed(1)} ms`
-									: undefined
-							}
-							onPress={() =>
-								router.push({
-									pathname: "/metric-detail",
-									params: { metric: "hrv" },
-								})
-							}
-						/>
-
-						{/* ── Resting HR Trend ── */}
-						<TrendCard
-							icon={
-								<Ionicons
-									name="heart"
-									size={18}
-									color={METRIC_COLORS.restingHr}
-								/>
-							}
-							title="Resting Heart Rate"
-							value={latestRhr !== null ? fmt(latestRhr) : "—"}
-							unit="bpm"
-							delta={rhrDelta}
-							positiveIsGood={false}
-							chartData={rhrData}
-							accentColor={METRIC_COLORS.restingHr}
-							chartType="line"
-							showYLabels
-							formatY={(v) => `${Math.round(v)}`}
-							note="Falling trend = improving cardiovascular fitness"
-							onPress={() =>
-								router.push({
-									pathname: "/metric-detail",
-									params: { metric: "restingHr" },
-								})
-							}
-						/>
-
-						{/* ── Sleep Duration — LINE CHART with 8h reference ── */}
-						<TrendCard
-							icon={
-								<Ionicons name="moon" size={18} color={METRIC_COLORS.sleep} />
-							}
-							title="Sleep Duration"
-							value={avgSleepInRange > 0 ? fmt(avgSleepInRange, 1) : "—"}
-							unit="h / night"
-							delta={sleepDelta}
-							positiveIsGood
-							chartData={sleepData}
-							accentColor={METRIC_COLORS.sleep}
-							chartType="line"
-							referenceValue={8}
-							referenceLabel="8h target"
-							showYLabels
-							formatY={(v) => `${v.toFixed(1)}h`}
-							note={
-								avgSleepInRange > 0
-									? `7–9h optimal · averaging ${fmt(avgSleepInRange, 1)}h`
-									: undefined
-							}
-							onPress={() =>
-								router.push({
-									pathname: "/metric-detail",
-									params: { metric: "sleep" },
-								})
-							}
-						/>
-
-						{/* ── Body Weight ── */}
-						{(weightData.some((d) => d.value > 0) || latestWeight !== null) && (
-							<TrendCard
-								icon={
-									<MaterialCommunityIcons
-										name="scale-bathroom"
-										size={18}
-										color={METRIC_COLORS.weight}
-									/>
-								}
-								title="Body Weight"
-								value={latestWeight !== null ? fmt(latestWeight, 1) : "—"}
-								unit="kg"
-								delta={weightDelta}
-								positiveIsGood={false}
-								chartData={weightData}
-								accentColor={METRIC_COLORS.weight}
-								chartType="line"
-								showYLabels
-								formatY={(v) => `${v.toFixed(1)}`}
-								onPress={() =>
-									router.push({
-										pathname: "/metric-detail",
-										params: { metric: "weight" },
-									})
-								}
-							/>
-						)}
-
-						{/* ── VO2 Max ── */}
-						{(vo2Data.some((d) => d.value > 0) || latestVo2 !== null) && (
-							<TrendCard
-								icon={
-									<Ionicons
-										name="cellular"
-										size={18}
-										color={METRIC_COLORS.vo2max}
-									/>
-								}
-								title="VO2 Max"
-								value={latestVo2 !== null ? fmt(latestVo2, 1) : "—"}
-								unit="mL/kg/min"
-								delta={null}
-								positiveIsGood
-								chartData={vo2Data}
-								accentColor={METRIC_COLORS.vo2max}
-								chartType="line"
-								showYLabels
-								formatY={(v) => `${Math.round(v)}`}
-								note="Updated by Apple Health after outdoor workouts"
-								onPress={() =>
-									router.push({
-										pathname: "/metric-detail",
-										params: { metric: "vo2max" },
-									})
-								}
-							/>
-						)}
-
-						{/* ── Recovery Vitals (SpO2 + Respiratory) ── */}
-						{(spo2Data.some((d) => d.value > 0) ||
-							respData.some((d) => d.value > 0)) && (
-							<Pressable
-								onPress={() =>
-									router.push({
-										pathname: "/metric-detail",
-										params: { metric: "vitals" },
-									})
-								}
-								style={({ pressed }) => [
-									{
-										opacity: pressed ? 0.85 : 1,
-										transform: [{ scale: pressed ? 0.99 : 1 }],
-									},
-								]}
-							>
-								<GlassView
-									colorScheme={resolvedScheme}
-									style={[styles.card, cardStyle]}
-								>
-									<View style={styles.cardHeader}>
-										<View
-											style={[
-												styles.cardIconWrap,
-												{ backgroundColor: METRIC_COLORS.spo2 + "1F" },
-											]}
-										>
-											<Ionicons
-												name="water"
-												size={18}
-												color={METRIC_COLORS.spo2}
-											/>
-										</View>
-										<View style={{ flex: 1 }}>
-											<Text
-												style={[styles.cardTitle, { color: colors.foreground }]}
-											>
-												Recovery Vitals
-											</Text>
-											<Text
-												style={[
-													styles.cardSubtitle,
-													{ color: colors.mutedForeground },
-												]}
-											>
-												Blood oxygen · Respiratory rate
-											</Text>
-										</View>
-									</View>
-									<View style={styles.vitalsRow}>
-										{spo2Data.some((d) => d.value > 0) && (
-											<View style={styles.vitalItem}>
-												<Text
-													style={[
-														styles.vitalValue,
-														{ color: colors.foreground },
-													]}
-												>
-													{fmt(
-														spo2Data.filter((d) => d.value > 0).slice(-1)[0]
-															?.value ?? 0,
-														1,
-													)}
-													%
-												</Text>
-												<Text
-													style={[
-														styles.vitalLabel,
-														{ color: colors.mutedForeground },
-													]}
-												>
-													SpO2
-												</Text>
-												<LineChart
-													data={spo2Data}
-													height={48}
-													accentColor={METRIC_COLORS.spo2}
-													labelColor={colors.mutedForeground}
-													guideCount={0}
-													animationDuration={500}
-												/>
-											</View>
-										)}
-										{spo2Data.some((d) => d.value > 0) &&
-											respData.some((d) => d.value > 0) && (
-												<View
-													style={[
-														styles.vitalDivider,
-														{ backgroundColor: colors.separator },
-													]}
-												/>
-											)}
-										{respData.some((d) => d.value > 0) && (
-											<View style={styles.vitalItem}>
-												<Text
-													style={[
-														styles.vitalValue,
-														{ color: colors.foreground },
-													]}
-												>
-													{fmt(
-														respData.filter((d) => d.value > 0).slice(-1)[0]
-															?.value ?? 0,
-														1,
-													)}{" "}
-													bpm
-												</Text>
-												<Text
-													style={[
-														styles.vitalLabel,
-														{ color: colors.mutedForeground },
-													]}
-												>
-													Resp Rate
-												</Text>
-												<LineChart
-													data={respData}
-													height={48}
-													accentColor={METRIC_COLORS.respiratory}
-													labelColor={colors.mutedForeground}
-													guideCount={0}
-													animationDuration={500}
-												/>
-											</View>
-										)}
-									</View>
-								</GlassView>
-							</Pressable>
-						)}
-
-						{/* ── Daily Steps — now always rendered as a LINE chart ── */}
-						<TrendCard
-							icon={
-								<MaterialCommunityIcons
-									name="shoe-print"
-									size={18}
-									color={METRIC_COLORS.steps}
-								/>
-							}
-							title="Daily Steps"
-							value={avgStepsInRange > 0 ? fmt(avgStepsInRange) : "—"}
-							unit="avg / day"
-							delta={stepsDelta}
-							positiveIsGood
-							chartData={stepsHistData}
-							accentColor={METRIC_COLORS.steps}
-							chartType="line"
-							referenceValue={stepsGoal}
-							referenceLabel={`${(stepsGoal / 1000).toFixed(1).replace(/\.0$/, "")}k goal`}
-							showYLabels
-							formatY={(v) =>
-								v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${Math.round(v)}`
-							}
-							onPress={() =>
-								router.push({
-									pathname: "/metric-detail",
-									params: { metric: "steps" },
-								})
-							}
-						/>
+						{healthWidgets
+							.filter((w) => w.visible)
+							.map((w) => renderHealthWidget(w.id))}
 					</>
 				)}
 
 				{/* ═══════════════════════════════════════════════════════════════
 			    ── Training Section ───────────────────────────────────────── */}
-				{totalWorkouts !== 0 ? (
+				{workoutWidgets.every((w) => !w.visible) ? (
+					<></>
+				) : totalWorkouts !== 0 ? (
 					<>
 						<Text style={[styles.sectionHeading, { color: colors.foreground }]}>
 							Workouts · {rangeLabel}
 						</Text>
 
-						<TrendCard
-							icon={
-								<Ionicons
-									name="heart"
-									size={18}
-									color={METRIC_COLORS.workout}
-								/>
-							}
-							title="Workouts"
-							value={fmt(totalWorkouts)}
-							unit="sessions"
-							delta={workoutsDelta}
-							positiveIsGood
-							chartData={workoutsData}
-							accentColor={METRIC_COLORS.workout}
-							note={
-								totalWorkouts > 0
-									? `${(totalWorkouts / (rangeDays / 7)).toFixed(1)} per week on average`
-									: undefined
-							}
-							onPress={() =>
-								router.push({
-									pathname: "/metric-detail",
-									params: { metric: "workouts" },
-								})
-							}
-						/>
-
-						<TrendCard
-							icon={
-								<MaterialCommunityIcons
-									name="fire"
-									size={18}
-									color={METRIC_COLORS.calories}
-								/>
-							}
-							title="Active Energy"
-							subtitle="Avg per session"
-							value={fmt(avgCalories)}
-							unit="kcal"
-							delta={caloriesDelta}
-							positiveIsGood
-							chartData={caloriesData}
-							accentColor={METRIC_COLORS.calories}
-							onPress={() =>
-								router.push({
-									pathname: "/metric-detail",
-									params: { metric: "calories" },
-								})
-							}
-						/>
-
-						<TrendCard
-							icon={
-								<Ionicons
-									name="time-outline"
-									size={18}
-									color={METRIC_COLORS.activeTime}
-								/>
-							}
-							title="Avg Duration"
-							value={avgDurationMin > 0 ? fmt(avgDurationMin) : "—"}
-							unit="min"
-							delta={durationDelta}
-							positiveIsGood
-							chartData={durationData}
-							accentColor={METRIC_COLORS.activeTime}
-							onPress={() =>
-								router.push({
-									pathname: "/metric-detail",
-									params: { metric: "duration" },
-								})
-							}
-						/>
+						{workoutWidgets
+							.filter((w) => w.visible)
+							.map((w) => renderWorkoutWidget(w.id))}
 					</>
 				) : (
 					<GlassView

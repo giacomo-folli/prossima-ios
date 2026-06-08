@@ -5,9 +5,8 @@
  *   HRV (35%) + Sleep (25%) + Resting HR (20%) + Training Load (20%)
  *
  * All functions are deterministic given the same inputs. No React, no I/O.
- */
-
-import { DailyHealthSample, HealthWorkout } from './HealthStore';
+ */import { DailyHealthSample, HealthWorkout } from './HealthStore';
+import { generateCoachingPrompt } from './CoachingEngine';
 
 // ─── Date Helpers ─────────────────────────────────────────────────────────────
 
@@ -60,6 +59,8 @@ export interface ReadinessBreakdown {
   level: 0 | 1 | 2 | 3;
   /** Whether we have enough data for a meaningful score */
   hasData: boolean;
+  /** Actionable coaching prompt based on the score breakdown */
+  prompt?: string;
 }
 
 // ─── Pillar 1: HRV Score (35%) ────────────────────────────────────────────────
@@ -276,7 +277,7 @@ export function computeReadinessScore(
     inputs.todayRestingHr !== null ||
     inputs.workouts.length > 0;
 
-  return {
+  const breakdown: ReadinessBreakdown = {
     score,
     hrv,
     sleep: hasSleep ? sleepScore : null,
@@ -286,4 +287,8 @@ export function computeReadinessScore(
     level: hasData ? scoreLevel(score) : 0,
     hasData,
   };
+
+  breakdown.prompt = generateCoachingPrompt(breakdown);
+
+  return breakdown;
 }
