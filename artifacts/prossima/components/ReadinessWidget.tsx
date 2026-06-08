@@ -119,10 +119,10 @@ interface PillarDotProps {
   icon: React.ReactNode;
   label: string;
   score: number;
-  weight: string;
+  valueText: string;
 }
 
-function PillarDot({ icon, label, score, weight }: PillarDotProps) {
+function PillarDot({ icon, label, score, valueText }: PillarDotProps) {
   const colors = useColors();
   const dotColor =
     score >= 70 ? '#10B981' : score >= 50 ? '#F59E0B' : score >= 30 ? '#EF4444' : '#64748B';
@@ -133,7 +133,7 @@ function PillarDot({ icon, label, score, weight }: PillarDotProps) {
         {icon}
       </View>
       <Text style={[styles.pillarLabel, { color: colors.mutedForeground }]}>{label}</Text>
-      <Text style={[styles.pillarWeight, { color: dotColor }]}>{weight}</Text>
+      <Text style={[styles.pillarWeight, { color: dotColor }]}>{valueText}</Text>
     </View>
   );
 }
@@ -254,28 +254,28 @@ export function ReadinessWidget({
             icon={<MaterialCommunityIcons name="pulse" size={14} color="#10B981" />}
             label="HRV"
             score={readiness?.hrv ?? 50}
-            weight="35%"
+            valueText={hasData ? `${readiness?.hrv}` : "—"}
           />
           <View style={[styles.pillarDivider, { backgroundColor: colors.separator }]} />
           <PillarDot
             icon={<Ionicons name="moon" size={14} color="#5856D6" />}
             label="Sleep"
             score={readiness?.sleep ?? 50}
-            weight="25%"
+            valueText={hasData ? (readiness?.sleep !== null ? `${readiness?.sleep}` : "—") : "—"}
           />
           <View style={[styles.pillarDivider, { backgroundColor: colors.separator }]} />
           <PillarDot
             icon={<Ionicons name="heart" size={14} color="#FF3B30" />}
             label="HR"
             score={readiness?.rhr ?? 50}
-            weight="20%"
+            valueText={hasData ? `${readiness?.rhr}` : "—"}
           />
           <View style={[styles.pillarDivider, { backgroundColor: colors.separator }]} />
           <PillarDot
             icon={<MaterialCommunityIcons name="dumbbell" size={14} color="#00B4D8" />}
-            label="Load"
+            label="Trn Load"
             score={readiness?.load ?? 50}
-            weight="20%"
+            valueText={hasData ? `${readiness?.load}` : "—"}
           />
         </View>
       )}

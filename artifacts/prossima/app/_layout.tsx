@@ -23,6 +23,7 @@ function RootLayoutNav() {
       <Stack.Screen name="edit-profile" options={{ presentation: 'card' }} />
       <Stack.Screen name="edit-goals" options={{ presentation: 'card' }} />
       <Stack.Screen name="edit-trends" options={{ presentation: 'modal' }} />
+      <Stack.Screen name="workout-summary" options={{ presentation: 'modal', headerShown: false }} />
       <Stack.Screen name="metric-detail" options={{ presentation: 'modal', headerShown: false }} />
     </Stack>
   );

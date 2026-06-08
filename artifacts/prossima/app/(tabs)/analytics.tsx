@@ -466,22 +466,22 @@ export default function TrendsScreen() {
 								>
 									{[
 										{
-											label: "HRV",
+											label: "HRV Score",
 											value: readiness.hrv,
 											color: METRIC_COLORS.hrv,
 										},
 										{
-											label: "Sleep",
+											label: "Sleep Score",
 											value: readiness.sleep !== null ? readiness.sleep : "—",
 											color: METRIC_COLORS.sleep,
 										},
 										{
-											label: "HR",
+											label: "HR Score",
 											value: readiness.rhr,
 											color: METRIC_COLORS.restingHr,
 										},
 										{
-											label: "Load",
+											label: "Load Score",
 											value: readiness.load,
 											color: METRIC_COLORS.activeTime,
 										},
@@ -500,6 +500,16 @@ export default function TrendsScreen() {
 											</Text>
 										</View>
 									))}
+								</View>
+							)}
+
+							{/* Coach's Note */}
+							{readiness.hasData && readiness.prompt && (
+								<View style={[styles.coachNote, { backgroundColor: colors.background + "80" }]}>
+									<MaterialCommunityIcons name="whistle" size={16} color={getReadinessColor(readiness.level ?? 0)} />
+									<Text style={[styles.coachNoteText, { color: colors.foreground }]}>
+										{readiness.prompt}
+									</Text>
 								</View>
 							)}
 
@@ -1194,6 +1204,21 @@ const styles = StyleSheet.create({
 	pillarLabel: {
 		fontSize: 11,
 		letterSpacing: 0.3,
+	},
+
+	coachNote: {
+		flexDirection: "row",
+		marginTop: 16,
+		padding: 12,
+		borderRadius: 12,
+		gap: 8,
+		alignItems: "flex-start",
+	},
+	coachNoteText: {
+		flex: 1,
+		fontSize: 13,
+		lineHeight: 18,
+		fontStyle: "italic",
 	},
 
 	vitalsRow: {

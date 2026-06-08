@@ -199,7 +199,7 @@ export async function fetchHistoricalDataForRange(
 			const wData = results?.data;
 			if (!Array.isArray(wData)) return [];
 			return wData.map((w: any) => ({
-				id: w.id ?? String(Math.random()),
+				id: w.id,
 				activityName: w.activityName ?? "Workout",
 				durationMinutes: Math.round((w.duration ?? 0) / 60),
 				calories: Math.round(w.calories ?? 0),

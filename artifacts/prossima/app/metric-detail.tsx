@@ -1021,6 +1021,30 @@ export default function MetricDetailScreen() {
 					</Text>
 				</GlassView>
 
+				{config.whyItMatters && (
+					<GlassView
+						colorScheme={resolvedScheme}
+						style={[
+							styles.card,
+							{ backgroundColor: colors.card, borderColor: colors.border },
+						]}
+					>
+						<Text
+							style={[
+								styles.cardSectionLabel,
+								{ color: colors.mutedForeground },
+							]}
+						>
+							Why it matters
+						</Text>
+						<Text
+							style={[styles.explanationText, { color: colors.foreground }]}
+						>
+							{config.whyItMatters}
+						</Text>
+					</GlassView>
+				)}
+
 				{/* Recommendations & Tips */}
 				<GlassView
 					colorScheme={resolvedScheme}

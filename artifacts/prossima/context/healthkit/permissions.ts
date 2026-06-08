@@ -20,6 +20,7 @@ export function buildPermissions() {
 				P.RespiratoryRate,
 				P.BasalEnergyBurned,
 				P.DistanceWalkingRunning,
+				P.ActivitySummary,
 			],
 			write: [] as string[],
 		},

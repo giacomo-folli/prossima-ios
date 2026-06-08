@@ -18,6 +18,7 @@ import { useTheme } from "@/context/ThemeContext";
 import { useHealth, HealthWorkout } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
+import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { METRIC_COLORS } from "@/constants/colors";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
@@ -62,6 +63,7 @@ export default function HomeScreen() {
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const insets = useSafeAreaInsets();
+	const router = useRouter();
 	const {
 		isConnected,
 		stats,
@@ -382,25 +384,26 @@ export default function HomeScreen() {
 					</View>
 
 					{workouts.slice(-3).reverse().map((workout, index) => (
-						<GlassView
+						<Pressable
 							key={workout.id || workout.startDate || index}
-							colorScheme={resolvedScheme}
-							style={[
-								styles.healthWorkoutCard,
-								cardStyle,
-								{
-									marginBottom: index < 2 ? 10 : 0,
-								},
-							]}
+							onPress={() => router.push(`/workout-summary?startDate=${encodeURIComponent(workout.startDate)}`)}
+							style={{ marginBottom: index < 2 ? 10 : 0 }}
 						>
-							{/* Header row */}
-							<View style={styles.healthWorkoutHeader}>
-								<View
-									style={[
-										styles.workoutIconWrap,
-										{ backgroundColor: METRIC_COLORS.workout + "1A" },
-									]}
-								>
+							<GlassView
+								colorScheme={resolvedScheme}
+								style={[
+									styles.healthWorkoutCard,
+									cardStyle,
+								]}
+							>
+								{/* Header row */}
+								<View style={styles.healthWorkoutHeader}>
+									<View
+										style={[
+											styles.workoutIconWrap,
+											{ backgroundColor: METRIC_COLORS.workout + "1A" },
+										]}
+									>
 									<Ionicons name="heart" size={18} color={METRIC_COLORS.workout} />
 								</View>
 								<View style={{ flex: 1 }}>
@@ -463,7 +466,8 @@ export default function HomeScreen() {
 									</Text>
 								</View>
 							</View>
-						</GlassView>
+							</GlassView>
+						</Pressable>
 					))}
 				</>
 			)}

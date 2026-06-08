@@ -270,7 +270,9 @@ Analyze the following daily biometric data to provide a concise, highly actionab
 2. **Structure:** Keep it under 150 words total, split into two brief sections:
    - **The Insight:** A 1-2 sentence analysis connecting the recovery metrics (HRV, Sleep, RHR) to their Readiness.
    - **The Action Item:** Exactly one clear, specific recommendation for today's training or recovery (e.g., greenlight a progressive overload session, suggest a low-intensity active recovery run, or prioritize an early bedtime).
-3. **Context:** Focus on incremental training progression. If metrics are low, pivot to optimizing recovery so they can push harder tomorrow.`;
+3. **Context:** Focus on incremental training progression. If metrics are low, pivot to optimizing recovery so they can push harder tomorrow.
+4. **Important:** If weight metrics are missing it means that the user doesn't want to share them. In this case DO NOT MENTION WEIGHT OR WEIGHT HISTORY.
+`;
 
 			const response = await fetch(
 				"https://api.groq.com/openai/v1/chat/completions",

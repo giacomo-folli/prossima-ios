@@ -46,26 +46,20 @@ export async function syncDailyData(
 		0,
 	);
 
-	const calP = nativeCall(
-		(cb) => nk.getActiveEnergyBurned(dayRange, cb),
-		(r) => {
-			if (Array.isArray(r)) {
-				return r.reduce((acc, s) => acc + (s.value ?? 0), 0);
+	const activitySummaryP = nativeCall(
+		(cb) => nk.getActivitySummary(dayRange, cb),
+		(r: any[]) => {
+			if (Array.isArray(r) && r.length > 0) {
+				// The library returns an array of ActivitySummary objects
+				const summary = r[r.length - 1];
+				return {
+					calories: summary.activeEnergyBurned ?? 0,
+					activityTime: summary.appleExerciseTime ?? 0,
+				};
 			}
-			return r?.value ?? 0;
+			return { calories: 0, activityTime: 0 };
 		},
-		0,
-	);
-
-	const timeP = nativeCall(
-		(cb) => nk.getAppleExerciseTime(dayRange, cb),
-		(r) => {
-			if (Array.isArray(r)) {
-				return r.reduce((acc, s) => acc + (s.value ?? 0), 0);
-			}
-			return r?.value ?? 0;
-		},
-		0,
+		{ calories: 0, activityTime: 0 },
 	);
 
 	const sleepWindowStart = new Date();
@@ -134,7 +128,7 @@ export async function syncDailyData(
 			const wData = results?.data;
 			if (!Array.isArray(wData)) return [];
 			return wData.map((w: any) => ({
-				id: w.id ?? String(Math.random()),
+				id: w.id,
 				activityName: w.activityName ?? "Workout",
 				durationMinutes: Math.round((w.duration ?? 0) / 60),
 				calories: Math.round(w.calories ?? 0),
@@ -233,8 +227,7 @@ export async function syncDailyData(
 
 	const [
 		steps,
-		calories,
-		activityTime,
+		activitySummary,
 		sleep,
 		fetchedWorkouts,
 		todayHrv,
@@ -246,8 +239,7 @@ export async function syncDailyData(
 		basalCalories,
 	] = await Promise.all([
 		stepsP,
-		calP,
-		timeP,
+		activitySummaryP,
 		sleepP,
 		workoutP,
 		hrvP,
@@ -266,10 +258,14 @@ export async function syncDailyData(
 			? updatedWorkouts[updatedWorkouts.length - 1]
 			: null;
 
+	const todayWorkoutsDuration = updatedWorkouts
+		.filter((w) => w.startDate >= today.toISOString().slice(0, 10))
+		.reduce((sum, w) => sum + w.durationMinutes, 0);
+
 	const newStats: HealthStats = {
 		steps: Math.round(steps),
-		calories: Math.round(calories),
-		activityTime: Math.round(activityTime),
+		calories: Math.round(activitySummary.calories),
+		activityTime: Math.max(Math.round(activitySummary.activityTime), todayWorkoutsDuration),
 		sleepHours: Math.round(sleep.totalHours * 10) / 10,
 		sleepDeepRatio: sleep.deepRatio,
 		sleepRemRatio: sleep.remRatio,
