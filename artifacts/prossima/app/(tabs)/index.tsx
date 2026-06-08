@@ -7,11 +7,9 @@ import {
 	Text,
 	View,
 	RefreshControl,
-	Animated,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
@@ -22,6 +20,8 @@ import { useProfile } from "@/context/ProfileContext";
 import { ConcentricRingChart } from "@/components/ConcentricRingChart";
 import { Image } from "expo-image";
 import { METRIC_COLORS } from "@/constants/colors";
+import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { useCardStyle } from "@/hooks/useCardStyle";
 
 function fmtDate(iso: string) {
 	return new Date(iso).toLocaleDateString("en-US", {
@@ -74,37 +74,8 @@ export default function HomeScreen() {
 	const { name, imageUri, stepsGoal, caloriesGoal, activityTimeGoal } = useProfile();
 	const [refreshing, setRefreshing] = React.useState(false);
 
-	const animValue = React.useRef(new Animated.Value(0)).current;
-
-	React.useEffect(() => {
-		Animated.loop(
-			Animated.sequence([
-				Animated.timing(animValue, {
-					toValue: 1,
-					duration: 18000,
-					useNativeDriver: true,
-				}),
-				Animated.timing(animValue, {
-					toValue: 0,
-					duration: 18000,
-					useNativeDriver: true,
-				}),
-			]),
-		).start();
-	}, [animValue]);
-
-	const translateX = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [-30, 10],
-	});
-	const translateY = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [-20, 20],
-	});
-	const scale = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [1.15, 1.3],
-	});
+	const capsuleStyle = useCardStyle("capsule");
+	const cardStyle = useCardStyle("standard");
 
 	const onRefresh = React.useCallback(async () => {
 		setRefreshing(true);
@@ -126,17 +97,7 @@ export default function HomeScreen() {
 
 	return (
 		<View style={{ flex: 1 }}>
-			<AnimatedLinearGradient
-				colors={gradientColors}
-				start={{ x: 1, y: 0 }}
-				end={{ x: 0, y: 1 }}
-				style={[
-					StyleSheet.absoluteFill,
-					{
-						transform: [{ translateX }, { translateY }, { scale }],
-					},
-				]}
-			/>
+			<AnimatedBackground />
 			<ScrollView
 				style={{ flex: 1, backgroundColor: "transparent" }}
 				contentContainerStyle={[
@@ -215,17 +176,8 @@ export default function HomeScreen() {
 						colorScheme={resolvedScheme}
 						style={[
 							styles.capsule,
-							{
-								backgroundColor: colors.card,
-								borderRadius: 22,
-								borderColor: colors.border,
-								flex: 1,
-								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.04)",
-								shadowOffset: { width: 0, height: 2 },
-								shadowOpacity: resolvedScheme === "dark" ? 0.25 : 0.5,
-								shadowRadius: 6,
-								elevation: 2,
-							},
+							capsuleStyle,
+							{ flex: 1 },
 						]}
 					>
 						<Ionicons
@@ -249,17 +201,8 @@ export default function HomeScreen() {
 						colorScheme={resolvedScheme}
 						style={[
 							styles.capsule,
-							{
-								backgroundColor: colors.card,
-								borderRadius: 22,
-								borderColor: colors.border,
-								flex: 1,
-								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.04)",
-								shadowOffset: { width: 0, height: 2 },
-								shadowOpacity: resolvedScheme === "dark" ? 0.25 : 0.5,
-								shadowRadius: 6,
-								elevation: 2,
-							},
+							capsuleStyle,
+							{ flex: 1 },
 						]}
 					>
 						<MaterialCommunityIcons
@@ -290,16 +233,7 @@ export default function HomeScreen() {
 						colorScheme={resolvedScheme}
 						style={[
 							styles.todayStatsCard,
-							{
-								backgroundColor: colors.card,
-								borderRadius: 20,
-								borderColor: colors.border,
-								shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
-								shadowOffset: { width: 0, height: 4 },
-								shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
-								shadowRadius: 12,
-								elevation: 4,
-							},
+							cardStyle,
 						]}
 					>
 						{/* Steps */}
@@ -453,15 +387,8 @@ export default function HomeScreen() {
 							colorScheme={resolvedScheme}
 							style={[
 								styles.healthWorkoutCard,
+								cardStyle,
 								{
-									backgroundColor: colors.card,
-									borderRadius: 20,
-									borderColor: colors.border,
-									shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
-									shadowOffset: { width: 0, height: 4 },
-									shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
-									shadowRadius: 12,
-									elevation: 4,
 									marginBottom: index < 2 ? 10 : 0,
 								},
 							]}

@@ -215,7 +215,7 @@ export function computeTrainingLoadScore(
   const acwr = acuteAvg / chronicAvg;
 
   if (acwr >= 0.8 && acwr <= 1.3) return 100;
-  if (acwr > 1.5) {
+  if (acwr > 1.3) {
     // Overreach: 1.5 → 40 pts, 2.0+ → 0 pts
     return Math.max(0, Math.round(100 - (acwr - 0.8) * 80));
   }

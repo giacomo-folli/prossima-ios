@@ -14,7 +14,6 @@ import {
 	LayoutAnimation,
 	UIManager,
 } from "react-native";
-import { LinearGradient } from "expo-linear-gradient";
 
 import { GlassView } from "expo-glass-effect";
 import { useHealth } from "@/context/HealthContext";
@@ -23,8 +22,8 @@ import { useColors } from "@/hooks/useColors";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Clipboard from "expo-clipboard";
-
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
+import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { useCardStyle } from "@/hooks/useCardStyle";
 
 // Enable LayoutAnimation on Android
 if (
@@ -134,27 +133,8 @@ export default function ChatScreen() {
 	const flatListRef = useRef<FlatList>(null);
 	const thinkingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-	// Animated gradient background
-	const animValue = useRef(new Animated.Value(0)).current;
 	// Pulsing dot animation for thinking
 	const pulseAnim = useRef(new Animated.Value(0)).current;
-
-	useEffect(() => {
-		Animated.loop(
-			Animated.sequence([
-				Animated.timing(animValue, {
-					toValue: 1,
-					duration: 18000,
-					useNativeDriver: true,
-				}),
-				Animated.timing(animValue, {
-					toValue: 0,
-					duration: 18000,
-					useNativeDriver: true,
-				}),
-			]),
-		).start();
-	}, [animValue]);
 
 	useEffect(() => {
 		if (isLoading) {
@@ -177,22 +157,12 @@ export default function ChatScreen() {
 		}
 	}, [isLoading, pulseAnim]);
 
-	const translateX = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [-30, 10],
-	});
-	const translateY = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [-20, 20],
-	});
-	const scale = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [1.15, 1.3],
-	});
 	const pulseOpacity = pulseAnim.interpolate({
 		inputRange: [0, 1],
 		outputRange: [0.4, 1],
 	});
+
+	const cardStyle = useCardStyle("standard");
 
 	const simulateThinkingSteps = useCallback(() => {
 		setThinkingSteps(THINKING_STEPS.map((s) => ({ ...s, done: false })));
@@ -290,7 +260,7 @@ Analyze the following daily biometric data to provide a concise, highly actionab
 - Recent workout calories: ${stats.recentWorkout?.calories ?? "N/A"}
 - Recent workout duration: ${stats.recentWorkout?.durationMinutes ?? "N/A"}
 - Recent workout date: ${stats.recentWorkout?.startDate ?? "N/A"}
-- Body wheight: ${stats.bodyWeightKg ?? "N/A"}kg
+- Body weight: ${stats.bodyWeightKg ?? "N/A"}kg
 - Body fat percent: ${stats.bodyFatPercent ?? "N/A"}
 - Distance walked recently: ${stats.distanceMeters ?? "N/A"}
 - Basal calories: ${stats.basalCalories} kcal
@@ -422,18 +392,7 @@ Analyze the following daily biometric data to provide a concise, highly actionab
 						colorScheme={resolvedScheme}
 						style={[
 							styles.assistantBubble,
-							{
-								backgroundColor: colors.card,
-								borderColor: colors.border,
-								shadowColor:
-									resolvedScheme === "dark"
-										? "#000000"
-										: "rgba(15, 23, 42, 0.06)",
-								shadowOffset: { width: 0, height: 2 },
-								shadowOpacity: resolvedScheme === "dark" ? 0.3 : 0.5,
-								shadowRadius: 8,
-								elevation: 2,
-							},
+							cardStyle,
 						]}
 					>
 						<Text style={[styles.messageText, { color: colors.text }]}>
@@ -484,18 +443,7 @@ Analyze the following daily biometric data to provide a concise, highly actionab
 							colorScheme={resolvedScheme}
 							style={[
 								styles.thinkingCard,
-								{
-									backgroundColor: colors.card,
-									borderColor: colors.border,
-									shadowColor:
-										resolvedScheme === "dark"
-											? "#000000"
-											: "rgba(15, 23, 42, 0.06)",
-									shadowOffset: { width: 0, height: 2 },
-									shadowOpacity: resolvedScheme === "dark" ? 0.3 : 0.5,
-									shadowRadius: 8,
-									elevation: 2,
-								},
+								cardStyle,
 							]}
 						>
 							<Pressable
@@ -673,18 +621,7 @@ Analyze the following daily biometric data to provide a concise, highly actionab
 
 	return (
 		<View style={styles.container}>
-			{/* Animated gradient background */}
-			<AnimatedLinearGradient
-				colors={gradientColors}
-				start={{ x: 1, y: 0 }}
-				end={{ x: 0, y: 1 }}
-				style={[
-					StyleSheet.absoluteFill,
-					{
-						transform: [{ translateX }, { translateY }, { scale }],
-					},
-				]}
-			/>
+			<AnimatedBackground />
 
 			<KeyboardAvoidingView
 				behavior={Platform.OS === "ios" ? "padding" : "height"}

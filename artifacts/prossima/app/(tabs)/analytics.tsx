@@ -6,24 +6,22 @@ import {
 	StyleSheet,
 	Text,
 	View,
-	Animated,
 } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
-import { LinearGradient } from "expo-linear-gradient";
 import { METRIC_COLORS } from "@/constants/colors";
 import { router } from "expo-router";
 
-const AnimatedLinearGradient = Animated.createAnimatedComponent(LinearGradient);
 import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { useHealth } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
-import { MicroBar } from "@/components/MicroBar";
 import { LineChart } from "@/components/LineChart";
 import { DailyHealthSample } from "@/context/HealthStore";
 import { TrendCard } from "@/components/TrendCard";
+import { AnimatedBackground } from "@/components/AnimatedBackground";
+import { useCardStyle } from "@/hooks/useCardStyle";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -186,37 +184,7 @@ export default function TrendsScreen() {
 	const { isConnected, stats, timeSeries, workouts, readiness } = useHealth();
 	const { stepsGoal } = useProfile();
 
-	const animValue = React.useRef(new Animated.Value(0)).current;
-
-	React.useEffect(() => {
-		Animated.loop(
-			Animated.sequence([
-				Animated.timing(animValue, {
-					toValue: 1,
-					duration: 18000,
-					useNativeDriver: true,
-				}),
-				Animated.timing(animValue, {
-					toValue: 0,
-					duration: 18000,
-					useNativeDriver: true,
-				}),
-			]),
-		).start();
-	}, [animValue]);
-
-	const translateX = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [-30, 10],
-	});
-	const translateY = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [-20, 20],
-	});
-	const scale = animValue.interpolate({
-		inputRange: [0, 1],
-		outputRange: [1.15, 1.3],
-	});
+	const cardStyle = useCardStyle("standard");
 
 	const [range, setRange] = useState<RangeKey>("1W");
 	const rangeDays = RANGES.find((r) => r.key === range)!.days;
@@ -378,17 +346,7 @@ export default function TrendsScreen() {
 
 	return (
 		<View style={{ flex: 1 }}>
-			<AnimatedLinearGradient
-				colors={colors.backgroundGradient}
-				start={{ x: 1, y: 0 }}
-				end={{ x: 0, y: 1 }}
-				style={[
-					StyleSheet.absoluteFill,
-					{
-						transform: [{ translateX }, { translateY }, { scale }],
-					},
-				]}
-			/>
+			<AnimatedBackground />
 			<ScrollView
 				style={{ flex: 1, backgroundColor: "transparent" }}
 				contentContainerStyle={[
@@ -440,22 +398,7 @@ export default function TrendsScreen() {
 							>
 								<GlassView
 									colorScheme={resolvedScheme}
-									style={[
-										styles.readinessSummaryCard,
-										{
-											backgroundColor: colors.card,
-											borderRadius: 20,
-											borderColor: colors.border,
-											shadowColor:
-												resolvedScheme === "dark"
-													? "#000000"
-													: "rgba(15, 23, 42, 0.08)",
-											shadowOffset: { width: 0, height: 4 },
-											shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
-											shadowRadius: 12,
-											elevation: 4,
-										},
-									]}
+									style={[styles.readinessSummaryCard, cardStyle]}
 								>
 									{(() => {
 										const readinessColor = getReadinessColor(
@@ -803,22 +746,7 @@ export default function TrendsScreen() {
 							>
 								<GlassView
 									colorScheme={resolvedScheme}
-									style={[
-										styles.card,
-										{
-											backgroundColor: colors.card,
-											borderRadius: 20,
-											borderColor: colors.border,
-											shadowColor:
-												resolvedScheme === "dark"
-													? "#000000"
-													: "rgba(15, 23, 42, 0.08)",
-											shadowOffset: { width: 0, height: 4 },
-											shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
-											shadowRadius: 12,
-											elevation: 4,
-										},
-									]}
+									style={[styles.card, cardStyle]}
 								>
 									<View style={styles.cardHeader}>
 										<View
@@ -1049,22 +977,7 @@ export default function TrendsScreen() {
 				) : (
 					<GlassView
 						colorScheme={resolvedScheme}
-						style={[
-							styles.emptyCard,
-							{
-								backgroundColor: colors.card,
-								borderRadius: 20,
-								borderColor: colors.border,
-								shadowColor:
-									resolvedScheme === "dark"
-										? "#000000"
-										: "rgba(15, 23, 42, 0.08)",
-								shadowOffset: { width: 0, height: 4 },
-								shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
-								shadowRadius: 12,
-								elevation: 4,
-							},
-						]}
+						style={[styles.emptyCard, cardStyle]}
 					>
 						<Ionicons
 							name="leaf-outline"

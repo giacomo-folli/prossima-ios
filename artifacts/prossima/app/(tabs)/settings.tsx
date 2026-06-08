@@ -13,20 +13,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { GlassView } from "expo-glass-effect";
 import { useColors } from "@/hooks/useColors";
-import { useTheme, ThemePreference } from "@/context/ThemeContext";
+import { useTheme } from "@/context/ThemeContext";
 import { useHealth } from "@/context/HealthContext";
 import { useProfile } from "@/context/ProfileContext";
 import { Image } from "expo-image";
 import { router } from "expo-router";
-
-const THEME_OPTIONS: { value: ThemePreference; label: string; icon: string }[] =
-	[
-		{ value: "system", label: "System", icon: "phone-portrait-outline" },
-		{ value: "light", label: "Light", icon: "sunny-outline" },
-		{ value: "dark", label: "Dark", icon: "moon-outline" },
-	];
-
-// ─── Sub-components ────────────────────────────────────────────────────────────
 
 interface SettingSectionProps {
 	label?: string;
@@ -181,7 +172,8 @@ export default function SettingsScreen() {
 		fullHistoricalSync,
 		syncing,
 	} = useHealth();
-	const { name, imageUri, stepsGoal, caloriesGoal, activityTimeGoal } = useProfile();
+	const { name, imageUri, stepsGoal, caloriesGoal, activityTimeGoal } =
+		useProfile();
 
 	const tabBarHeight = Platform.OS === "web" ? 84 : 64;
 	const topPad = Platform.OS === "web" ? 20 : insets.top;
@@ -191,7 +183,7 @@ export default function SettingsScreen() {
 	const handleDisconnectHealth = () => {
 		if (Platform.OS === "web") {
 			const confirmed = window.confirm(
-				"Are you sure you want to disconnect? We won't be able to sync your fitness data."
+				"Are you sure you want to disconnect? We won't be able to sync your fitness data.",
 			);
 			if (confirmed) {
 				disconnect();
@@ -211,7 +203,7 @@ export default function SettingsScreen() {
 	const handleDeleteAllData = () => {
 		if (Platform.OS === "web") {
 			const confirmed = window.confirm(
-				"Are you sure you want to delete all locally imported data? This will clear all cached health and history data."
+				"Are you sure you want to delete all locally imported data? This will clear all cached health and history data.",
 			);
 			if (confirmed) {
 				(async () => {

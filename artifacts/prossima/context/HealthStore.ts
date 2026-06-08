@@ -46,6 +46,8 @@ export type HealthMetricKey =
   | 'body_fat'
   | 'readiness';
 
+export type HealthTimeSeries = Record<HealthMetricKey, DailyHealthSample[]>;
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const STORAGE_PREFIX = '@prossima_health_';

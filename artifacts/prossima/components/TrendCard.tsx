@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { StyleSheet, Text, View, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { GlassView } from "expo-glass-effect";
@@ -6,6 +6,7 @@ import { useColors } from "@/hooks/useColors";
 import { useTheme } from "@/context/ThemeContext";
 import { MicroBar } from "@/components/MicroBar";
 import { LineChart } from "@/components/LineChart";
+import { useCardStyle } from "@/hooks/useCardStyle";
 
 interface TrendCardProps {
 	icon: React.ReactNode;
@@ -55,6 +56,7 @@ export function TrendCard({
 	const colors = useColors();
 	const { resolvedScheme } = useTheme();
 	const hasData = chartData.some((d) => d.value > 0);
+	const cardStyle = useCardStyle("standard");
 
 	const { icon: deltaIcon, color: deltaColor } = useMemo(() => {
 		if (delta === null || delta === 0)
@@ -78,117 +80,110 @@ export function TrendCard({
 				},
 			]}
 		>
-			<GlassView
-				colorScheme={resolvedScheme}
-			style={[
-				styles.card,
-				{
-					backgroundColor: colors.card,
-					borderRadius: 20,
-					borderColor: colors.border,
-					shadowColor: resolvedScheme === "dark" ? "#000000" : "rgba(15, 23, 42, 0.08)",
-					shadowOffset: { width: 0, height: 4 },
-					shadowOpacity: resolvedScheme === "dark" ? 0.35 : 0.6,
-					shadowRadius: 12,
-					elevation: 4,
-				},
-			]}
-		>
-			{/* Header */}
-			<View style={styles.cardHeader}>
-				<View
-					style={[styles.cardIconWrap, { backgroundColor: `${accentColor}18` }]}
-				>
-					{icon}
-				</View>
-				<View style={{ flex: 1 }}>
-					<Text style={[styles.cardTitle, { color: colors.foreground }]}>
-						{title}
-					</Text>
-					<Text
-						style={[styles.cardSubtitle, { color: colors.mutedForeground }]}
+			<GlassView colorScheme={resolvedScheme} style={[styles.card, cardStyle]}>
+				{/* Header */}
+				<View style={styles.cardHeader}>
+					<View
+						style={[
+							styles.cardIconWrap,
+							{ backgroundColor: `${accentColor}18` },
+						]}
 					>
-						{!!subtitle
-							? subtitle
-							: delta !== null &&
-								hasData && (
-									<>
-										<Ionicons name={deltaIcon} size={10} color={deltaColor} />
-										<Text style={[styles.deltaText, { color: deltaColor }]}>
-											{Math.abs(delta).toFixed(0)}%
+						{icon}
+					</View>
+					<View style={{ flex: 1 }}>
+						<Text style={[styles.cardTitle, { color: colors.foreground }]}>
+							{title}
+						</Text>
+						<Text
+							style={[styles.cardSubtitle, { color: colors.mutedForeground }]}
+						>
+							{!!subtitle
+								? subtitle
+								: delta !== null &&
+									hasData && (
+										<>
+											<Ionicons name={deltaIcon} size={10} color={deltaColor} />
+											<Text style={[styles.deltaText, { color: deltaColor }]}>
+												{Math.abs(delta).toFixed(0)}%
+											</Text>
+										</>
+									)}
+						</Text>
+					</View>
+					<View style={styles.cardValueBlock}>
+						<Text style={[styles.cardValue, { color: colors.foreground }]}>
+							{hasData ? value : "—"}
+						</Text>
+						<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>
+							{unit}
+						</Text>
+					</View>
+				</View>
+
+				{/* Chart area */}
+				{hasData ? (
+					chartType === "line" ? (
+						<LineChart
+							data={chartData}
+							height={80}
+							accentColor={accentColor}
+							labelColor={colors.mutedForeground}
+							guideCount={2}
+							showYLabels={showYLabels}
+							referenceValue={referenceValue}
+							referenceLabel={referenceLabel}
+							formatY={formatY}
+							strokeWidth={2}
+							animationDuration={700}
+						/>
+					) : (
+						<>
+							<MicroBar data={chartData} accentColor={accentColor} />
+							{/* X-axis labels for bar chart */}
+							<View style={styles.axisRow}>
+								{chartData.map((d, i) => {
+									const visible =
+										chartData.length <= 7 ||
+										(chartData.length >= 20
+											? i === 0 || i === chartData.length - 1
+											: i % 2 === 0);
+									return (
+										<Text
+											key={i}
+											style={[
+												styles.axisLabel,
+												{ color: colors.mutedForeground, flex: 1 },
+											]}
+											numberOfLines={2}
+										>
+											{visible ? d.label : ""}
 										</Text>
-									</>
-								)}
-					</Text>
-				</View>
-				<View style={styles.cardValueBlock}>
-					<Text style={[styles.cardValue, { color: colors.foreground }]}>
-						{hasData ? value : "—"}
-					</Text>
-					<Text style={[styles.cardUnit, { color: colors.mutedForeground }]}>
-						{unit}
-					</Text>
-				</View>
-			</View>
-
-			{/* Chart area */}
-			{hasData ? (
-				chartType === "line" ? (
-					<LineChart
-						data={chartData}
-						height={80}
-						accentColor={accentColor}
-						labelColor={colors.mutedForeground}
-						guideCount={2}
-						showYLabels={showYLabels}
-						referenceValue={referenceValue}
-						referenceLabel={referenceLabel}
-						formatY={formatY}
-						strokeWidth={2}
-						animationDuration={700}
-					/>
+									);
+								})}
+							</View>
+						</>
+					)
 				) : (
-					<>
-						<MicroBar data={chartData} accentColor={accentColor} />
-						{/* X-axis labels for bar chart */}
-						<View style={styles.axisRow}>
-							{chartData.map((d, i) => {
-								const visible = chartData.length <= 7 ||
-									(chartData.length >= 20 ? (i === 0 || i === chartData.length - 1) : (i % 2 === 0));
-								return (
-									<Text
-										key={i}
-										style={[
-											styles.axisLabel,
-											{ color: colors.mutedForeground, flex: 1 },
-										]}
-										numberOfLines={2}
-									>
-										{visible ? d.label : ""}
-									</Text>
-								);
-							})}
-						</View>
-					</>
-				)
-			) : (
-				<View style={styles.noDataRow}>
-					<Ionicons
-						name="analytics-outline"
-						size={18}
-						color={colors.mutedForeground}
-					/>
-					<Text style={[styles.noDataText, { color: colors.mutedForeground }]}>
-						No data for this period
-					</Text>
-				</View>
-			)}
+					<View style={styles.noDataRow}>
+						<Ionicons
+							name="analytics-outline"
+							size={18}
+							color={colors.mutedForeground}
+						/>
+						<Text
+							style={[styles.noDataText, { color: colors.mutedForeground }]}
+						>
+							No data for this period
+						</Text>
+					</View>
+				)}
 
-			{note ? (
-				<Text style={[styles.cardNote, { color: colors.mutedForeground }]}>
-					{note}
-				</Text>
-			) : null}
+				{note ? (
+					<Text style={[styles.cardNote, { color: colors.mutedForeground }]}>
+						{note}
+					</Text>
+				) : null}
 			</GlassView>
 		</Pressable>
 	);
