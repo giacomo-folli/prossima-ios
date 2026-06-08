@@ -58,6 +58,7 @@
     "zod-validation-error": "^3.4.0"
   },
   "dependencies": {
+    "expo-clipboard": "~8.0.8",
     "js-yaml": "^4.2.0",
     "react-native-health": "^1.19.0"
   }
